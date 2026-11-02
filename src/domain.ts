@@ -11,6 +11,47 @@ export function validateProject(project: Project) {
   if (!project.name.trim()) throw Error('กรุณาระบุชื่อโครงการ');
   if (project.endDate && project.startDate && project.endDate < project.startDate)
     throw Error('วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น');
+  if (
+    (project.latitude !== undefined || project.longitude !== undefined) &&
+    !projectMapsUrl(project.latitude, project.longitude)
+  )
+    throw Error(
+      'กรุณาระบุ Latitude และ Longitude ให้ครบ โดย Latitude อยู่ระหว่าง -90 ถึง 90 และ Longitude ระหว่าง -180 ถึง 180',
+    );
+}
+export function projectMapsUrl(latitude?: number, longitude?: number): string | null {
+  if (
+    typeof latitude !== 'number' ||
+    typeof longitude !== 'number' ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  )
+    return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+export function parseCoordinateInput(value: string): Pick<Project, 'latitude' | 'longitude'> {
+  if (!value.trim()) return {};
+  const parts = value.split(',').map((part) => part.trim());
+  if (parts.length !== 2 || parts.some((part) => !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(part)))
+    throw Error('กรุณาระบุพิกัดให้ครบในรูปแบบ lat, lng เช่น 13.7563, 100.5018');
+  return parseProjectCoordinates(parts[0], parts[1]);
+}
+export function parseProjectCoordinates(
+  latitude: string,
+  longitude: string,
+): Pick<Project, 'latitude' | 'longitude'> {
+  const lat = latitude.trim(),
+    lng = longitude.trim();
+  if (!lat && !lng) return {};
+  if (!lat || !lng || !projectMapsUrl(Number(lat), Number(lng)))
+    throw Error(
+      'กรุณาระบุ Latitude และ Longitude ให้ครบ โดย Latitude อยู่ระหว่าง -90 ถึง 90 และ Longitude ระหว่าง -180 ถึง 180',
+    );
+  return { latitude: Number(lat), longitude: Number(lng) };
 }
 export function validateMaster(master: Master) {
   if (!master.name.trim()) throw Error('กรุณาระบุชื่อหรือทะเบียนรถ');
@@ -36,6 +77,14 @@ export function saveTrip(data: Data, trip: Trip, actor = 'local'): Data {
     if (id && !data.masters.some((m) => m.id === id && m.kind === kind && m.active))
       throw Error('ข้อมูลคนขับหรือแหล่งดินไม่พร้อมใช้งาน');
   const previous = data.trips.find((t) => t.id === trip.id);
+  if (
+    trip.soilType &&
+    trip.soilType !== previous?.soilType &&
+    !data.masters.some(
+      (master) => master.kind === 'soilType' && master.active && master.name === trip.soilType,
+    )
+  )
+    throw Error('กรุณาเลือกชนิดดินที่เปิดใช้งานจากข้อมูลพื้นฐาน');
   if (previous && previous.revision === trip.revision) {
     if (JSON.stringify(previous) !== JSON.stringify(trip))
       throw Error('รายการ ID เดียวกันมีข้อมูลไม่ตรงกัน กรุณาตรวจสอบ');

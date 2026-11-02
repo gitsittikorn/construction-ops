@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Isolated upload test</title>
+  </head>
+  <body>
+    <button id="upload">Upload fixture</button><output id="result"></output>
+    <script type="module">
+      import { uploadOriginal } from '/src/drive.ts';
+      document.querySelector('#upload').onclick = async () => {
+        const bytes = Uint8Array.from(
+          atob(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=',
+          ),
+          (character) => character.charCodeAt(0),
+        );
+        const record = {
+          id: 'browser-operation',
+          owner: 'browser-owner',
+          projectId: 'browser-project',
+          tripId: '',
+          name: 'pixel.png',
+          mimeType: 'image/png',
+          size: bytes.length,
+          createdAt: 'test',
+          status: 'pending',
+          driveId: 'browser-file',
+          folderId: 'browser-folder',
+          error: '',
+          blob: new Blob([bytes], { type: 'image/png' }),
+        };
+        try {
+          await uploadOriginal('isolated-test-token', record, () => {});
+          document.querySelector('#result').textContent = 'verified-upload';
+        } catch (error) {
+          document.querySelector('#result').textContent = error.message;
+        }
+      };
+    </script>
+  </body>
+</html>

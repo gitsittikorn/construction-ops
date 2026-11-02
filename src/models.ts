@@ -8,17 +8,23 @@ export interface Project extends Base {
   name: string;
   customer: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   startDate: string;
   endDate: string;
   status: 'draft' | 'active' | 'completed' | 'archived';
   description: string;
 }
 export interface Master extends Base {
-  kind: 'truck' | 'driver' | 'source' | 'customer';
+  kind: 'truck' | 'driver' | 'source' | 'customer' | 'soilType' | 'tag';
   name: string;
   detail: string;
   capacity: number;
   active: boolean;
+  province?: string;
+  phone?: string;
+  truckType?: 'six-wheel' | 'ten-wheel' | 'other';
+  tagIds?: string[];
 }
 export interface Trip extends Base {
   projectId: string;

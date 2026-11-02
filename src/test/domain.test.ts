@@ -46,6 +46,30 @@ const trip: Trip = {
   revision: 1,
 };
 describe('trip integrity', () => {
+  it('allows active soil selections but rejects inactive or missing soil types on a new trip', () => {
+    const soil = { ...master, id: 'soil', kind: 'soilType' as const, name: 'ดินถม' };
+    expect(
+      saveTrip({ ...data, masters: [master, soil] }, { ...trip, soilType: 'ดินถม' }).trips[0]
+        .soilType,
+    ).toBe('ดินถม');
+    expect(() =>
+      saveTrip(
+        { ...data, masters: [master, { ...soil, active: false }] },
+        { ...trip, soilType: 'ดินถม' },
+      ),
+    ).toThrow();
+    expect(() => saveTrip(data, { ...trip, soilType: 'unknown' })).toThrow();
+  });
+  it('keeps historical soil names editable even after their master record is renamed or disabled', () => {
+    const historical = { ...trip, soilType: 'old name' };
+    const previous = { ...data, trips: [historical] };
+    const updated = saveTrip(previous, { ...historical, revision: 2, notes: 'corrected' });
+    expect(updated.trips[0].soilType).toBe('old name');
+    expect(updated.audit[0].before).toEqual(historical);
+    expect(() =>
+      saveTrip(previous, { ...historical, revision: 2, soilType: 'another unknown' }),
+    ).toThrow();
+  });
   it('records a pending trip and immutable audit event', () => {
     const next = saveTrip(data, trip);
     expect(next.trips).toHaveLength(1);

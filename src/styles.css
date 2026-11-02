@@ -627,6 +627,15 @@ main {
 .project-card p {
   font-size: 11px;
 }
+.project-coordinates {
+  color: #315d46;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+}
 .card-foot {
   border-top: 1px solid #e8ece3;
   padding-top: 14px;
@@ -639,6 +648,55 @@ main {
   display: flex;
   gap: 7px;
   margin-bottom: 20px;
+}
+.tag-fields {
+  border: 1px solid #dce3dc;
+  border-radius: 7px;
+  padding: 12px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.tag-fields label,
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.tag-fields input,
+.checkbox-label input {
+  min-height: 20px;
+  width: 18px;
+  flex-shrink: 0;
+}
+.tag-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.excel-panel {
+  padding: 16px;
+  background: white;
+  border: 1px solid #e3e8df;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.excel-panel p {
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.excel-panel input[type='file'] {
+  font-size: 11px;
+}
+.import-preview .table-wrap {
+  max-height: 320px;
+  overflow: auto;
 }
 .tabs button {
   padding: 10px 22px;
@@ -687,6 +745,64 @@ td small {
   grid-template-columns: 1fr 1fr;
   gap: 22px;
 }
+.drive-panel {
+  grid-column: 1 / -1;
+  order: 1;
+}
+.drive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.drive-actions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  min-height: 42px;
+}
+.drive-actions b {
+  font-size: 12px;
+}
+.drive-panel form {
+  border-block: 1px solid #edf0e8;
+  padding: 16px 0;
+  margin-top: 20px;
+}
+.drive-panel .section-heading {
+  padding-inline: 0;
+  flex-wrap: wrap;
+}
+.drive-panel .section-heading h3 {
+  font-size: 13px;
+  margin: 0;
+}
+.upload-row {
+  padding: 16px 0;
+  border-top: 1px solid #edf0e8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+.upload-row b {
+  font-size: 12px;
+}
+.upload-row small {
+  color: #7b8981;
+}
+.upload-row p {
+  width: 100%;
+  margin: 0;
+  color: #a15b49;
+  font-size: 11px;
+}
+.upload-row progress {
+  accent-color: #244d3c;
+  max-width: 150px;
+}
 .padded {
   padding: 28px;
 }
@@ -695,6 +811,23 @@ td small {
 }
 .padded .field {
   margin: 17px 0;
+}
+.audit-panel {
+  min-height: 0;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+}
+.audit-scroll {
+  min-height: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.audit-scroll:focus-visible {
+  outline: 2px solid #d8ae64;
+  outline-offset: 2px;
 }
 .audit-row {
   border-bottom: 1px solid #edf0e8;
@@ -782,6 +915,18 @@ footer {
   gap: 7px;
   font-size: 11px;
   color: #70816a;
+}
+.project-help {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #9c7841;
+  padding: 8px 10px;
+  background: #faf7ed;
+  border-radius: 6px;
+}
+.project-help .text-button {
+  display: flex;
+  padding: 0;
 }
 .field input,
 .field select {

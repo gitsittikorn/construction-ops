@@ -45,8 +45,88 @@ beforeEach(() => {
   mocks.set.mockReset();
   mocks.get.mockReset();
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});
 describe('cloud sync adapter (mocked Firebase SDK)', () => {
+  it('fails visibly instead of waiting forever for Firestore folder transactions', async () => {
+    vi.useFakeTimers();
+    mocks.get.mockImplementation(() => new Promise(() => {}));
+    const { resolveDriveFolders } = await import('../firebase');
+    const operation = resolveDriveFolders('admin', 'root', {
+      rootId: 'root',
+      projectsId: 'projects',
+    });
+    const result = expect(operation).rejects.toThrow('Firestore');
+    await vi.advanceTimersByTimeAsync(20001);
+    await result;
+  });
+  it('reports missing Firestore permissions in actionable language', async () => {
+    mocks.get.mockRejectedValue({ code: 'permission-denied' });
+    const { resolveDriveFolders } = await import('../firebase');
+    await expect(
+      resolveDriveFolders('admin', 'root', { rootId: 'r', projectsId: 'p' }),
+    ).rejects.toThrow('enabled: true');
+  });
+  it('stores only document metadata and an audit event, never a Blob', async () => {
+    mocks.get.mockResolvedValue({ exists: () => false });
+    const { saveDocumentMetadata } = await import('../firebase');
+    const record = {
+      id: 'operation',
+      owner: 'admin',
+      projectId: 'p',
+      tripId: '',
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      size: 3,
+      createdAt: 'now',
+      status: 'metadata-pending' as const,
+      driveId: 'file-id',
+      folderId: 'folder-id',
+      error: '',
+      blob: new Blob(['abc']),
+    };
+    await saveDocumentMetadata('admin', record);
+    expect(mocks.set).toHaveBeenCalledWith(
+      'users/admin/documents/operation',
+      expect.objectContaining({ fileId: 'file-id', status: 'synced' }),
+    );
+    expect(mocks.set.mock.calls[0][1]).not.toHaveProperty('blob');
+    expect(mocks.set).toHaveBeenCalledTimes(2);
+  });
+  it('reuses immutable folder mappings across devices', async () => {
+    mocks.get.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ rootId: 'existing', projectsId: 'existing-projects' }),
+    });
+    const result = await (
+      await import('../firebase')
+    ).resolveDriveFolders('admin', 'root', { rootId: 'new', projectsId: 'new-projects' });
+    expect(result.rootId).toBe('existing');
+    expect(mocks.set).not.toHaveBeenCalled();
+  });
+  it('refuses conflicting existing document metadata', async () => {
+    mocks.get.mockResolvedValue({ exists: () => true, data: () => ({ id: 'different' }) });
+    const record = {
+      id: 'operation',
+      owner: 'admin',
+      projectId: 'p',
+      tripId: '',
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      size: 3,
+      createdAt: 'now',
+      status: 'metadata-pending' as const,
+      driveId: 'file-id',
+      folderId: 'folder-id',
+      error: '',
+    };
+    await expect(
+      (await import('../firebase')).saveDocumentMetadata('admin', record),
+    ).rejects.toThrow();
+    expect(mocks.set).not.toHaveBeenCalled();
+  });
   it('writes a stable document ID and audit together', async () => {
     mocks.get.mockResolvedValue({ exists: () => false });
     const { syncTrip } = await import('../firebase');

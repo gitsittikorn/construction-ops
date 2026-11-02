@@ -21,6 +21,12 @@ try {
     const response = await fetch(origin + asset);
     assert.equal(response.status, 200, asset);
     assert.doesNotMatch(response.headers.get('content-type') ?? '', /text\/html/, asset);
+    if (asset.endsWith('.js'))
+      assert.doesNotMatch(
+        await response.text(),
+        /construction:upload-diagnostics/,
+        'Development diagnostics must not ship in production',
+      );
   }
   const manifest = await (await fetch(origin + '/manifest.webmanifest')).json();
   assert.equal(manifest.display, 'standalone');

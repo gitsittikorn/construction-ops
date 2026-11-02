@@ -9,6 +9,8 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import type { Trip } from './models';
+import type { UploadRecord } from './uploads';
+import { withDeadline, connectionMessage } from './async';
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -27,6 +29,78 @@ export const login = async () => {
 export const logout = async () => {
   if (auth) await signOut(auth);
 };
+export function getSessionIdentity() {
+  return auth?.currentUser
+    ? { uid: auth.currentUser.uid, email: auth.currentUser.email ?? '' }
+    : null;
+}
+function ownerDatabase(owner: string) {
+  if (!app || auth?.currentUser?.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ');
+  return getFirestore(app);
+}
+export async function resolveDriveFolders(
+  owner: string,
+  key: string,
+  candidate: Record<string, string>,
+): Promise<Record<string, string>> {
+  const db = ownerDatabase(owner),
+    ref = doc(db, 'users', owner, 'driveFolders', key);
+  return boundedFirestore(
+    runTransaction(db, async (transaction) => {
+      const existing = await transaction.get(ref);
+      if (existing.exists()) return existing.data() as Record<string, string>;
+      transaction.set(ref, candidate);
+      return candidate;
+    }),
+  );
+}
+async function boundedFirestore<T>(operation: Promise<T>): Promise<T> {
+  try {
+    return await withDeadline(
+      operation,
+      20000,
+      'รอ Firestore นานเกินไป กรุณาตรวจอินเทอร์เน็ตและฐานข้อมูล (default) แล้วลองใหม่ ไฟล์ต้นฉบับยังอยู่ในเครื่อง',
+    );
+  } catch (error) {
+    throw Error(connectionMessage(error));
+  }
+}
+export async function saveDocumentMetadata(owner: string, record: UploadRecord) {
+  const db = ownerDatabase(owner),
+    ref = doc(db, 'users', owner, 'documents', record.id);
+  const metadata = {
+    id: record.id,
+    owner,
+    projectId: record.projectId,
+    tripId: record.tripId,
+    fileId: record.driveId,
+    folderId: record.folderId,
+    name: record.name,
+    mimeType: record.mimeType,
+    size: record.size,
+    createdAt: record.createdAt,
+    status: 'synced',
+  };
+  await boundedFirestore(
+    runTransaction(db, async (transaction) => {
+      const previous = await transaction.get(ref);
+      if (previous.exists()) {
+        const remote = previous.data();
+        if (Object.entries(metadata).some(([key, value]) => remote[key] !== value))
+          throw Error('Metadata บนเซิร์ฟเวอร์ไม่ตรงกัน กรุณาตรวจสอบ');
+        return;
+      }
+      transaction.set(ref, { ...metadata, uploadedAt: serverTimestamp() });
+      transaction.set(doc(db, 'users', owner, 'audit', `upload-${record.id}`), {
+        entityId: record.id,
+        action: 'upload',
+        actor: owner,
+        at: serverTimestamp(),
+        fileId: record.driveId,
+      });
+    }),
+  );
+}
 export async function syncTrip(owner: string, trip: Trip) {
   if (!app || auth?.currentUser?.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนซิงก์');
   const db = getFirestore(app);

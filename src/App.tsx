@@ -21,10 +21,27 @@ import {
 } from 'lucide-react';
 import type { Data, Project, Master, Trip } from './models';
 import { emptyData } from './models';
-import { workDate, saveTrip, validateMaster, validateProject, survey, volume, csv } from './domain';
-import { loadData, persistData } from './storage';
+import {
+  workDate,
+  saveTrip,
+  validateMaster,
+  validateProject,
+  survey,
+  volume,
+  csv,
+  parseCoordinateInput,
+} from './domain';
+import { loadData, updateData, subscribeDataChanges } from './storage';
 import { configured, observeAuth, login, logout, syncTrip } from './firebase';
 import { companyName, companyLogo } from './branding';
+import DrivePanel from './DrivePanel';
+import ProjectPicker from './ProjectPicker';
+import SoilTypePicker from './SoilTypePicker';
+import ProjectCoordinates from './ProjectCoordinates';
+import { clearDriveSessions } from './driveSession';
+import { saveMaster, matchesMaster, tagNames, truckTypes } from './masterData';
+import TagFields from './TagFields';
+import TruckExcelPanel from './TruckExcelPanel';
 const pages = [
   ['overview', 'ภาพรวม', LayoutDashboard],
   ['projects', 'โครงการ', FolderOpen],
@@ -40,7 +57,14 @@ const statusText = {
   completed: 'เสร็จสิ้น',
   archived: 'จัดเก็บแล้ว',
 };
-const labels = { truck: 'รถบรรทุก', driver: 'คนขับรถ', source: 'แหล่งดิน', customer: 'ลูกค้า' };
+const labels = {
+  truck: 'รถบรรทุก',
+  driver: 'คนขับรถ',
+  source: 'แหล่งดิน',
+  customer: 'ลูกค้า',
+  soilType: 'ชนิดดิน',
+  tag: 'แท็กทีม',
+};
 const number = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 3 });
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -65,32 +89,51 @@ export default function App() {
     [editing, setEditing] = useState<Project | Master | Trip | null>(null),
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
+  const [tripProject, setTripProject] = useState('');
+  const [tripSoilType, setTripSoilType] = useState('');
+  const [masterTagFilter, setMasterTagFilter] = useState('');
+  const [truckTypeFilter, setTruckTypeFilter] = useState('');
   const current = useRef(data),
     writeLock = useRef(false),
-    syncLock = useRef(false);
+    syncLock = useRef(false),
+    account = useRef(owner),
+    loadEpoch = useRef(0);
   current.current = data;
   useEffect(
     () =>
       observeAuth((user) => {
-        setOwner(user?.uid ?? '');
+        const nextOwner = user?.uid ?? '';
+        if (nextOwner === account.current) return;
+        clearDriveSessions();
+        account.current = nextOwner;
+        loadEpoch.current++;
+        setOwner(nextOwner);
         setReady(false);
         setData(emptyData);
+        setModal(null);
       }),
     [],
   );
   useEffect(() => {
     let active = true;
-    if (owner)
-      loadData(owner)
-        .then((value) => {
-          if (active) {
-            setData(value);
-            setReady(true);
-          }
-        })
-        .catch(() => setError('เปิดฐานข้อมูลในเครื่องไม่สำเร็จ กรุณาตรวจสอบพื้นที่จัดเก็บ'));
+    const reload = () => {
+      const epoch = ++loadEpoch.current;
+      if (owner)
+        void loadData(owner)
+          .then((value) => {
+            if (active && epoch === loadEpoch.current) {
+              current.current = value;
+              setData(value);
+              setReady(true);
+            }
+          })
+          .catch((e) => setError(message(e)));
+    };
+    reload();
+    const unsubscribe = subscribeDataChanges(owner, reload);
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [owner]);
   useEffect(() => {
@@ -106,8 +149,8 @@ export default function App() {
     if (writeLock.current) throw Error('กำลังบันทึก กรุณาลองใหม่');
     writeLock.current = true;
     try {
-      const next = make(current.current);
-      await persistData(owner, next);
+      const next = await updateData(owner, make);
+      loadEpoch.current++;
       current.current = next;
       setData(next);
     } finally {
@@ -143,6 +186,9 @@ export default function App() {
     return e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
   }
   function open(type: typeof modal, record: typeof editing = null) {
+    if (type === 'trip') setTripSoilType(record && 'soilType' in record ? record.soilType : '');
+    if (type === 'trip')
+      setTripProject(record && 'projectId' in record ? record.projectId : (active[0]?.id ?? ''));
     setEditing(record);
     setModal(type);
     setError('');
@@ -165,6 +211,7 @@ export default function App() {
           name: get('name'),
           customer: get('customer'),
           location: get('location'),
+          ...parseCoordinateInput(get('coordinates')),
           startDate: get('startDate'),
           endDate: get('endDate'),
           description: get('description'),
@@ -195,24 +242,16 @@ export default function App() {
           detail: get('detail'),
           capacity: Number(get('capacity') || 0),
           active: get('active') === 'true',
+          tagIds: kind === 'tag' ? [] : form.getAll('tagIds').map(String),
+          ...(kind === 'truck'
+            ? {
+                province: get('province'),
+                phone: get('phone'),
+                truckType: (get('truckType') || undefined) as Master['truckType'],
+              }
+            : {}),
         };
-        validateMaster(record);
-        await change((old) => ({
-          ...old,
-          masters: [...old.masters.filter((m) => m.id !== record.id), record],
-          audit: [
-            ...old.audit,
-            {
-              id: crypto.randomUUID(),
-              entityId: record.id,
-              action: editing ? 'update' : 'create',
-              at: now,
-              actor: owner,
-              before: editing,
-              after: record,
-            },
-          ],
-        }));
+        await change((old) => saveMaster(old, record, owner));
       } else {
         const record: Trip = {
           ...base,
@@ -251,6 +290,12 @@ export default function App() {
     )
     .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
   const masterName = (id: string) => data.masters.find((m) => m.id === id)?.name ?? '—';
+  const visibleMasters = data.masters.filter(
+    (master) =>
+      master.kind === kind &&
+      matchesMaster(master, data.masters, query, kind === 'tag' ? '' : masterTagFilter) &&
+      (kind !== 'truck' || !truckTypeFilter || master.truckType === truckTypeFilter),
+  );
   function exportCSV() {
     const content = csv([
       ['วันที่', 'เวลา', 'โครงการ', 'ทะเบียนรถ', 'คนขับ', 'แหล่งดิน', 'ชนิดดิน', 'สถานะ'],
@@ -567,6 +612,7 @@ export default function App() {
                           <p>
                             {p.customer || 'ยังไม่ระบุลูกค้า'} · {p.location || 'ยังไม่ระบุสถานที่'}
                           </p>
+                          <ProjectCoordinates latitude={p.latitude} longitude={p.longitude} />
                           <p>
                             {p.startDate || '—'} → {p.endDate || 'ยังไม่กำหนด'}
                           </p>
@@ -591,38 +637,96 @@ export default function App() {
                       <button
                         className={kind === id ? 'active' : ''}
                         key={id}
-                        onClick={() => setKind(id as Master['kind'])}
+                        onClick={() => {
+                          setKind(id as Master['kind']);
+                          setQuery('');
+                        }}
                       >
                         {title}
                       </button>
                     ))}
                   </div>
-                  <div className="panel list">
-                    {data.masters
-                      .filter((m) => m.kind === kind)
-                      .map((m) => (
-                        <button
-                          className="project-row"
-                          key={m.id}
-                          onClick={() => open('master', m)}
-                        >
-                          <span className="project-symbol">
-                            <Truck size={20} />
-                          </span>
-                          <span>
-                            <b>{m.name}</b>
-                            <small>
-                              {m.detail || 'ไม่มีรายละเอียดเพิ่มเติม'}
-                              {m.kind === 'truck' ? ` · ${number(m.capacity)} m³` : ''}
-                            </small>
-                          </span>
-                          <span className={'badge ' + (!m.active ? 'archived' : '')}>
-                            {m.active ? 'ใช้งาน' : 'ปิดใช้งาน'}
-                          </span>
-                          <ArrowUpRight size={16} />
-                        </button>
-                      ))}
+                  <div className="toolbar wrap">
+                    <Search size={17} />
+                    <input
+                      aria-label="ค้นหาข้อมูลพื้นฐาน"
+                      placeholder="ค้นหาทะเบียน จังหวัด เบอร์โทร หรือแท็ก"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                    />
+                    {kind !== 'tag' && (
+                      <select
+                        aria-label="กรองแท็กทีม"
+                        value={masterTagFilter}
+                        onChange={(event) => setMasterTagFilter(event.target.value)}
+                      >
+                        <option value="">ทุกแท็กทีม</option>
+                        {data.masters
+                          .filter((item) => item.kind === 'tag')
+                          .map((tag) => (
+                            <option value={tag.id} key={tag.id}>
+                              {tag.name}
+                              {!tag.active ? ' (ปิดใช้งาน)' : ''}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                    {kind === 'truck' && (
+                      <select
+                        aria-label="กรองประเภทรถ"
+                        value={truckTypeFilter}
+                        onChange={(event) => setTruckTypeFilter(event.target.value)}
+                      >
+                        <option value="">ทุกประเภทรถ</option>
+                        {Object.entries(truckTypes).map(([id, title]) => (
+                          <option key={id} value={id}>
+                            {title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
+                  {kind === 'truck' && (
+                    <TruckExcelPanel
+                      data={data}
+                      visibleTrucks={visibleMasters}
+                      actor={owner}
+                      onChange={change}
+                    />
+                  )}
+                  <div className="panel list">
+                    {visibleMasters.map((m) => (
+                      <button className="project-row" key={m.id} onClick={() => open('master', m)}>
+                        <span className="project-symbol">
+                          <Truck size={20} />
+                        </span>
+                        <span>
+                          <b>{m.name}</b>
+                          <small>
+                            {m.detail || 'ไม่มีรายละเอียดเพิ่มเติม'}
+                            {m.kind === 'truck' ? ` · ${number(m.capacity)} m³` : ''}
+                            {m.kind === 'truck' && m.province ? ` · ${m.province}` : ''}
+                            {m.phone ? ` · ${m.phone}` : ''}
+                            {m.truckType ? ` · ${truckTypes[m.truckType]}` : ''}
+                          </small>
+                          <span className="tag-badges">
+                            {tagNames(m, data.masters).map((name, index) => (
+                              <span className="badge" key={index}>
+                                {name}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                        <span className={'badge ' + (!m.active ? 'archived' : '')}>
+                          {m.active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        </span>
+                        <ArrowUpRight size={16} />
+                      </button>
+                    ))}
+                  </div>
+                  {data.masters.some((m) => m.kind === kind) && !visibleMasters.length && (
+                    <p className="empty">ไม่พบข้อมูลตามตัวกรองที่เลือก</p>
+                  )}
                   {!data.masters.some((m) => m.kind === kind) && (
                     <Empty text={`ยังไม่มีข้อมูล${labels[kind]}`} action={() => open('master')} />
                   )}
@@ -766,7 +870,7 @@ export default function App() {
                         {configured ? 'ตั้งค่าแล้ว' : 'ยังไม่ได้ตั้งค่า'}
                       </span>
                     </p>
-                    <p>Google Drive: ยังไม่เปิดใช้งาน</p>
+                    <p>Google Drive: จัดการการเชื่อมต่อและคิวเอกสารด้านล่าง</p>
                     <p>
                       โครงการและข้อมูลพื้นฐานเก็บใน IndexedDB เท่านั้น
                       รุ่นนี้ซิงก์เฉพาะเที่ยวรถเมื่อเข้าสู่ระบบแล้ว
@@ -788,20 +892,34 @@ export default function App() {
                       <Download size={16} /> เปิดรายงานเพื่อส่งออกข้อมูล
                     </button>
                   </section>
-                  <section className="panel padded">
+                  <DrivePanel
+                    owner={owner}
+                    projects={data.projects}
+                    trips={data.trips}
+                    online={online}
+                  />
+                  <section className="panel padded audit-panel">
                     <h2>ประวัติการเปลี่ยนแปลง</h2>
                     <p>{data.audit.length} เหตุการณ์ในเครื่อง</p>
-                    {data.audit
-                      .slice(-12)
-                      .reverse()
-                      .map((a) => (
-                        <div className="audit-row" key={a.id}>
-                          <b>{a.action}</b>
-                          <small>
-                            {new Date(a.at).toLocaleString('th-TH')} · {a.entityId.slice(0, 8)}
-                          </small>
-                        </div>
-                      ))}
+                    <div
+                      className="audit-scroll"
+                      role="region"
+                      aria-label="รายการประวัติการเปลี่ยนแปลง"
+                      tabIndex={0}
+                    >
+                      {data.audit
+                        .slice()
+                        .reverse()
+                        .map((a) => (
+                          <div className="audit-row" key={a.id}>
+                            <b>{a.action}</b>
+                            <small>
+                              {new Date(a.at).toLocaleString('th-TH')} · {a.entityId.slice(0, 8)}
+                            </small>
+                          </div>
+                        ))}
+                      {!data.audit.length && <p>ยังไม่มีประวัติการเปลี่ยนแปลง</p>}
+                    </div>
                   </section>
                 </div>
               )}
@@ -835,6 +953,23 @@ export default function App() {
                     {input('name', 'ชื่อโครงการ', 'text', true)}
                     {input('customer', 'ชื่อลูกค้า')}
                     {input('location', 'สถานที่')}
+                    <Field label="พิกัด (Lat, Lng)">
+                      <input
+                        name="coordinates"
+                        aria-label="พิกัด (Lat, Lng)"
+                        type="text"
+                        placeholder="เช่น 13.7563, 100.5018"
+                        defaultValue={
+                          editing &&
+                          'latitude' in editing &&
+                          editing.latitude !== undefined &&
+                          editing.longitude !== undefined
+                            ? `${editing.latitude}, ${editing.longitude}`
+                            : ''
+                        }
+                      />
+                      <small>ละติจูด, ลองจิจูด คั่นด้วยเครื่องหมาย ,</small>
+                    </Field>
                     {input('startDate', 'วันเริ่มต้น', 'date')}
                     {input('endDate', 'วันสิ้นสุด', 'date')}
                     <Field label="สถานะ">
@@ -853,12 +988,50 @@ export default function App() {
                   </>
                 ) : modal === 'master' ? (
                   <>
-                    {input('name', kind === 'truck' ? 'ทะเบียนรถ' : 'ชื่อ', 'text', true)}
+                    {input(
+                      'name',
+                      kind === 'truck'
+                        ? 'ทะเบียนรถ'
+                        : kind === 'soilType'
+                          ? 'ชื่อชนิดดิน'
+                          : kind === 'tag'
+                            ? 'ชื่อแท็ก / ทีม'
+                            : 'ชื่อ',
+                      'text',
+                      true,
+                    )}
                     {input(
                       'detail',
                       kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด',
                     )}
                     {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
+                    {kind === 'truck' && (
+                      <>
+                        {input('province', 'จังหวัดทะเบียน')}
+                        {input('phone', 'เบอร์โทร', 'tel')}
+                        <Field label="ประเภทรถ">
+                          <select
+                            name="truckType"
+                            defaultValue={
+                              editing && 'kind' in editing ? (editing.truckType ?? '') : ''
+                            }
+                          >
+                            <option value="">ไม่ระบุ</option>
+                            {Object.entries(truckTypes).map(([id, title]) => (
+                              <option value={id} key={id}>
+                                {title}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      </>
+                    )}
+                    {kind !== 'tag' && (
+                      <TagFields
+                        masters={data.masters}
+                        record={editing && 'kind' in editing ? editing : null}
+                      />
+                    )}
                     <Field label="สถานะ">
                       <select
                         name="active"
@@ -873,27 +1046,20 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <Field label="โครงการ *">
-                      <select
-                        name="projectId"
-                        required
-                        defaultValue={
-                          editing && 'projectId' in editing
-                            ? editing.projectId
-                            : (active[0]?.id ?? '')
-                        }
-                      >
-                        <option value="">เลือกโครงการ</option>
-                        {active.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                    <ProjectPicker
+                      projects={data.projects}
+                      value={tripProject}
+                      onChange={setTripProject}
+                      onManage={() => {
+                        setModal(null);
+                        setPage('projects');
+                        if (!data.projects.length) open('project');
+                      }}
+                    />
                     {(['truck', 'driver', 'source'] as const).map((type) => (
                       <Field key={type} label={labels[type] + (type === 'truck' ? ' *' : '')}>
                         <select
+                          aria-label={labels[type] + (type === 'truck' ? ' *' : '')}
                           name={type + 'Id'}
                           required={type === 'truck'}
                           defaultValue={
@@ -914,6 +1080,13 @@ export default function App() {
                               </option>
                             ))}
                         </select>
+                        {!data.masters.some((m) => m.kind === type && m.active) && (
+                          <small>
+                            {data.masters.some((m) => m.kind === type)
+                              ? `ข้อมูล${labels[type]}ถูกปิดใช้งาน เปิดใช้งานที่หน้าข้อมูลพื้นฐานก่อนเลือก`
+                              : `ยังไม่มี${labels[type]}ในบัญชีและที่อยู่เว็บนี้ เพิ่มที่หน้าข้อมูลพื้นฐาน`}
+                          </small>
+                        )}
                       </Field>
                     ))}
                     {input('date', 'วันที่ทำงาน', 'date', true)}
@@ -933,7 +1106,14 @@ export default function App() {
                         }
                       />
                     </Field>
-                    {input('soilType', 'ชนิดดิน')}
+                    <SoilTypePicker
+                      masters={data.masters}
+                      value={tripSoilType}
+                      onChange={setTripSoilType}
+                      previousValue={
+                        editing && 'soilType' in editing ? editing.soilType : undefined
+                      }
+                    />
                     {input('notes', 'หมายเหตุ')}
                   </>
                 )}

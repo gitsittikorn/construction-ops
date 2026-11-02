@@ -9,6 +9,7 @@ for (const name of [
   'VITE_FIREBASE_AUTH_DOMAIN',
   'VITE_FIREBASE_PROJECT_ID',
   'VITE_FIREBASE_APP_ID',
+  'VITE_GOOGLE_CLIENT_ID',
 ]) {
   vi.stubEnv(name, '');
 }
