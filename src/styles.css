@@ -599,6 +599,23 @@ main {
   border: 0;
   min-width: 130px;
 }
+.all-dates-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: #244d3c;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toolbar .all-dates-filter input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  accent-color: #244d3c;
+}
 .wrap {
   flex-wrap: wrap;
 }

@@ -746,10 +746,19 @@ export default function App() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                     />
+                    <label className="all-dates-filter">
+                      <input
+                        type="checkbox"
+                        checked={!date}
+                        onChange={(e) => setDate(e.target.checked ? '' : workDate())}
+                      />
+                      ทุกวันที่
+                    </label>
                     <input
-                      aria-label="วันที่รายงาน"
+                      aria-label={page === 'trips' ? 'วันที่เที่ยวรถ' : 'วันที่รายงาน'}
                       type="date"
                       value={date}
+                      disabled={!date}
                       onChange={(e) => setDate(e.target.value)}
                     />
                     <select
