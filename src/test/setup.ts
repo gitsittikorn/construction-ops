@@ -10,7 +10,16 @@ for (const name of [
   'VITE_FIREBASE_PROJECT_ID',
   'VITE_FIREBASE_APP_ID',
   'VITE_GOOGLE_CLIENT_ID',
+  'VITE_DRIVE_BACKEND_URL',
 ]) {
   vi.stubEnv(name, '');
 }
 afterEach(() => cleanup());
+
+// jsdom does not implement the native modal dialog lifecycle.
+HTMLDialogElement.prototype.showModal = function () {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function () {
+  this.open = false;
+};

@@ -1,5 +1,6 @@
 import type { UploadRecord } from './uploads';
 import { withDeadline } from './async';
+import { driveBackendConfigured, exchangeDriveCode } from './driveBackend';
 export const driveScope = 'https://www.googleapis.com/auth/drive.file';
 export const driveConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 interface TokenResponse {
@@ -14,6 +15,15 @@ interface OAuthClient {
 interface GoogleIdentity {
   accounts: {
     oauth2: {
+      initCodeClient?: (options: {
+        client_id: string;
+        scope: string;
+        login_hint: string;
+        ux_mode: 'popup';
+        include_granted_scopes: boolean;
+        callback: (response: { code?: string; error?: string }) => void;
+        error_callback: () => void;
+      }) => { requestCode: () => void };
       initTokenClient: (options: {
         client_id: string;
         scope: string;
@@ -66,6 +76,29 @@ export function requestDriveToken(
 ): Promise<{ token: string; expiresAt: number }> {
   if (!driveConfigured || !window.google)
     return Promise.reject(Error('Google Drive ยังไม่พร้อม กรุณาตรวจสอบ Client ID และการเชื่อมต่อ'));
+  if (driveBackendConfigured && additionalScopes.length === 0) {
+    const code = new Promise<string>((resolve, reject) => {
+      const init = window.google!.accounts.oauth2.initCodeClient;
+      if (!init) {
+        reject(Error('Google Identity ยังไม่พร้อม'));
+        return;
+      }
+      const client = init({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        scope: driveScope,
+        login_hint: email,
+        ux_mode: 'popup',
+        include_granted_scopes: false,
+        callback: (response) =>
+          response.code && !response.error
+            ? resolve(response.code)
+            : reject(Error('ไม่ได้รับสิทธิ์ Google Drive')),
+        error_callback: () => reject(Error('หน้าต่างเชื่อมต่อถูกปิดหรือถูกบล็อก กรุณาลองใหม่')),
+      });
+      client.requestCode();
+    });
+    return withDeadline(code, 90000, 'รอการอนุญาต Google Drive นานเกินไป').then(exchangeDriveCode);
+  }
   return withDeadline(
     new Promise<{ token: string; expiresAt: number }>((resolve, reject) => {
       const client = window.google!.accounts.oauth2.initTokenClient({

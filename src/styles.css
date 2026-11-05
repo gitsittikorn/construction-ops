@@ -890,6 +890,13 @@ footer {
   place-items: center;
   padding: 20px;
 }
+.drive-connection-dialog {
+  border: 0;
+}
+.drive-connection-dialog::backdrop {
+  background: #102e2466;
+  backdrop-filter: blur(3px);
+}
 .modal {
   background: #fff;
   width: min(680px, 100%);

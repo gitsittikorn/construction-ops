@@ -24,7 +24,14 @@ import {
 } from './uploads';
 import { getSessionIdentity, resolveDriveFolders, saveDocumentMetadata } from './firebase';
 import ProjectPicker from './ProjectPicker';
+import DriveConnectionDialog from './DriveConnectionDialog';
 import { getDriveSession, saveDriveSession, clearDriveSession } from './driveSession';
+import {
+  driveBackendConfigured,
+  restoreDriveConnection,
+  disconnectDriveBackend,
+  DriveBackendError,
+} from './driveBackend';
 const statusLabels = {
   pending: 'รออัปโหลด',
   preparing: 'กำลังเตรียมโฟลเดอร์และตรวจสิทธิ์',
@@ -56,24 +63,75 @@ export default function DrivePanel({
       return active.length === 1 ? active[0].id : '';
     });
   const [selectedFiles, setSelectedFiles] = useState<{ name: string; size: number }[]>([]);
+  const [connectionPrompt, setConnectionPrompt] = useState<'connect' | 'expired' | null>(() =>
+    driveConfigured && !driveBackendConfigured && owner !== 'local' && !getDriveSession(owner)
+      ? 'connect'
+      : null,
+  );
   const [folderLinks, setFolderLinks] = useState<
     Record<string, { rootId: string; projectId: string; documentsId: string }>
   >({});
   const credentials = useRef(getDriveSession(owner)),
     lock = useRef(false),
     alive = useRef(true);
+  const renewal = useRef<Promise<import('./driveSession').DriveSession> | null>(null);
+  const recoveredAt = useRef(0);
   const session = () => {
     const user = getSessionIdentity();
     if (!user || user.uid !== owner) throw Error('กรุณาเข้าสู่ระบบ Firebase ก่อนเชื่อม Drive');
     return user;
   };
-  const token = () => {
+  function expireConnection() {
+    credentials.current = null;
+    clearDriveSession(owner);
+    setConnected(false);
+    setConnectionPrompt('expired');
+  }
+  function reportError(error: unknown) {
+    if (error instanceof DriveError && error.status === 401) {
+      if (driveBackendConfigured) {
+        if (Date.now() - recoveredAt.current < 30000) {
+          expireConnection();
+          setError('Google ปฏิเสธสิทธิ์ที่ต่ออายุแล้ว กรุณาเชื่อมต่อใหม่');
+          return;
+        }
+        recoveredAt.current = Date.now();
+        credentials.current = null;
+        clearDriveSession(owner);
+        setConnected(false);
+        void renew(true).catch(reportError);
+      } else expireConnection();
+    }
+    if (error instanceof DriveBackendError && error.code === 'reconnect_required')
+      expireConnection();
+    setError((error as Error).message);
+  }
+  async function renew(force = false) {
+    session();
+    if (!renewal.current) {
+      renewal.current = restoreDriveConnection(force)
+        .then((auth) => {
+          if (!alive.current || getSessionIdentity()?.uid !== owner)
+            throw Error('บัญชีผู้ใช้เปลี่ยนแล้ว');
+          credentials.current = auth;
+          saveDriveSession(owner, auth);
+          setConnectionPrompt(null);
+          setConnected(true);
+          setError('');
+          return auth;
+        })
+        .finally(() => {
+          renewal.current = null;
+        });
+    }
+    return renewal.current;
+  }
+  const token = async () => {
     session();
     const value = credentials.current;
     if (!value || value.expiresAt <= Date.now()) {
-      credentials.current = null;
-      clearDriveSession(owner);
-      setConnected(false);
+      if (driveBackendConfigured) return (await renew()).token;
+      expireConnection();
       throw Error('กรุณากดเชื่อมต่อ Google Drive อีกครั้ง');
     }
     return value.token;
@@ -98,16 +156,36 @@ export default function DrivePanel({
     };
   }, [owner]);
   useEffect(() => {
+    if (driveBackendConfigured && online && owner !== 'local')
+      void renew().catch((error) => {
+        if (alive.current) reportError(error);
+      });
+  }, [owner, online]);
+  useEffect(() => {
     if (!connected) return;
-    const timer = setInterval(() => {
-      if (credentials.current && credentials.current.expiresAt <= Date.now()) {
-        credentials.current = null;
-        clearDriveSession(owner);
-        setConnected(false);
+    const checkExpiry = () => {
+      if (lock.current) return;
+      if (
+        credentials.current &&
+        credentials.current.expiresAt <= Date.now() + (driveBackendConfigured ? 60000 : 0)
+      ) {
+        if (driveBackendConfigured) {
+          if (online)
+            void renew().catch((error) => {
+              if (alive.current) reportError(error);
+            });
+        } else expireConnection();
       }
-    }, 15000);
-    return () => clearInterval(timer);
-  }, [connected]);
+    };
+    const timer = setInterval(checkExpiry, 15000);
+    window.addEventListener('focus', checkExpiry);
+    document.addEventListener('visibilitychange', checkExpiry);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', checkExpiry);
+      document.removeEventListener('visibilitychange', checkExpiry);
+    };
+  }, [connected, online]);
   async function connect() {
     if (lock.current) return;
     lock.current = true;
@@ -121,10 +199,30 @@ export default function DrivePanel({
       if (!alive.current) return;
       credentials.current = auth;
       saveDriveSession(owner, auth);
+      setConnectionPrompt(null);
       setConnected(true);
       setNotice('เชื่อม Google Drive แล้ว ใช้บัญชีเดียวกับ Firebase');
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
+    } finally {
+      lock.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+  async function disconnect() {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    try {
+      await renewal.current?.catch(() => {});
+      if (driveBackendConfigured) await disconnectDriveBackend();
+      credentials.current = null;
+      clearDriveSession(owner);
+      setConnected(false);
+      setConnectionPrompt(null);
+      setNotice('ตัดการเชื่อมต่อในแอปแล้ว');
+    } catch (error) {
+      reportError(error);
     } finally {
       lock.current = false;
       if (alive.current) setBusy(false);
@@ -134,7 +232,7 @@ export default function DrivePanel({
     const selectedProject = projects.find((project) => project.id === projectId);
     if (!selectedProject?.name.trim())
       throw Error('ไม่พบชื่อโครงการในเครื่อง กรุณาตรวจข้อมูลโครงการก่อนสร้างโฟลเดอร์');
-    const access = token();
+    const access = await token();
     let folders = await getFolders(owner);
     if (!folders) {
       const ids = await generateDriveIds(access, 2);
@@ -183,7 +281,7 @@ export default function DrivePanel({
   }
   async function prepare(record: UploadRecord): Promise<UploadRecord> {
     const projectFolders = await ensureProjectFolders(record.projectId);
-    const driveId = record.driveId || (await generateDriveIds(token(), 1))[0];
+    const driveId = record.driveId || (await generateDriveIds(await token(), 1))[0];
     return { ...record, driveId, folderId: projectFolders.documentsId };
   }
   async function createProjectFolders() {
@@ -204,7 +302,7 @@ export default function DrivePanel({
           : 'เตรียมโฟลเดอร์ตามชื่อโครงการแล้ว กดเปิดโฟลเดอร์ได้ด้านล่าง',
       );
     } catch (error) {
-      setError((error as Error).message);
+      reportError(error);
     } finally {
       lock.current = false;
       if (alive.current) setBusy(false);
@@ -218,7 +316,7 @@ export default function DrivePanel({
     setNotice('');
     try {
       await withUploadLock(owner, async () => {
-        token();
+        await token();
         const folders = await getFolders(owner);
         for (const knownProject of projects.filter((project) => folders?.projects[project.id])) {
           if (!alive.current) break;
@@ -233,7 +331,7 @@ export default function DrivePanel({
               item,
               {
                 prepare,
-                upload: (record, update) => uploadOriginal(token(), record, update),
+                upload: async (record, update) => uploadOriginal(await token(), record, update),
                 metadata: (record) => {
                   session();
                   return saveDocumentMetadata(owner, record);
@@ -250,19 +348,16 @@ export default function DrivePanel({
           } catch (e) {
             failures++;
             if (e instanceof DriveError && e.status === 401) {
-              credentials.current = null;
-              clearDriveSession(owner);
-              setConnected(false);
               throw e;
             }
-            setError((e as Error).message);
+            reportError(e);
           }
           await refresh();
         }
         if (!failures) setNotice('ประมวลผลคิวอัปโหลดเรียบร้อย');
       });
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
     } finally {
       lock.current = false;
       if (alive.current) setBusy(false);
@@ -302,12 +397,12 @@ export default function DrivePanel({
           : 'เก็บต้นฉบับในอุปกรณ์แล้ว ยังไม่ได้อัปโหลด กรุณาเชื่อมต่อ Drive เมื่อออนไลน์',
       );
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
     } finally {
       try {
         await refresh();
       } catch (e) {
-        setError((e as Error).message);
+        reportError(e);
       } finally {
         lock.current = false;
         setBusy(false);
@@ -321,7 +416,7 @@ export default function DrivePanel({
     setBusy(true);
     setError('');
     try {
-      const blob = await downloadOriginal(token(), item.driveId);
+      const blob = await downloadOriginal(await token(), item.driveId);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -329,7 +424,7 @@ export default function DrivePanel({
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
     } finally {
       lock.current = false;
       setBusy(false);
@@ -337,6 +432,16 @@ export default function DrivePanel({
   }
   return (
     <section className="panel padded drive-panel">
+      {connectionPrompt && (
+        <DriveConnectionDialog
+          expired={connectionPrompt === 'expired'}
+          ready={driveConfigured && identityReady && online && owner !== 'local'}
+          busy={busy}
+          error={error}
+          onConnect={() => void connect()}
+          onDismiss={() => setConnectionPrompt(null)}
+        />
+      )}
       <h2>Google Drive · รูปภาพและเอกสาร</h2>
       <p>
         เก็บต้นฉบับโดยไม่ลดความละเอียด · ไฟล์เป็นส่วนตัว · รองรับรูปภาพและ PDF ไม่เกิน 100 MB
@@ -359,16 +464,7 @@ export default function DrivePanel({
           {connected ? 'ต่ออายุสิทธิ์ Drive' : 'เชื่อมต่อ Google Drive'}
         </button>
         {connected && (
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() => {
-              credentials.current = null;
-              clearDriveSession(owner);
-              setConnected(false);
-              setNotice('ตัดการเชื่อมต่อในแอปแล้ว');
-            }}
-          >
+          <button className="secondary" disabled={busy} onClick={() => void disconnect()}>
             <Unplug size={16} />
             ตัดการเชื่อมต่อ
           </button>
@@ -394,7 +490,7 @@ export default function DrivePanel({
         </button>
       )}
       {owner === 'local' && <p>บันทึกไฟล์ในเครื่องได้ แต่ต้องเข้าสู่ระบบ Firebase เพื่ออัปโหลด</p>}
-      {error && (
+      {error && !connectionPrompt && (
         <div className="alert error" role="alert">
           {error}
         </div>
@@ -563,7 +659,10 @@ export default function DrivePanel({
           !connected &&
           'มีไฟล์รออยู่ในเครื่อง กรุณากดเชื่อมต่อ Google Drive เพื่อเริ่มอัปโหลด · '}
         ไฟล์รออัปโหลดอยู่ในอุปกรณ์นี้ อย่าล้างข้อมูลเว็บไซต์จนกว่าจะซิงก์สำเร็จ สิทธิ์ Drive
-        ต้องเชื่อมใหม่หลังเปิดแอปใหม่หรือหมดอายุ การอัปโหลดยังไม่ใช่การตรวจสอบหลักฐาน
+        {driveBackendConfigured
+          ? 'ระบบจะต่ออายุสิทธิ์ Drive ผ่าน backend อัตโนมัติ หาก Google ถอนสิทธิ์จะขอให้เชื่อมต่อใหม่'
+          : 'จะเชื่อมต่อกลับอัตโนมัติเมื่อรีโหลดแท็บเดิมหากสิทธิ์ยังไม่หมดอายุ หากสิทธิ์หมดอายุต้องกดเชื่อมต่อใหม่'}{' '}
+        การอัปโหลดยังไม่ใช่การตรวจสอบหลักฐาน
       </p>
     </section>
   );

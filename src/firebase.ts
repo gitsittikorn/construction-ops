@@ -34,6 +34,11 @@ export function getSessionIdentity() {
     ? { uid: auth.currentUser.uid, email: auth.currentUser.email ?? '' }
     : null;
 }
+export async function getFirebaseIdToken(owner: string) {
+  const user = auth?.currentUser;
+  if (!user || user.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ backend');
+  return user.getIdToken();
+}
 function ownerDatabase(owner: string) {
   if (!app || auth?.currentUser?.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ');
   return getFirestore(app);

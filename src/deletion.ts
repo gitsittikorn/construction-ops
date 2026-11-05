@@ -11,22 +11,57 @@ export function deleteRecord(
   const key = type === 'project' ? 'projects' : type === 'master' ? 'masters' : 'trips';
   const record = data[key].find((item) => item.id === id);
   if (!record) throw Error('ไม่พบรายการ อาจถูกลบแล้ว กรุณาเปิดรายการใหม่');
-  if (uploads.some((item) => type === 'project' ? item.projectId === id : type === 'trip' && item.tripId === id))
+  if (
+    uploads.some((item) =>
+      type === 'project' ? item.projectId === id : type === 'trip' && item.tripId === id,
+    )
+  )
     throw Error('ลบไม่ได้: มีเอกสารหรือคิวอัปโหลดอ้างอิงรายการนี้');
   const history = [...data.trips, ...(data.deletedTrips ?? [])];
   if (type === 'project' && history.some((trip) => trip.projectId === id))
     throw Error('ลบไม่ได้: โครงการมีประวัติเที่ยวรถ กรุณาเปลี่ยนสถานะเป็นจัดเก็บแล้ว');
   if (type === 'master' && 'kind' in record) {
-    if (history.some((trip) => [trip.truckId, trip.driverId, trip.sourceId].includes(id) || (record.kind === 'soilType' && trip.soilType === record.name)) || data.masters.some((item) => item.tagIds?.includes(id)))
-      throw Error('ลบไม่ได้: มีรายการอื่นอ้างอิงข้อมูลนี้ กรุณาปิดใช้งานหรือเอาแท็กออกจากรายการที่ใช้อยู่ก่อน');
+    if (
+      history.some(
+        (trip) =>
+          [trip.truckId, trip.driverId, trip.sourceId].includes(id) ||
+          (record.kind === 'soilType' && trip.soilType === record.name),
+      ) ||
+      data.masters.some((item) => item.tagIds?.includes(id))
+    )
+      throw Error(
+        'ลบไม่ได้: มีรายการอื่นอ้างอิงข้อมูลนี้ กรุณาปิดใช้งานหรือเอาแท็กออกจากรายการที่ใช้อยู่ก่อน',
+      );
   }
   const now = new Date().toISOString();
   return {
     ...data,
     [key]: data[key].filter((item) => item.id !== id),
-    ...(type === 'trip' && 'revision' in record ? {
-      deletedTrips: [...(data.deletedTrips ?? []), { ...record, deletedAt: now, updatedAt: now, revision: record.revision + 1, syncStatus: 'pending' as const }],
-    } : {}),
-    audit: [...data.audit, { id: crypto.randomUUID(), entityId: id, action: 'delete', at: now, actor, before: record, after: null }],
+    ...(type === 'trip' && 'revision' in record
+      ? {
+          deletedTrips: [
+            ...(data.deletedTrips ?? []),
+            {
+              ...record,
+              deletedAt: now,
+              updatedAt: now,
+              revision: record.revision + 1,
+              syncStatus: 'pending' as const,
+            },
+          ],
+        }
+      : {}),
+    audit: [
+      ...data.audit,
+      {
+        id: crypto.randomUUID(),
+        entityId: id,
+        action: 'delete',
+        at: now,
+        actor,
+        before: record,
+        after: null,
+      },
+    ],
   };
 }

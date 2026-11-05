@@ -38,7 +38,7 @@ import DrivePanel from './DrivePanel';
 import ProjectPicker from './ProjectPicker';
 import SoilTypePicker from './SoilTypePicker';
 import ProjectCoordinates from './ProjectCoordinates';
-import { clearDriveSessions } from './driveSession';
+import { clearDriveSessions, clearDriveSessionsExcept } from './driveSession';
 import { saveMaster, matchesMaster, tagNames, truckTypes } from './masterData';
 import TagFields from './TagFields';
 import TruckExcelPanel from './TruckExcelPanel';
@@ -103,8 +103,9 @@ export default function App() {
     () =>
       observeAuth((user) => {
         const nextOwner = user?.uid ?? '';
+        if (nextOwner) clearDriveSessionsExcept(nextOwner);
+        else clearDriveSessions();
         if (nextOwner === account.current) return;
-        clearDriveSessions();
         account.current = nextOwner;
         loadEpoch.current++;
         setOwner(nextOwner);
@@ -893,6 +894,7 @@ export default function App() {
                     </button>
                   </section>
                   <DrivePanel
+                    key={owner}
                     owner={owner}
                     projects={data.projects}
                     trips={data.trips}

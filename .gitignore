@@ -9,3 +9,5 @@ playwright-report/
 *.log
 .npm-cache/
 .DS_Store
+*service-account*.json
+*firebase-admin*.json

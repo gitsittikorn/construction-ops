@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
+    "test": "vitest run && npm --prefix backend test",
     "test:watch": "vitest",
     "check": "npm run format:check && npm run typecheck && npm test && npm run build && npm run smoke && npm run test:e2e",
     "preview": "vite preview --host 127.0.0.1",

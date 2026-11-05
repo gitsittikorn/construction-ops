@@ -1,0 +1,87 @@
+import { initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+import { OAuth2Client } from 'google-auth-library';
+import { createApp } from './app.mjs';
+import { createDriveService } from './driveService.mjs';
+import { createTokenVault } from './tokenVault.mjs';
+
+function required(name) {
+  const value = process.env[name]?.trim();
+  if (!value) throw Error(`Missing server configuration: ${name}`);
+  return value;
+}
+const projectId = required('CONSTRUCTION_FIREBASE_PROJECT_ID');
+const clientId = required('GOOGLE_OAUTH_CLIENT_ID');
+const clientSecret = required('GOOGLE_OAUTH_CLIENT_SECRET');
+const allowedOrigins = required('CORS_ORIGINS')
+  .split(',')
+  .map((value) => value.trim());
+for (const origin of allowedOrigins) {
+  const url = new URL(origin);
+  if (
+    url.origin !== origin ||
+    (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname))
+  )
+    throw Error('CORS_ORIGINS must contain exact HTTPS origins or local development origins');
+}
+initializeApp({ credential: applicationDefault(), projectId });
+const db = getFirestore();
+const collection = db.collection('_driveCredentials');
+const store = {
+  async get(uid) {
+    const snapshot = await collection.doc(uid).get();
+    return snapshot.exists ? snapshot.data() : null;
+  },
+  async put(uid, data) {
+    await collection.doc(uid).set(data);
+  },
+  async remove(uid) {
+    await collection.doc(uid).delete();
+  },
+};
+function client(redirectUri) {
+  return new OAuth2Client({
+    clientId,
+    clientSecret,
+    redirectUri,
+    eagerRefreshThresholdMillis: 120000,
+    transporterOptions: { timeout: 20000 },
+  });
+}
+const google = {
+  async exchange(code, origin) {
+    return (await client(origin).getToken({ code, redirect_uri: origin })).tokens;
+  },
+  async refresh(refreshToken) {
+    const oauth = client();
+    oauth.setCredentials({ refresh_token: refreshToken });
+    return (await oauth.refreshAccessToken()).credentials;
+  },
+  async email(credentials) {
+    const oauth = client();
+    oauth.setCredentials(credentials);
+    const response = await oauth.request({
+      url: 'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',
+      timeout: 20000,
+    });
+    return response.data.user?.emailAddress;
+  },
+};
+const service = createDriveService({
+  store,
+  google,
+  vault: createTokenVault(required('DRIVE_TOKEN_ENCRYPTION_KEY')),
+});
+const app = createApp({
+  service,
+  allowedOrigins,
+  async verifyUser(token) {
+    const user = await getAuth().verifyIdToken(token, true);
+    const admin = await db.collection('admins').doc(user.uid).get();
+    return { ...user, enabled: admin.exists && admin.data().enabled === true };
+  },
+});
+app.listen(process.env.PORT || 3000, '0.0.0.0', () =>
+  console.log('Construction Ops backend listening'),
+);

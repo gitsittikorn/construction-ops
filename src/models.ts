@@ -51,6 +51,7 @@ export interface Data {
   projects: Project[];
   masters: Master[];
   trips: Trip[];
+  deletedTrips?: (Trip & { deletedAt: string })[];
   audit: Audit[];
 }
 export const emptyData: Data = { projects: [], masters: [], trips: [], audit: [] };
