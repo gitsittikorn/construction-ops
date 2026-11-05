@@ -1,10 +1,16 @@
-const CACHE = 'construction-shell-v2';
+const CACHE = 'construction-shell-v3';
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
       .then((cache) =>
-        cache.addAll(['/', '/icon.svg', '/company-logo.jpg', '/manifest.webmanifest']),
+        cache.addAll([
+          '/',
+          '/icon.svg',
+          '/company-logo.jpg',
+          '/login-earthwork.png',
+          '/manifest.webmanifest',
+        ]),
       ),
   );
   self.skipWaiting();
@@ -26,7 +32,11 @@ self.addEventListener('activate', (event) =>
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/assets/') || url.pathname === '/company-logo.jpg') {
+  if (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname === '/company-logo.jpg' ||
+    url.pathname === '/login-earthwork.png'
+  ) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
         const hit = await cache.match(event.request);

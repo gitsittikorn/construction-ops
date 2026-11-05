@@ -34,6 +34,7 @@ import {
 import { loadData, updateData, subscribeDataChanges } from './storage';
 import { configured, observeAuth, login, logout, syncTrip } from './firebase';
 import { companyName, companyLogo } from './branding';
+import LoginPage from './LoginPage';
 import DrivePanel from './DrivePanel';
 import ProjectPicker from './ProjectPicker';
 import SoilTypePicker from './SoilTypePicker';
@@ -334,18 +335,7 @@ export default function App() {
       />
     </Field>
   );
-  if (configured && !owner)
-    return (
-      <main className="login">
-        <img className="login-logo" src={companyLogo} alt={companyName} />
-        <h1>{companyName}</h1>
-        <p>ระบบบริหารงานถมดินและก่อสร้าง</p>
-        <button onClick={() => login().catch((e) => setError(message(e)))}>
-          เข้าสู่ระบบด้วย Google
-        </button>
-        {error && <p role="alert">{error}</p>}
-      </main>
-    );
+  if (configured && !owner) return <LoginPage onLogin={login} online={online} />;
   return (
     <div className="shell">
       <aside className="sidebar">

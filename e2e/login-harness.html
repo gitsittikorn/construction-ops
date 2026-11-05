@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login UI test harness</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React, { useState } from 'react';
+      import { createRoot } from 'react-dom/client';
+      import LoginPage from '/src/LoginPage.tsx';
+      import '/src/styles.css';
+      let attempts = 0;
+      function Harness() {
+        const [signedIn, setSignedIn] = useState(false);
+        if (signedIn) return React.createElement('h1', null, 'Signed in');
+        return React.createElement(LoginPage, {
+          online: true,
+          onLogin: async () => {
+            attempts++;
+            if (new URLSearchParams(location.search).has('fail') && attempts === 1)
+              throw { code: 'auth/unauthorized-domain' };
+            setSignedIn(true);
+          },
+        });
+      }
+      createRoot(document.getElementById('root')).render(React.createElement(Harness));
+    </script>
+  </body>
+</html>
