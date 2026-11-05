@@ -1,4 +1,4 @@
-import type { Data } from './models';
+import type { Data, Project, Master } from './models';
 import type { UploadRecord } from './uploads';
 
 export function deleteRecord(
@@ -37,6 +37,22 @@ export function deleteRecord(
   return {
     ...data,
     [key]: data[key].filter((item) => item.id !== id),
+    ...(type === 'project'
+      ? {
+          deletedProjects: [
+            ...(data.deletedProjects ?? []),
+            { ...(record as Project), updatedAt: now, deletedAt: now },
+          ],
+        }
+      : {}),
+    ...(type === 'master'
+      ? {
+          deletedMasters: [
+            ...(data.deletedMasters ?? []),
+            { ...(record as Master), updatedAt: now, deletedAt: now },
+          ],
+        }
+      : {}),
     ...(type === 'trip' && 'revision' in record
       ? {
           deletedTrips: [

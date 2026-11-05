@@ -1352,3 +1352,13 @@ main.login-screen {
     display: block;
   }
 }
+.cloud-sync-panel {
+  margin-bottom: 20px;
+}
+.cloud-sync-panel button {
+  margin: 4px 8px 4px 0;
+}
+.cloud-sync-panel td {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

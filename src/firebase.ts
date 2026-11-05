@@ -8,7 +8,6 @@ import {
   type User,
 } from 'firebase/auth';
 import { getFirestore, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import type { Trip } from './models';
 import type { UploadRecord } from './uploads';
 import { withDeadline, connectionMessage } from './async';
 const config = {
@@ -39,7 +38,7 @@ export async function getFirebaseIdToken(owner: string) {
   if (!user || user.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ backend');
   return user.getIdToken();
 }
-function ownerDatabase(owner: string) {
+export function ownerDatabase(owner: string) {
   if (!app || auth?.currentUser?.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ');
   return getFirestore(app);
 }
@@ -105,30 +104,4 @@ export async function saveDocumentMetadata(owner: string, record: UploadRecord) 
       });
     }),
   );
-}
-export async function syncTrip(owner: string, trip: Trip) {
-  if (!app || auth?.currentUser?.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนซิงก์');
-  const db = getFirestore(app);
-  const ref = doc(db, 'users', owner, 'trips', trip.id);
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    if (snapshot.exists()) {
-      const remote = snapshot.data();
-      if (remote.revision > trip.revision) throw Error('ข้อมูลบนเซิร์ฟเวอร์ใหม่กว่า กรุณาตรวจสอบ');
-      if (remote.revision === trip.revision) {
-        for (const key of Object.keys(trip) as (keyof Trip)[])
-          if (key !== 'syncStatus' && remote[key] !== trip[key])
-            throw Error('ข้อมูลบนเซิร์ฟเวอร์ไม่ตรงกัน กรุณาตรวจสอบ');
-        return;
-      }
-    }
-    transaction.set(ref, { ...trip, syncStatus: 'synced', serverUpdatedAt: serverTimestamp() });
-    transaction.set(doc(db, 'users', owner, 'audit', `${trip.id}-${trip.revision}`), {
-      entityId: trip.id,
-      action: 'sync',
-      actor: owner,
-      revision: trip.revision,
-      at: serverTimestamp(),
-    });
-  });
 }

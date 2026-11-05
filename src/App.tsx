@@ -32,7 +32,12 @@ import {
   parseCoordinateInput,
 } from './domain';
 import { loadData, updateData, subscribeDataChanges } from './storage';
-import { configured, observeAuth, login, logout, syncTrip } from './firebase';
+import { configured, observeAuth, login, logout } from './firebase';
+import { synchronize, resolveConflict } from './cloudSync';
+import { canonical, payloadOf } from './syncModel';
+import { deleteRecord } from './deletion';
+import { listUploads } from './uploads';
+import CloudSyncPanel from './CloudSyncPanel';
 import { companyName, companyLogo } from './branding';
 import LoginPage from './LoginPage';
 import DrivePanel from './DrivePanel';
@@ -83,11 +88,15 @@ export default function App() {
     [online, setOnline] = useState(navigator.onLine),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
+    [cloudStatus, setCloudStatus] = useState(''),
+    [cloudError, setCloudError] = useState(''),
+    [cloudAccess, setCloudAccess] = useState<'checking' | 'allowed' | 'denied'>('checking'),
     [query, setQuery] = useState(''),
     [filter, setFilter] = useState(''),
     [date, setDate] = useState(workDate()),
     [modal, setModal] = useState<'project' | 'master' | 'trip' | null>(null),
     [editing, setEditing] = useState<Project | Master | Trip | null>(null),
+    [confirmDelete, setConfirmDelete] = useState(false),
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
   const [tripProject, setTripProject] = useState('');
@@ -111,6 +120,9 @@ export default function App() {
         loadEpoch.current++;
         setOwner(nextOwner);
         setReady(false);
+        setCloudAccess('checking');
+        setCloudStatus('');
+        setCloudError('');
         setData(emptyData);
         setModal(null);
       }),
@@ -151,7 +163,18 @@ export default function App() {
     if (writeLock.current) throw Error('กำลังบันทึก กรุณาลองใหม่');
     writeLock.current = true;
     try {
-      const next = await updateData(owner, make);
+      const next = await updateData(owner, (old) => {
+        if (account.current !== owner) throw Error('บัญชีเปลี่ยนแล้ว กรุณาเปิดรายการใหม่');
+        if (editing && modal) {
+          const records =
+            modal === 'project' ? old.projects : modal === 'master' ? old.masters : old.trips;
+          const latest = records.find((record) => record.id === editing.id);
+          if (!latest || canonical(payloadOf(latest)) !== canonical(payloadOf(editing)))
+            throw Error('ข้อมูลเปลี่ยนแปลงแล้ว กรุณาปิดฟอร์มและเปิดรายการใหม่');
+        }
+        return make(old);
+      });
+      if (account.current !== owner) return;
       loadEpoch.current++;
       current.current = next;
       setData(next);
@@ -159,35 +182,92 @@ export default function App() {
       writeLock.current = false;
     }
   }
-  async function sync() {
+  async function sync(force = true) {
     if (syncLock.current || !ready || !configured || !online || !owner) return;
     syncLock.current = true;
     setBusy(true);
+    setCloudError('');
+    setCloudStatus('กำลังตรวจสอบสิทธิ์และข้อมูล Cloud');
     try {
-      for (const trip of current.current.trips.filter((t) => t.syncStatus !== 'synced')) {
-        await syncTrip(owner, trip);
-        await change((old) => ({
-          ...old,
-          trips: old.trips.map((t) =>
-            t.id === trip.id && t.revision === trip.revision ? { ...t, syncStatus: 'synced' } : t,
-          ),
-        }));
-      }
-      setNotice('ซิงก์เที่ยวรถสำเร็จ');
+      const { firestoreTransport } = await import('./cloudFirestore');
+      await synchronize(
+        owner,
+        {
+          ...firestoreTransport,
+          authorize: async (uid) => {
+            try {
+              await firestoreTransport.authorize(uid);
+              if (account.current === uid) setCloudAccess('allowed');
+            } catch (e) {
+              const code = e && typeof e === 'object' && 'code' in e ? String(e.code) : '';
+              if (account.current === uid)
+                setCloudAccess(
+                  !['permission-denied', 'unauthenticated'].includes(code) &&
+                    current.current.sync?.adminVerifiedAt
+                    ? 'allowed'
+                    : 'denied',
+                );
+              throw e;
+            }
+          },
+        },
+        () => account.current === owner && navigator.onLine,
+        (status) => {
+          if (account.current === owner) setCloudStatus(status);
+        },
+        force,
+      );
     } catch (e) {
-      setError(message(e));
+      if (account.current === owner) {
+        setCloudError(message(e));
+        setCloudStatus('ซิงก์ไม่สำเร็จ ข้อมูลและคิวที่ค้างยังอยู่ในเครื่อง');
+      }
     } finally {
       syncLock.current = false;
       setBusy(false);
     }
   }
   useEffect(() => {
-    if (online && ready && configured) void sync();
+    if (online && ready && configured) void sync(false);
   }, [online, ready, owner]);
+  useEffect(() => {
+    if (!configured || !online || !ready) return;
+    const timer = window.setInterval(() => void sync(false), 30000);
+    return () => window.clearInterval(timer);
+  }, [owner, online, ready]);
+  const localOperations = Object.values(data.sync?.entries ?? {})
+    .map((entry) => entry.desired.operationId)
+    .join('|');
+  useEffect(() => {
+    if (!configured || !online || !ready) return;
+    const timer = window.setTimeout(() => void sync(false), 500);
+    return () => window.clearTimeout(timer);
+  }, [localOperations, owner, online, ready]);
+  async function resolve(key: string, choice: 'local' | 'remote') {
+    if (syncLock.current || !owner || !online) return;
+    syncLock.current = true;
+    setBusy(true);
+    try {
+      const { firestoreTransport } = await import('./cloudFirestore');
+      await resolveConflict(
+        owner,
+        key,
+        choice,
+        firestoreTransport,
+        () => account.current === owner,
+      );
+    } catch (e) {
+      if (account.current === owner) setError(message(e));
+    } finally {
+      syncLock.current = false;
+      setBusy(false);
+    }
+  }
   function message(e: unknown) {
     return e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
   }
   function open(type: typeof modal, record: typeof editing = null) {
+    setConfirmDelete(false);
     if (type === 'trip') setTripSoilType(record && 'soilType' in record ? record.soilType : '');
     if (type === 'trip')
       setTripProject(record && 'projectId' in record ? record.projectId : (active[0]?.id ?? ''));
@@ -270,14 +350,30 @@ export default function App() {
         };
         await change((old) => saveTrip(old, record, owner));
       }
+      if (account.current !== owner) return;
       setModal(null);
       setNotice('บันทึกในเครื่องเรียบร้อย');
     } catch (e) {
       setError(message(e));
     }
   }
+  async function remove() {
+    if (!editing || !modal || writeLock.current) return;
+    try {
+      const uploads = await listUploads(owner);
+      await change((old) => deleteRecord(old, modal, editing.id, owner, uploads));
+      if (account.current !== owner) return;
+      setModal(null);
+      setConfirmDelete(false);
+      setNotice('ลบออกจากรายการใช้งานแล้ว โดยเก็บข้อมูลและประวัติไว้');
+    } catch (e) {
+      setError(message(e));
+    }
+  }
   const todayTrips = data.trips.filter((t) => t.date === workDate()),
-    pending = data.trips.filter((t) => t.syncStatus !== 'synced').length,
+    pending = data.sync
+      ? Object.values(data.sync.entries).filter((entry) => entry.status !== 'synced').length
+      : data.trips.filter((t) => t.syncStatus !== 'synced').length,
     active = data.projects.filter((p) => p.status === 'active'),
     trucks = data.masters.filter((m) => m.kind === 'truck');
   const tripRows = data.trips
@@ -336,6 +432,32 @@ export default function App() {
     </Field>
   );
   if (configured && !owner) return <LoginPage onLogin={login} online={online} />;
+  if (
+    configured &&
+    owner &&
+    cloudAccess !== 'allowed' &&
+    !(cloudAccess !== 'denied' && !online && data.sync?.adminVerifiedAt)
+  )
+    return (
+      <main>
+        <h1>
+          {cloudAccess === 'denied'
+            ? 'ไม่สามารถตรวจสอบสิทธิ์ Admin ได้'
+            : 'กำลังตรวจสอบสิทธิ์ Admin'}
+        </h1>
+        <p role="alert">
+          {cloudError ||
+            error ||
+            (!online
+              ? 'ต้องออนไลน์เพื่อตรวจสอบสิทธิ์ครั้งแรก ข้อมูลในเครื่องยังถูกเก็บไว้'
+              : 'กำลังติดต่อ Cloud')}
+        </p>
+        <button disabled={busy || !online || !ready} onClick={() => void sync()}>
+          ลองตรวจสอบสิทธิ์ใหม่
+        </button>
+        <button onClick={() => void logout().catch((e) => setError(message(e)))}>ออกจากระบบ</button>
+      </main>
+    );
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -347,6 +469,7 @@ export default function App() {
           {pages.map(([id, title, Icon]) => (
             <button
               key={id}
+              aria-label={title}
               className={page === id ? 'selected' : ''}
               onClick={() => {
                 setPage(id);
@@ -401,6 +524,19 @@ export default function App() {
           </div>
         </header>
         <main>
+          {ready && (
+            <CloudSyncPanel
+              owner={owner}
+              data={data}
+              configured={configured}
+              online={online}
+              busy={busy}
+              status={cloudStatus}
+              failure={cloudError}
+              onSync={sync}
+              onResolve={resolve}
+            />
+          )}
           <div className="page-title">
             <div>
               <span className="eyebrow">CONSTRUCTION WORKSPACE</span>
@@ -948,6 +1084,24 @@ export default function App() {
               </button>
             </div>
             <form onSubmit={submit}>
+              {editing && (
+                <div>
+                  <button type="button" onClick={() => setConfirmDelete(true)}>
+                    ลบรายการโดยเก็บประวัติ
+                  </button>
+                  {confirmDelete && (
+                    <div>
+                      <p>รายการจะถูกซ่อนจากการใช้งาน โดยเก็บข้อมูลและประวัติไว้</p>
+                      <button type="button" onClick={() => void remove()}>
+                        ยืนยันลบรายการ
+                      </button>
+                      <button type="button" onClick={() => setConfirmDelete(false)}>
+                        ยกเลิกการลบ
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="form-grid">
                 {modal === 'project' ? (
                   <>

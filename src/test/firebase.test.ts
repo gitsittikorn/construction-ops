@@ -1,5 +1,4 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import type { Trip } from '../models';
 const mocks = vi.hoisted(() => ({
   set: vi.fn(),
   get: vi.fn(),
@@ -20,21 +19,6 @@ vi.mock('firebase/firestore', () => ({
   runTransaction: async (_: unknown, callback: (tx: unknown) => Promise<void>) =>
     callback({ get: mocks.get, set: mocks.set }),
 }));
-const trip: Trip = {
-  id: 'trip',
-  createdAt: 'now',
-  updatedAt: 'now',
-  projectId: 'p',
-  date: '2026-11-02',
-  time: '09:00',
-  truckId: 't',
-  driverId: '',
-  sourceId: '',
-  soilType: '',
-  notes: '',
-  revision: 1,
-  syncStatus: 'pending',
-};
 beforeEach(() => {
   vi.resetModules();
   vi.stubEnv('VITE_FIREBASE_API_KEY', 'test');
@@ -127,59 +111,15 @@ describe('cloud sync adapter (mocked Firebase SDK)', () => {
     ).rejects.toThrow();
     expect(mocks.set).not.toHaveBeenCalled();
   });
-  it('writes a stable document ID and audit together', async () => {
-    mocks.get.mockResolvedValue({ exists: () => false });
-    const { syncTrip } = await import('../firebase');
-    await syncTrip('admin', trip);
-    expect(mocks.set).toHaveBeenCalledWith(
-      'users/admin/trips/trip',
-      expect.objectContaining({ syncStatus: 'synced', serverUpdatedAt: 'server-time' }),
-    );
-    expect(mocks.set).toHaveBeenCalledTimes(2);
-  });
-  it('does not duplicate an acknowledged retry', async () => {
-    mocks.get.mockResolvedValue({
-      exists: () => true,
-      data: () => ({ ...trip, syncStatus: 'synced' }),
-    });
-    await (await import('../firebase')).syncTrip('admin', trip);
-    expect(mocks.set).not.toHaveBeenCalled();
-  });
-  it('allows several offline edits before first sync', async () => {
-    mocks.get.mockResolvedValue({ exists: () => false });
-    await (await import('../firebase')).syncTrip('admin', { ...trip, revision: 3 });
-    expect(mocks.set).toHaveBeenCalledWith(
-      'users/admin/trips/trip',
-      expect.objectContaining({ revision: 3 }),
-    );
-  });
-  it('rejects stale data or conflicting payloads', async () => {
-    const { syncTrip } = await import('../firebase');
-    mocks.get.mockResolvedValue({ exists: () => true, data: () => ({ ...trip, revision: 2 }) });
-    await expect(syncTrip('admin', trip)).rejects.toThrow();
-    mocks.get.mockResolvedValue({
-      exists: () => true,
-      data: () => ({ ...trip, notes: 'conflict' }),
-    });
-    await expect(syncTrip('admin', trip)).rejects.toThrow();
-    expect(mocks.set).not.toHaveBeenCalled();
-  });
-  it('retains errors for callers to retry', async () => {
-    mocks.get.mockRejectedValue(Error('permission-denied'));
-    await expect((await import('../firebase')).syncTrip('admin', trip)).rejects.toThrow(
-      'permission-denied',
-    );
-    expect(mocks.set).not.toHaveBeenCalled();
-  });
   it('rejects missing or mismatched authentication', async () => {
     mocks.auth.currentUser = null;
-    await expect((await import('../firebase')).syncTrip('admin', trip)).rejects.toThrow();
+    await expect((await import('../firebase')).getFirebaseIdToken('admin')).rejects.toThrow();
   });
   it('fails closed when Firebase is unconfigured', async () => {
     vi.stubEnv('VITE_FIREBASE_API_KEY', '');
-    const { configured, syncTrip, login } = await import('../firebase');
+    const { configured, getFirebaseIdToken, login } = await import('../firebase');
     expect(configured).toBe(false);
-    await expect(syncTrip('admin', trip)).rejects.toThrow();
+    await expect(getFirebaseIdToken('admin')).rejects.toThrow();
     await expect(login()).rejects.toThrow();
   });
 });

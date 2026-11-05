@@ -8,6 +8,14 @@ const authMock = vi.hoisted(() => ({
   initiallySignedIn: true,
   login: vi.fn(),
 }));
+vi.mock('../cloudFirestore', () => ({
+  firestoreTransport: {
+    authorize: vi.fn().mockResolvedValue(undefined),
+    pull: vi.fn().mockResolvedValue({ records: [], cursors: {} }),
+    push: vi.fn(async (_owner, _collection, entry) => entry.desired),
+    read: vi.fn().mockResolvedValue(null),
+  },
+}));
 vi.mock('../firebase', () => ({
   configured: true,
   observeAuth: (callback: (user: { uid: string } | null) => void) => {

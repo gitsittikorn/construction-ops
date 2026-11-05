@@ -52,6 +52,9 @@ export interface Data {
   masters: Master[];
   trips: Trip[];
   deletedTrips?: (Trip & { deletedAt: string })[];
+  deletedProjects?: (Project & { deletedAt: string })[];
+  deletedMasters?: (Master & { deletedAt: string })[];
+  sync?: import('./syncModel').SyncState;
   audit: Audit[];
 }
 export const emptyData: Data = { projects: [], masters: [], trips: [], audit: [] };

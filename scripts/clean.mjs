@@ -8,6 +8,8 @@ const generated = [
   'test-results',
   'playwright-report',
   'tsconfig.tsbuildinfo',
+  'firebase-debug.log',
+  'firestore-debug.log',
 ];
 for (const name of generated) {
   const target = path.resolve(root, name);

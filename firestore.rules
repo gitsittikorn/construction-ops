@@ -2,13 +2,34 @@ rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
   function owner(uid) { return request.auth != null && request.auth.uid == uid && exists(/databases/$(database)/documents/admins/$(uid)) && get(/databases/$(database)/documents/admins/$(uid)).data.enabled == true; }
-  match /admins/{uid} { allow read, write: if false; }
-  match /users/{uid}/trips/{tripId} {
-   allow read: if owner(uid);
-   allow create: if owner(uid) && request.resource.data.id == tripId && request.resource.data.revision >= 1 && validTrip();
-   allow update: if owner(uid) && request.resource.data.id == tripId && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.revision > resource.data.revision && validTrip();
+  match /admins/{uid} { allow get: if request.auth != null && request.auth.uid == uid; allow list, write: if false; }
+  match /users/{uid}/{kind}/{entityId} {
+   function supported() { return kind in ['projects', 'masters', 'trips']; }
+   allow read: if supported() && owner(uid);
+   allow create: if supported() && owner(uid) && validEnvelope() && request.resource.data.revision == 1;
+   allow update: if supported() && owner(uid) && validEnvelope() && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.operationId != resource.data.get('operationId', '');
    allow delete: if false;
-   function validTrip() { return request.resource.data.keys().hasOnly(['id','createdAt','updatedAt','projectId','date','time','truckId','driverId','sourceId','soilType','notes','syncStatus','revision','serverUpdatedAt']) && request.resource.data.projectId is string && request.resource.data.projectId.size() > 0 && request.resource.data.truckId is string && request.resource.data.truckId.size() > 0 && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.time.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$') && request.resource.data.notes is string && request.resource.data.notes.size() <= 10000 && request.resource.data.revision is int && request.resource.data.syncStatus == 'synced' && request.resource.data.serverUpdatedAt == request.time; }
+   function validEnvelope() {
+    let d = request.resource.data;
+    let p = d.payload;
+    return d.keys().hasAll(['schemaVersion','id','revision','operationId','createdAt','updatedAt','deletedAt','payload','serverUpdatedAt']) && d.keys().hasOnly(['schemaVersion','id','revision','operationId','createdAt','updatedAt','deletedAt','payload','serverUpdatedAt']) && d.schemaVersion == 1 && d.id == entityId && d.revision is int && d.revision > 0 && d.operationId is string && d.operationId.size() > 0 && d.operationId.size() <= 200 && d.createdAt is string && d.updatedAt is string && (d.deletedAt == null || d.deletedAt is string) && d.serverUpdatedAt == request.time && p is map && p.id == d.id && p.createdAt == d.createdAt && p.updatedAt == d.updatedAt && (kind == 'projects' ? validProject(p) : kind == 'masters' ? validMaster(p) : validTrip(p));
+   }
+   function validProject(p) {
+    return p.keys().hasAll(['id','createdAt','updatedAt','name','customer','location','startDate','endDate','status','description']) && p.keys().hasOnly(['id','createdAt','updatedAt','name','customer','location','latitude','longitude','startDate','endDate','status','description']) && p.name is string && p.name.size() > 0 && p.name.size() <= 500 && p.customer is string && p.location is string && p.startDate is string && p.endDate is string && p.description is string && p.description.size() <= 10000 && p.status in ['draft','active','completed','archived'] && (!p.keys().hasAny(['latitude','longitude']) || (p.latitude is number && p.latitude >= -90 && p.latitude <= 90 && p.longitude is number && p.longitude >= -180 && p.longitude <= 180));
+   }
+   function validMaster(p) {
+    return p.keys().hasAll(['id','createdAt','updatedAt','kind','name','detail','capacity','active']) && p.keys().hasOnly(['id','createdAt','updatedAt','kind','name','detail','capacity','active','province','phone','truckType','tagIds']) && p.kind in ['truck','driver','source','customer','soilType','tag'] && p.name is string && p.name.size() > 0 && p.name.size() <= 200 && p.detail is string && p.detail.size() <= 10000 && p.capacity is number && p.capacity >= 0 && p.active is bool && (!('province' in p) || p.province is string) && (!('phone' in p) || p.phone is string) && (!('truckType' in p) || p.truckType in ['six-wheel','ten-wheel','other']) && (!('tagIds' in p) || (p.tagIds is list && p.tagIds.size() <= 100));
+   }
+   function validTrip(p) {
+    return p.keys().hasAll(['id','createdAt','updatedAt','projectId','date','time','truckId','driverId','sourceId','soilType','notes','revision']) && p.keys().hasOnly(['id','createdAt','updatedAt','projectId','date','time','truckId','driverId','sourceId','soilType','notes','revision']) && p.projectId is string && p.projectId.size() > 0 && p.truckId is string && p.truckId.size() > 0 && p.driverId is string && p.sourceId is string && p.soilType is string && p.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && p.time.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$') && p.notes is string && p.notes.size() <= 10000 && p.revision is int && p.revision >= 1 && exists(/databases/$(database)/documents/users/$(uid)/projects/$(p.projectId)) && exists(/databases/$(database)/documents/users/$(uid)/masters/$(p.truckId)) && get(/databases/$(database)/documents/users/$(uid)/masters/$(p.truckId)).data.payload.kind == 'truck' && (p.driverId == '' || (exists(/databases/$(database)/documents/users/$(uid)/masters/$(p.driverId)) && get(/databases/$(database)/documents/users/$(uid)/masters/$(p.driverId)).data.payload.kind == 'driver')) && (p.sourceId == '' || (exists(/databases/$(database)/documents/users/$(uid)/masters/$(p.sourceId)) && get(/databases/$(database)/documents/users/$(uid)/masters/$(p.sourceId)).data.payload.kind == 'source'));
+   }
+  }
+  match /users/{uid}/uniqueKeys/{key} {
+   allow read: if owner(uid);
+   allow create: if owner(uid) && validClaim();
+   allow update: if owner(uid) && validClaim() && (resource.data.entityId == request.resource.data.entityId || resource.data.active == false);
+   allow delete: if false;
+   function validClaim() { return request.resource.data.keys().hasOnly(['entityId','active']) && request.resource.data.entityId is string && request.resource.data.active is bool && existsAfter(/databases/$(database)/documents/users/$(uid)/masters/$(request.resource.data.entityId)); }
   }
   match /users/{uid}/audit/{eventId} { allow read: if owner(uid); allow create: if owner(uid) && request.resource.data.actor == uid && request.resource.data.at == request.time; allow update, delete: if false; }
   match /users/{uid}/driveFolders/{key} {
