@@ -120,6 +120,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     .getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true })
     .setInputFiles({ name: 'driver.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('button', { name: 'บันทึกภาพต้นฉบับ', exact: true }).click();
+  await expect(page.getByText('driver.png · อยู่ในคิวอัปโหลด', { exact: true })).toBeVisible();
   await page.getByLabel('ประเภทภาพหลักฐาน', { exact: true }).selectOption('trip-slip');
   await page.getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true }).setInputFiles([
     { name: 'slip-1.png', mimeType: 'image/png', buffer: png },
@@ -130,8 +131,11 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     },
   ]);
   await page.getByRole('button', { name: 'บันทึกภาพต้นฉบับ', exact: true }).click();
+  await expect(page.getByText('slip-1.png · อยู่ในคิวอัปโหลด', { exact: true })).toBeVisible();
+  await expect(page.getByText('slip-2.png · อยู่ในคิวอัปโหลด', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true })).toBeEnabled();
   const canvas = page.getByLabel('พื้นที่ลงลายเซ็น', { exact: true });
-  await canvas.scrollIntoViewIfNeeded();
+  await canvas.click({ trial: true });
   const bounds = (await canvas.boundingBox())!,
     x = bounds.x + 40,
     y = bounds.y + 50;
@@ -140,11 +144,16 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     type: 'touchStart',
     touchPoints: [{ x, y, id: 1 }],
   });
-  for (let i = 1; i <= 4; i++)
+  for (let i = 1; i <= 4; i++) {
     await cdp.send('Input.dispatchTouchEvent', {
       type: 'touchMove',
       touchPoints: [{ x: x + i * 15, y: y + i * 5, id: 1 }],
     });
+    // Chromium coalesces touch moves within a frame; let each stroke reach the canvas.
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+  }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
   await page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true }).click();

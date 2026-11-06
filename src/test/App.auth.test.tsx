@@ -1,7 +1,9 @@
 import { render, screen, act } from '@testing-library/react';
 import App from '../App';
 import { emptyData } from '../models';
-import { persistData } from '../storage';
+import { loadData, persistData, updateData } from '../storage';
+import { firestoreTransport } from '../cloudFirestore';
+import { fixture } from './syncFixtures';
 import userEvent from '@testing-library/user-event';
 const authMock = vi.hoisted(() => ({
   callback: null as null | ((user: { uid: string } | null) => void),
@@ -35,7 +37,25 @@ vi.mock('../firebase', () => ({
 beforeEach(() => {
   authMock.initiallySignedIn = true;
   authMock.login.mockReset();
+  vi.mocked(firestoreTransport.pull).mockReset().mockResolvedValue({ records: [], cursors: {} });
 });
+it.each(['permission-denied', 'unauthenticated'])(
+  'closes the workspace when %s occurs after authorization without losing pending data',
+  async (code) => {
+    await persistData('test-owner', fixture());
+    await updateData('test-owner', (data) => data);
+    vi.mocked(firestoreTransport.pull).mockRejectedValue(
+      Object.assign(new Error('access revoked during restore'), { code }),
+    );
+    render(<App />);
+    await screen.findByRole('heading', { name: 'ไม่สามารถตรวจสอบสิทธิ์ Admin ได้' });
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ลองตรวจสอบสิทธิ์ใหม่' })).toBeEnabled();
+    const stored = await loadData('test-owner');
+    expect(stored.projects[0].name).toBe('Site');
+    expect(stored.sync!.entries['projects/p'].status).toBe('pending');
+  },
+);
 it('keeps existing data visible when Firebase repeats the same signed-in account event', async () => {
   await persistData('test-owner', {
     ...emptyData,
@@ -80,4 +100,24 @@ it('keeps the login page usable when Firebase rejects the domain', async () => {
     'เพิ่มโดเมนใน Firebase Authentication',
   );
   expect(screen.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' })).toBeEnabled();
+});
+
+it('P1-13/18 hides the previous account on sign-out and restores only the returning account', async () => {
+  await persistData('test-owner', fixture());
+  await persistData('second-owner', {
+    ...fixture(),
+    projects: [{ ...fixture().projects[0], name: 'Second account site' }],
+  });
+  render(<App />);
+  await screen.findByText('Site', { exact: true });
+  await act(async () => authMock.callback?.(null));
+  await screen.findByRole('button', { name: 'เข้าสู่ระบบด้วย Google' });
+  expect(screen.queryByText('Site', { exact: true })).not.toBeInTheDocument();
+  await act(async () => authMock.callback?.({ uid: 'second-owner' }));
+  await screen.findByText('Second account site', { exact: true });
+  expect(screen.queryByText('Site', { exact: true })).not.toBeInTheDocument();
+  await act(async () => authMock.callback?.({ uid: 'test-owner' }));
+  await screen.findByText('Site', { exact: true });
+  expect(screen.queryByText('Second account site', { exact: true })).not.toBeInTheDocument();
+  expect((await loadData('second-owner')).projects[0].name).toBe('Second account site');
 });

@@ -1,5 +1,13 @@
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  type Firestore,
+} from 'firebase/firestore';
 import { readFile } from 'node:fs/promises';
 import { firestoreTransport } from '../cloudFirestore';
 import { synchronize, resolveConflict } from '../cloudSync';
@@ -42,6 +50,81 @@ beforeEach(async () => {
   session.db = environment.authenticatedContext(session.owner).firestore() as unknown as Firestore;
 });
 afterEach(() => vi.unstubAllGlobals());
+it('P1-07/08/09 recovers a lost commit response and coalesces offline revisions without duplicate cloud records or audit', async () => {
+  const owner = session.owner;
+  await persistData(owner, fixture());
+  for (const name of ['offline one', 'offline two', 'offline final'])
+    await updateData(owner, (data) => ({ ...data, projects: [{ ...data.projects[0], name }] }));
+  const operation = (await loadData(owner)).sync!.entries['projects/p'].desired.operationId;
+  let interrupted = false;
+  await expect(
+    synchronize(owner, {
+      ...firestoreTransport,
+      push: async (...args) => {
+        const result = await firestoreTransport.push(...args);
+        if (!interrupted) {
+          interrupted = true;
+          throw Error('simulated lost response after server commit');
+        }
+        return result;
+      },
+    }),
+  ).rejects.toThrow('lost response');
+  expect((await loadData(owner)).sync!.entries['projects/p'].status).toBe('pending');
+  expect(
+    (await getDoc(doc(session.db!, 'users', owner, 'projects', 'p'))).data()?.operationId,
+  ).toBe(operation);
+  for (let retry = 0; retry < 3; retry++) await synchronize(owner, firestoreTransport);
+  expect((await getDocs(collection(session.db!, 'users', owner, 'projects'))).size).toBe(1);
+  expect((await getDocs(collection(session.db!, 'users', owner, 'masters'))).size).toBe(1);
+  expect((await getDocs(collection(session.db!, 'users', owner, 'trips'))).size).toBe(1);
+  expect((await getDocs(collection(session.db!, 'users', owner, 'audit'))).size).toBe(3);
+  expect((await loadData(owner)).projects[0].name).toBe('offline final');
+  expect(
+    Object.values((await loadData(owner)).sync!.entries).every((e) => e.status === 'synced'),
+  ).toBe(true);
+});
+
+it('P1-10/13/19 restores every master category into independent device storage and preserves another account', async () => {
+  const owner = session.owner,
+    original = fixture();
+  original.masters.push(
+    ...(['driver', 'source', 'customer', 'soilType', 'tag'] as const).map((kind) => ({
+      ...truck,
+      id: kind,
+      kind,
+    })),
+  );
+  await persistData(owner, original);
+  await synchronize(owner, firestoreTransport);
+  const firstDatabase = indexedDB;
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  try {
+    const other = `${owner}-other`;
+    await persistData(other, {
+      ...emptyData,
+      projects: [{ ...project, name: 'Other account private' }],
+    });
+    expect((await loadData(owner)).projects).toEqual([]);
+    await synchronize(owner, firestoreTransport);
+    const restored = await loadData(owner);
+    expect(restored.projects).toEqual(original.projects);
+    expect(restored.masters.map((m) => m.kind).sort()).toEqual([
+      'customer',
+      'driver',
+      'soilType',
+      'source',
+      'tag',
+      'truck',
+    ]);
+    expect(restored.trips).toEqual([{ ...trip, syncStatus: 'synced' }]);
+    expect((await loadData(other)).projects[0].name).toBe('Other account private');
+    expect((await loadData(other)).trips).toEqual([]);
+  } finally {
+    vi.stubGlobal('indexedDB', firstDatabase);
+  }
+  expect((await loadData(owner)).projects).toEqual(original.projects);
+});
 it('syncs a daily session with actual rules and restores proof metadata to a separate fake device after simulated Drive upload', async () => {
   const owner = session.owner,
     original = fixture();
@@ -115,8 +198,20 @@ it('syncs a daily session with actual rules and restores proof metadata to a sep
     (await getDoc(doc(session.db!, 'users', owner, 'workspaces', daily.id))).data()?.payload.body
       .state,
   ).toBe('closed');
-  const sealedRef=doc(session.db!,'users',owner,'workspaces',daily.id),sealed=(await getDoc(sealedRef)).data()!;
-  await expect(setDoc(sealedRef,{...sealed,revision:sealed.revision+1,operationId:crypto.randomUUID(),serverUpdatedAt:serverTimestamp(),payload:{...sealed.payload,body:{...sealed.payload.body,state:'open',version:sealed.payload.body.version+1}}})).rejects.toMatchObject({code:'permission-denied'});
+  const sealedRef = doc(session.db!, 'users', owner, 'workspaces', daily.id),
+    sealed = (await getDoc(sealedRef)).data()!;
+  await expect(
+    setDoc(sealedRef, {
+      ...sealed,
+      revision: sealed.revision + 1,
+      operationId: crypto.randomUUID(),
+      serverUpdatedAt: serverTimestamp(),
+      payload: {
+        ...sealed.payload,
+        body: { ...sealed.payload.body, state: 'open', version: sealed.payload.body.version + 1 },
+      },
+    }),
+  ).rejects.toMatchObject({ code: 'permission-denied' });
   const originalDatabase = indexedDB;
   vi.stubGlobal('indexedDB', new IDBFactory());
   try {

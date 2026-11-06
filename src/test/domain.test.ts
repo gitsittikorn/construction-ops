@@ -105,6 +105,13 @@ describe('trip integrity', () => {
   });
 });
 describe('input validation', () => {
+  it.each([
+    ['2026-11-05T16:59:59.999Z', '2026-11-05'],
+    ['2026-11-05T17:00:00.000Z', '2026-11-06'],
+    ['2026-12-31T17:00:00.000Z', '2027-01-01'],
+  ])('P1-16 maps %s to Bangkok work date %s', (instant, expected) => {
+    expect(workDate(new Date(instant))).toBe(expected);
+  });
   it('formats work timestamps in Bangkok even across the UTC date boundary', () => {
     expect(workTimestamp('2026-11-05T17:30:00Z')).toContain('06/11/2569');
     expect(workTimestamp('legacy')).toBe('legacy');

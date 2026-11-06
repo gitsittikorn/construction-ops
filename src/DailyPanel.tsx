@@ -41,7 +41,7 @@ export default function DailyPanel({
     [notice, setNotice] = useState(''),
     [reason, setReason] = useState(''),
     [editing, setEditing] = useState<DailyRow | null>(null),
-    [editingVersion,setEditingVersion] = useState<number|null>(null),
+    [editingVersion, setEditingVersion] = useState<number | null>(null),
     [evidenceRow, setEvidenceRow] = useState(''),
     [selectedTruck, setSelectedTruck] = useState(''),
     [busy, setBusy] = useState(false),
@@ -88,7 +88,7 @@ export default function DailyPanel({
   }
   function edit(row: DailyRow | null) {
     setEditing(row);
-    setEditingVersion(row ? session?.body.version ?? null : null);
+    setEditingVersion(row ? (session?.body.version ?? null) : null);
     setSelectedTruck(row?.truckId ?? '');
     draftId.current = crypto.randomUUID();
   }
@@ -140,7 +140,14 @@ export default function DailyPanel({
     };
     await run(async () => {
       await onChange((old) =>
-          saveDailyRow(old, session.id, editing ? editingVersion ?? -1 : session.body.version, row, owner, reason),
+        saveDailyRow(
+          old,
+          session.id,
+          editing ? (editingVersion ?? -1) : session.body.version,
+          row,
+          owner,
+          reason,
+        ),
       );
       edit(null);
     });

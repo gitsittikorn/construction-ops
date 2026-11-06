@@ -179,7 +179,10 @@ export function updateDaily(
   ];
   validateDaily(data, next);
   for (const row of next.body.rows)
-    if (next.body.verifications[row.id]?.fingerprint !== rowFingerprint(next, row) || row.reportedTrips !== row.tripCount)
+    if (
+      next.body.verifications[row.id]?.fingerprint !== rowFingerprint(next, row) ||
+      row.reportedTrips !== row.tripCount
+    )
       delete next.body.verifications[row.id];
   return commitWorkspace(data, next, actor, action);
 }
@@ -315,7 +318,10 @@ export function verificationState(
   session: DailySession,
   row: DailyRow,
 ): 'PENDING' | 'MATCHED' | 'MISMATCHED' | 'VERIFIED' | 'REOPENED' {
-  if (row.reportedTrips === row.tripCount && session.body.verifications[row.id]?.fingerprint === rowFingerprint(session, row))
+  if (
+    row.reportedTrips === row.tripCount &&
+    session.body.verifications[row.id]?.fingerprint === rowFingerprint(session, row)
+  )
     return 'VERIFIED';
   if (session.body.state === 'reopened') return 'REOPENED';
   return row.reportedTrips === null

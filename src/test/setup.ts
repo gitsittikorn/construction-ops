@@ -1,7 +1,10 @@
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { vi } from 'vitest';
+
+// Wait for observable UI completion on busy Windows hosts, without fixed sleeps.
+configure({ asyncUtilTimeout: 5000 });
 
 // Local unit/UI tests must never inherit credentials or contact the configured project.
 const isolatedVariables = [

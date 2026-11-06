@@ -186,8 +186,17 @@ it('closes with an immutable verified snapshot, blocks edits, reopens only with 
   );
   expect(dailySessions(data)[0].body.closures[0].rows[0].tripCount).toBe(3);
 });
-it('invalidates manual verification when reported counts change even if recorded trips and evidence context stay identical',()=>{
-  let {data,uploads}=readyEvidence(dailyFixture());let s=dailySessions(data)[0];data=verifyDaily(data,s.id,s.body.version,'admin',uploads);s=dailySessions(data)[0];expect(verificationState(s,s.body.rows[0])).toBe('VERIFIED');data=saveDailyRow(data,s.id,s.body.version,{...s.body.rows[0],reportedTrips:4},'admin');s=dailySessions(data)[0];expect(s.body.verifications).toEqual({});expect(verificationState(s,s.body.rows[0])).toBe('MISMATCHED');expect(()=>closeDaily(data,s.id,s.body.version,'admin',uploads)).toThrow('ยืนยัน');
+it('invalidates manual verification when reported counts change even if recorded trips and evidence context stay identical', () => {
+  let { data, uploads } = readyEvidence(dailyFixture());
+  let s = dailySessions(data)[0];
+  data = verifyDaily(data, s.id, s.body.version, 'admin', uploads);
+  s = dailySessions(data)[0];
+  expect(verificationState(s, s.body.rows[0])).toBe('VERIFIED');
+  data = saveDailyRow(data, s.id, s.body.version, { ...s.body.rows[0], reportedTrips: 4 }, 'admin');
+  s = dailySessions(data)[0];
+  expect(s.body.verifications).toEqual({});
+  expect(verificationState(s, s.body.rows[0])).toBe('MISMATCHED');
+  expect(() => closeDaily(data, s.id, s.body.version, 'admin', uploads)).toThrow('ยืนยัน');
 });
 it('syncs daily/evidence through the existing envelope and validates relationships', () => {
   const { data } = readyEvidence(dailyFixture()),

@@ -228,6 +228,11 @@ export default function App() {
       );
     } catch (e) {
       if (account.current === owner) {
+        const code = e && typeof e === 'object' && 'code' in e ? String(e.code) : '';
+        if (['permission-denied', 'unauthenticated'].includes(code)) {
+          setCloudAccess('denied');
+          setModal(null);
+        }
         setCloudError(message(e));
         setCloudStatus('ซิงก์ไม่สำเร็จ ข้อมูลและคิวที่ค้างยังอยู่ในเครื่อง');
       }

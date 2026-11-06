@@ -1,5 +1,7 @@
 # Verification — 2026-11-02
 
+ผลตรวจ Phase 1 ล่าสุดวันที่ 2026-11-06 อยู่ใน [PHASE_1_E2E_REPORT.md](docs/PHASE_1_E2E_REPORT.md) ซึ่งแยกผล browser, unit และ Firestore Emulator ออกจากบริการจริง ข้อความด้านล่างเป็นประวัติการตรวจแต่ละรุ่น ไม่ใช่สถานะปัจจุบันของ project/master sync หรือ restore
+
 ตรวจสอบรุ่นเริ่มต้นบน Windows / Node.js 26.3.1
 
 ## ผลที่รันจริง
