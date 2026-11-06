@@ -1362,6 +1362,62 @@ main.login-screen {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.daily-operations button,
+.daily-operations input,
+.daily-operations select {
+  min-height: 48px;
+}
+.daily-operations {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.daily-operations label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.daily-operations input,
+.daily-operations select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.daily-operations .operations-filters label {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+.daily-operations fieldset {
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.daily-operations .table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.daily-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.daily-quick-grid article {
+  padding: 16px;
+  border: 1px solid var(--line, #dce4dc);
+  border-radius: 12px;
+  background: white;
+}
+.daily-quick-grid button {
+  min-width: 64px;
+  margin-right: 8px;
+  font-size: 20px;
+}
+
 .operations-filters,
 .operations-actions {
   display: flex;

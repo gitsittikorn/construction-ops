@@ -35,13 +35,16 @@ export function deleteRecord(
   }
   const now = new Date().toISOString();
   if (
-    (data.workspaces ?? []).some((item) =>
+    [...(data.workspaces ?? []), ...(data.deletedWorkspaces ?? [])].some((item) =>
       type === 'project'
         ? item.projectId === id
         : type === 'master' &&
           item.recordType === 'daily' &&
           item.body.rows.some((row) =>
-            [row.truckId, row.driverId, row.teamId, row.sourceId].includes(id),
+            [row.truckId, row.driverId, row.teamId, row.sourceId].includes(id) ||
+            (row.transactions ?? []).some((trip) => [trip.driverId, trip.sourceId].includes(id)) ||
+            (type === 'master' && 'kind' in record && record.kind === 'soilType' &&
+              (row.soilType === record.name || (row.transactions ?? []).some((trip) => trip.soilType === record.name))),
           ),
     )
   )

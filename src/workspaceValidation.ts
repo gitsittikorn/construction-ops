@@ -1,6 +1,7 @@
 import type { WorkspaceRecord } from './workspaceModels';
 import { calculateSurvey } from './surveying';
 import { canonical } from './syncModel';
+import { validateDailyTrips } from './dailyTrips';
 
 export function validateWorkspace(value: unknown): asserts value is WorkspaceRecord {
   const r = value as WorkspaceRecord;
@@ -48,8 +49,14 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
     )
       throw Error('รูปแบบวันทำงานไม่ถูกต้อง');
     const ids = new Set<string>(),
+      tripIds = new Set<string>(),
       trucks = new Set<string>();
     for (const row of b.rows) {
+      validateDailyTrips(row);
+      for (const trip of row.transactions ?? []) {
+        if (tripIds.has(trip.id)) throw Error('รหัสเที่ยวซ้ำในวันทำงาน');
+        tripIds.add(trip.id);
+      }
       if (
         ['id', 'truckId', 'driverId', 'teamId', 'sourceId', 'soilType', 'notes'].some(
           (key) => typeof row[key as keyof typeof row] !== 'string',

@@ -5,6 +5,8 @@ import { precachePlugin } from './precachePlugin';
 export default defineConfig({
   plugins: [react(), devDiagnosticsPlugin(), precachePlugin()],
   test: {
+    // Bound jsdom concurrency to avoid resource contention and flaky UI timeouts.
+    maxWorkers: 2,
     include: ['src/test/**/*.test.{ts,tsx}'],
     globals: true,
     environment: 'jsdom',

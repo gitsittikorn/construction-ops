@@ -1,6 +1,17 @@
 import type { Base } from './models';
 
+export interface DailyTrip {
+  id: string;
+  capacity: number;
+  driverId: string;
+  sourceId: string;
+  soilType: string;
+  recordedAt: string;
+  voidedAt?: string;
+}
+
 export interface DailyRow {
+  transactions?: DailyTrip[];
   id: string;
   truckId: string;
   driverId: string;

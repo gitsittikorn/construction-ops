@@ -82,7 +82,10 @@ for (const viewport of [
     await page.getByRole('button', { name: 'ย้อนการแก้ไขล่าสุด', exact: true }).click();
     await context.setOffline(false);
     await page.getByRole('button', { name: 'คัดลอกข้อมูลไปวันถัดไป', exact: true }).click();
+    await page.getByRole('button', { name: 'ยืนยันคัดลอกวันถัดไป', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'ตัวอย่างคัดลอกวันถัดไป' })).toHaveCount(0);
     await page.getByRole('button', { name: 'คัดลอกข้อมูลไปวันถัดไป', exact: true }).click();
+    await page.getByRole('button', { name: 'ยืนยันคัดลอกวันถัดไป', exact: true }).click();
     await expect(page.locator('section[aria-label="งานรายวัน"]').getByRole('alert')).toContainText(
       'มีอยู่แล้ว',
     );

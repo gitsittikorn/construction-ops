@@ -216,6 +216,10 @@ export function integrityIssues(data: Data): string[] {
           [row.driverId, 'driver'],
           [row.teamId, 'tag'],
           [row.sourceId, 'source'],
+          ...(row.transactions ?? []).flatMap((trip) => [
+            [trip.driverId, 'driver'],
+            [trip.sourceId, 'source'],
+          ]),
         ])
           if (id && !masters.some((m) => m.id === id && m.kind === kind))
             issues.push(`งาน ${record.name}: ไม่พบ ${kind} ${id}`);

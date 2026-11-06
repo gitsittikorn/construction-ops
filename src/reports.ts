@@ -1,6 +1,7 @@
 import type { Data } from './models';
 import { csv } from './domain';
 import { dailySessions, verificationState } from './daily';
+import { dailyTripSegments } from './dailyTrips';
 import { validDate } from './daily';
 import type { SheetData } from 'write-excel-file/universal';
 
@@ -74,22 +75,25 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
     origin: 'บันทึกรายเที่ยวเดิม',
   }));
   const daily: ReportRow[] = dailySessions(data).flatMap((s) =>
-    s.body.rows.map((r) => ({
-      id: `${s.id}:${r.id}`,
-      project: s.projectId,
-      date: s.body.date,
-      truck: r.truckId,
-      driver: r.driverId,
-      team: r.teamId,
-      source: r.sourceId,
-      trips: r.tripCount,
-      reported: r.reportedTrips,
-      capacity: r.capacity,
-      volume: r.tripCount * r.capacity,
-      verified: verificationState(s, r) === 'VERIFIED',
-      status: verificationState(s, r),
-      origin: s.body.state === 'closed' ? 'วันปิดแล้ว' : 'วันทำงาน',
-    })),
+    s.body.rows.flatMap((r) => {
+      const segments = dailyTripSegments(r);
+      return segments.map((segment, index) => ({
+        id: `${s.id}:${r.id}:${index}`,
+        project: s.projectId,
+        date: s.body.date,
+        truck: r.truckId,
+        driver: segment.driverId,
+        team: r.teamId,
+        source: segment.sourceId,
+        trips: segment.tripCount,
+        reported: segments.length === 1 ? r.reportedTrips : null,
+        capacity: segment.capacity,
+        volume: segment.tripCount * segment.capacity,
+        verified: verificationState(s, r) === 'VERIFIED',
+        status: verificationState(s, r),
+        origin: s.body.state === 'closed' ? 'วันปิดแล้ว' : 'วันทำงาน',
+      }));
+    }),
   );
   return [...legacy, ...daily]
     .filter(

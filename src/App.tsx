@@ -747,7 +747,13 @@ export default function App() {
               )}
               {page === 'daily' && (
                 <Suspense fallback={<p>กำลังเปิดงานรายวัน…</p>}>
-                  <DailyPanel owner={owner} data={data} onChange={change} online={online} />
+                  <DailyPanel
+                    key={owner}
+                    owner={owner}
+                    data={data}
+                    onChange={change}
+                    online={online}
+                  />
                 </Suspense>
               )}
               {page === 'businessReports' && (

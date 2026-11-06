@@ -15,7 +15,15 @@ import { loadData, persistData, updateData } from '../storage';
 import { emptyData } from '../models';
 import { fixture, project, truck, trip } from '../test/syncFixtures';
 import { deleteRecord } from '../deletion';
-import { createDaily, dailySessions, saveDailyRow, verifyDaily, closeDaily } from '../daily';
+import {
+  createDaily,
+  dailySessions,
+  saveDailyRow,
+  verifyDaily,
+  closeDaily,
+  duplicateNextDay,
+} from '../daily';
+import { deliveredVolume } from '../dailyTrips';
 import { saveEvidence } from '../evidence';
 import { listUploads, putUpload } from '../uploads';
 import { webcrypto } from 'node:crypto';
@@ -50,6 +58,76 @@ beforeEach(async () => {
   session.db = environment.authenticatedContext(session.owner).firestore() as unknown as Firestore;
 });
 afterEach(() => vi.unstubAllGlobals());
+it('P2 daily trip snapshots survive retry, duplicate day, a concurrent-device conflict and clean-device restore', async () => {
+  const owner = session.owner,
+    data = fixture();
+  data.trips = [];
+  data.masters[0].capacity = 6;
+  await persistData(owner, data);
+  await updateData(owner, (d) => createDaily(d, 'p', '2026-12-31', owner));
+  let daily = dailySessions(await loadData(owner))[0];
+  await updateData(owner, (d) =>
+    saveDailyRow(
+      d,
+      daily.id,
+      daily.body.version,
+      {
+        id: 'p2-assignment',
+        truckId: 'truck',
+        driverId: '',
+        sourceId: '',
+        teamId: '',
+        soilType: '',
+        tripCount: 10,
+        capacity: 6,
+        reportedTrips: null,
+        notes: '',
+      },
+      owner,
+    ),
+  );
+  await synchronize(owner, firestoreTransport);
+  const deviceB = structuredClone(await loadData(owner));
+  daily = dailySessions(deviceB)[0];
+  const ids = daily.body.rows[0].transactions!.map((t) => t.id);
+  await updateData(owner, (d) =>
+    saveDailyRow(
+      d,
+      daily.id,
+      daily.body.version,
+      { ...daily.body.rows[0], capacity: 8, tripCount: 11 },
+      owner,
+    ),
+  );
+  await synchronize(owner, firestoreTransport);
+  await persistData(owner, deviceB);
+  await updateData(owner, (d) =>
+    saveDailyRow(d, daily.id, daily.body.version, { ...daily.body.rows[0], tripCount: 12 }, owner),
+  );
+  await synchronize(owner, firestoreTransport);
+  expect((await loadData(owner)).sync!.entries[`workspaces/${daily.id}`].status).toBe('conflict');
+  await resolveConflict(owner, `workspaces/${daily.id}`, 'remote', firestoreTransport);
+  expect(deliveredVolume(dailySessions(await loadData(owner))[0].body.rows[0])).toBe(68);
+  await updateData(owner, (d) => duplicateNextDay(d, daily.id, owner));
+  await synchronize(owner, firestoreTransport);
+  await synchronize(owner, firestoreTransport);
+  const originalDatabase = indexedDB;
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  try {
+    await synchronize(owner, firestoreTransport);
+    const restored = dailySessions(await loadData(owner));
+    expect(restored).toHaveLength(2);
+    const source = restored.find((s) => s.body.date === '2026-12-31')!;
+    expect(source.body.rows[0].transactions!.slice(0, 10).map((t) => t.id)).toEqual(ids);
+    expect(deliveredVolume(source.body.rows[0])).toBe(68);
+    expect(restored.find((s) => s.body.date === '2027-01-01')!.body.rows[0]).toMatchObject({
+      tripCount: 0,
+      transactions: [],
+    });
+  } finally {
+    vi.stubGlobal('indexedDB', originalDatabase);
+  }
+});
 it('P1-07/08/09 recovers a lost commit response and coalesces offline revisions without duplicate cloud records or audit', async () => {
   const owner = session.owner;
   await persistData(owner, fixture());

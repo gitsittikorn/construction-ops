@@ -2,6 +2,12 @@ import type { Data } from './models';
 import type { DailySession, DailyRow, Verification } from './workspaceModels';
 import type { UploadRecord } from './uploads';
 import { canonical } from './syncModel';
+import {
+  activeDailyTrips,
+  deliveredVolume,
+  reconcileDailyTrips,
+  validateDailyTrips,
+} from './dailyTrips';
 
 export function validDate(value: string) {
   return (
@@ -20,9 +26,19 @@ export function summarizeDaily(session: DailySession) {
   const group = (key: 'truckId' | 'driverId' | 'sourceId') => {
     const values = new Map<string, { id: string; trips: number; volume: number }>();
     for (const row of session.body.rows) {
+      if (row.transactions && key !== 'truckId') {
+        for (const trip of activeDailyTrips(row)) {
+          const id = trip[key],
+            previous = values.get(id) ?? { id, trips: 0, volume: 0 };
+          previous.trips++;
+          previous.volume += trip.capacity;
+          values.set(id, previous);
+        }
+        continue;
+      }
       const previous = values.get(row[key]) ?? { id: row[key], trips: 0, volume: 0 };
       previous.trips += row.tripCount;
-      previous.volume += row.tripCount * row.capacity;
+      previous.volume += deliveredVolume(row);
       values.set(row[key], previous);
     }
     return [...values.values()];
@@ -41,6 +57,7 @@ export function rowFingerprint(session: DailySession, row: DailyRow) {
     tripCount: row.tripCount,
     capacity: row.capacity,
     notes: row.notes,
+    ...(row.transactions ? { transactions: row.transactions } : {}),
   });
 }
 export function validateDaily(data: Data, session: DailySession) {
@@ -50,8 +67,14 @@ export function validateDaily(data: Data, session: DailySession) {
   if (session.id !== sessionId(session.projectId, session.body.date))
     throw Error('รหัสวันทำงานไม่ตรงกัน');
   if (!data.projects.some((p) => p.id === session.projectId)) throw Error('ไม่พบโครงการ');
-  const trucks = new Set<string>();
+  const trucks = new Set<string>(),
+    tripIds = new Set<string>();
   for (const row of session.body.rows) {
+    validateDailyTrips(row);
+    for (const trip of row.transactions ?? []) {
+      if (tripIds.has(trip.id)) throw Error('รหัสเที่ยวซ้ำในวันทำงาน');
+      tripIds.add(trip.id);
+    }
     if (trucks.has(row.truckId)) throw Error('รถคันนี้มีในวันทำงานแล้ว');
     trucks.add(row.truckId);
     if (
@@ -194,6 +217,26 @@ export function saveDailyRow(
   actor: string,
   reason = '',
 ) {
+  const previous = dailySessions(data)
+    .find((s) => s.id === id)
+    ?.body.rows.find((r) => r.id === row.id);
+  if (row.tripCount > (previous?.tripCount ?? 0)) {
+    for (const [value, kind] of [
+      [row.truckId, 'truck'],
+      [row.driverId, 'driver'],
+      [row.sourceId, 'source'],
+    ] as const)
+      if (value && !data.masters.some((m) => m.id === value && m.kind === kind && m.active))
+        throw Error('ข้อมูลรถ คนขับ หรือแหล่งดินปิดใช้งาน กรุณาปรับรายการก่อนเพิ่มเที่ยว');
+  }
+  if (previous && previous.truckId !== row.truckId && previous.tripCount > 0)
+    throw Error('รถมีเที่ยวบันทึกแล้ว กรุณาสร้างรายการรถใหม่แทนการเปลี่ยนรถย้อนหลัง');
+  if (
+    row.soilType &&
+    row.soilType !== previous?.soilType &&
+    !data.masters.some((m) => m.kind === 'soilType' && m.active && m.name === row.soilType)
+  )
+    throw Error('เลือกชนิดดินที่เปิดใช้งาน');
   for (const [value, kind] of [
     [row.truckId, 'truck'],
     [row.driverId, 'driver'],
@@ -221,7 +264,10 @@ export function saveDailyRow(
     actor,
     'daily-update',
     (s) => {
-      s.body.rows = [...s.body.rows.filter((r) => r.id !== row.id), structuredClone(row)];
+      s.body.rows = [
+        ...s.body.rows.filter((r) => r.id !== row.id),
+        reconcileDailyTrips(previous, row, id),
+      ];
     },
     reason,
   );
@@ -244,12 +290,104 @@ export function undoDaily(data: Data, id: string, version: number, actor: string
     reason,
   );
 }
-export function duplicateNextDay(data: Data, id: string, actor: string) {
+
+export function correctDailyTrip(
+  data: Data,
+  id: string,
+  version: number,
+  rowId: string,
+  tripId: string,
+  changes: { capacity: number; driverId: string; sourceId: string; soilType: string },
+  actor: string,
+  reason: string,
+) {
+  if (!reason.trim()) throw Error('กรุณาระบุเหตุผลแก้ไขเที่ยว');
+  const row = dailySessions(data)
+    .find((s) => s.id === id)
+    ?.body.rows.find((r) => r.id === rowId);
+  const trip = row?.transactions?.find((t) => t.id === tripId && !t.voidedAt);
+  if (!trip) throw Error('ไม่พบเที่ยวที่ยังใช้งาน');
+  for (const [field, kind] of [
+    ['driverId', 'driver'],
+    ['sourceId', 'source'],
+  ] as const)
+    if (
+      changes[field] &&
+      changes[field] !== trip[field] &&
+      !data.masters.some((m) => m.id === changes[field] && m.kind === kind && m.active)
+    )
+      throw Error('เลือกข้อมูลพื้นฐานที่เปิดใช้งาน');
+  if (
+    changes.soilType &&
+    changes.soilType !== trip.soilType &&
+    !data.masters.some((m) => m.kind === 'soilType' && m.name === changes.soilType && m.active)
+  )
+    throw Error('เลือกชนิดดินที่เปิดใช้งาน');
+  return updateDaily(
+    data,
+    id,
+    version,
+    actor,
+    'daily-correct-trip',
+    (s) => {
+      const target = s.body.rows
+        .find((r) => r.id === rowId)!
+        .transactions!.find((t) => t.id === tripId)!;
+      Object.assign(target, changes);
+    },
+    reason,
+  );
+}
+export function nextWorkDate(value: string) {
+  if (!validDate(value)) throw Error('วันที่ทำงานไม่ถูกต้อง');
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+export function duplicatePreview(data: Data, id: string) {
   const source = dailySessions(data).find((s) => s.id === id);
   if (!source) throw Error('ไม่พบวันต้นทาง');
-  const date = new Date(`${source.body.date}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + 1);
-  const targetDate = date.toISOString().slice(0, 10);
+  const warnings: string[] = [];
+  const rows = source.body.rows
+    .filter((row) => {
+      const valid = data.masters.some(
+        (m) => m.id === row.truckId && m.kind === 'truck' && m.active,
+      );
+      if (!valid)
+        warnings.push(
+          `ข้ามรถ ${data.masters.find((m) => m.id === row.truckId)?.name ?? row.truckId}: ไม่พบหรือปิดใช้งาน`,
+        );
+      return valid;
+    })
+    .map((row) => {
+      const next = { ...row };
+      for (const [field, kind] of [
+        ['driverId', 'driver'],
+        ['sourceId', 'source'],
+        ['teamId', 'tag'],
+      ] as const)
+        if (
+          next[field] &&
+          !data.masters.some((m) => m.id === next[field] && m.kind === kind && m.active)
+        ) {
+          warnings.push(`รถ ${row.truckId}: เว้น ${kind} ที่ไม่พบหรือปิดใช้งาน`);
+          next[field] = '';
+        }
+      if (
+        next.soilType &&
+        !data.masters.some((m) => m.kind === 'soilType' && m.active && m.name === next.soilType)
+      ) {
+        warnings.push(`รถ ${row.truckId}: เว้นชนิดดินที่ไม่พบหรือปิดใช้งาน`);
+        next.soilType = '';
+      }
+      return next;
+    });
+  return { source, targetDate: nextWorkDate(source.body.date), rows, warnings };
+}
+export function duplicateNextDay(data: Data, id: string, actor: string, expectedVersion?: number) {
+  const { source, targetDate, rows } = duplicatePreview(data, id);
+  if (expectedVersion !== undefined && source.body.version !== expectedVersion)
+    throw Error('ข้อมูลต้นทางเปลี่ยนแล้ว กรุณาเปิดตัวอย่างใหม่');
   const created = createDaily(data, source.projectId, targetDate, actor);
   return updateDaily(
     created,
@@ -258,8 +396,10 @@ export function duplicateNextDay(data: Data, id: string, actor: string) {
     actor,
     'daily-copy',
     (s) => {
-      s.body.rows = source.body.rows.map((row) => ({
+      s.body.rows = rows.map((row) => ({
         ...row,
+        id: crypto.randomUUID(),
+        transactions: [],
         tripCount: 0,
         reportedTrips: null,
         notes: '',
@@ -389,7 +529,7 @@ export function closeDaily(
         rows: structuredClone(s.body.rows),
         verifications: structuredClone(s.body.verifications),
         trips: s.body.rows.reduce((n, r) => n + r.tripCount, 0),
-        volume: s.body.rows.reduce((n, r) => n + r.tripCount * r.capacity, 0),
+        volume: s.body.rows.reduce((n, r) => n + deliveredVolume(r), 0),
       });
       s.body.state = 'closed';
     },

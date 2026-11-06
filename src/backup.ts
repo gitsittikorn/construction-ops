@@ -4,15 +4,16 @@ import { readBlobBytes } from './files';
 
 export async function exportLocalBackup(owner: string): Promise<Blob> {
   const db = await openLocalDatabase();
-  let state, migrationBackup, v4Backup, settings, truckSheet, uploads: UploadRecord[];
+  let state, migrationBackup, v4Backup, settings, truckSheet, dailyUi, uploads: UploadRecord[];
   try {
     const tx = db.transaction(['state', 'uploads', 'driveSettings'], 'readonly');
-    [state, migrationBackup, v4Backup, settings, truckSheet, uploads] = await Promise.all([
+    [state, migrationBackup, v4Backup, settings, truckSheet, dailyUi, uploads] = await Promise.all([
       tx.objectStore('state').get(owner),
       tx.objectStore('state').get(['phase1-backup', owner]),
       tx.objectStore('state').get(['v4-backup', owner]),
       tx.objectStore('driveSettings').get(owner),
       tx.objectStore('driveSettings').get(`truck-sheet:${owner}`),
+      tx.objectStore('driveSettings').get(['daily-ui', owner]),
       tx
         .objectStore('uploads')
         .getAll()
@@ -47,6 +48,7 @@ export async function exportLocalBackup(owner: string): Promise<Blob> {
         v4Backup: v4Backup ?? null,
         driveSettings: settings ?? null,
         truckSheet: truckSheet ?? null,
+        dailyUi: dailyUi ?? null,
         uploads: files,
       }),
     ],

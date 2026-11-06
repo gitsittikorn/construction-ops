@@ -1,7 +1,10 @@
 import { useRef, useState, type FormEvent } from 'react';
 import type { Data, Master } from './models';
 import type { DailyRow } from './workspaceModels';
-import { workDate } from './domain';
+import { workTimestamp } from './domain';
+import { defaultTripCapacity, deliveredVolume, activeDailyTrips } from './dailyTrips';
+import { useDailyUi } from './useDailyUi';
+import DailyTripCorrections from './DailyTripCorrections';
 import {
   createDaily,
   dailySessions,
@@ -9,6 +12,8 @@ import {
   saveDailyRow,
   undoDaily,
   duplicateNextDay,
+  duplicatePreview,
+  correctDailyTrip,
   verifyDaily,
   closeDaily,
   reopenDaily,
@@ -33,24 +38,36 @@ export default function DailyPanel({
   onChange: (change: (data: Data) => Data) => Promise<void>;
   online: boolean;
 }) {
-  const [project, setProject] = useState(
-      data.projects.find((p) => p.status === 'active')?.id ?? '',
-    ),
-    [date, setDate] = useState(workDate()),
-    [error, setError] = useState(''),
+  const ui = useDailyUi(owner, data.projects.find((p) => p.status === 'active')?.id ?? '');
+  const { project, date, reason } = ui.state;
+  const setProject = (value: string) => ui.update((s) => ({ ...s, project: value }));
+  const setDate = (value: string) => ui.update((s) => ({ ...s, date: value }));
+  const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
-    [reason, setReason] = useState(''),
-    [editing, setEditing] = useState<DailyRow | null>(null),
-    [editingVersion, setEditingVersion] = useState<number | null>(null),
     [evidenceRow, setEvidenceRow] = useState(''),
-    [selectedTruck, setSelectedTruck] = useState(''),
     [busy, setBusy] = useState(false),
-    [driveVisible, setDriveVisible] = useState(false);
+    [driveVisible, setDriveVisible] = useState(false),
+    [copyPreview, setCopyPreview] = useState<ReturnType<typeof duplicatePreview> | null>(null),
+    [truckFilter, setTruckFilter] = useState(''),
+    [driverFilter, setDriverFilter] = useState(''),
+    [historyState, setHistoryState] = useState('');
   const lock = useRef(false),
     draftId = useRef(crypto.randomUUID());
   const lastTap = useRef({ key: '', at: 0 });
   const session = dailySessions(data).find((s) => s.id === sessionId(project, date));
   const rows = session?.body.rows ?? [];
+  const draftKey = sessionId(project, date),
+    draft = ui.state.drafts[draftKey];
+  const editing = rows.find((r) => r.id === draft?.editingId) ?? null;
+  const editingVersion = draft?.version ?? null;
+  const selectedTruck = draft?.values.truckId ?? editing?.truckId ?? '';
+  const shownRows = rows.filter(
+    (r) =>
+      (!truckFilter || r.truckId === truckFilter) &&
+      (!driverFilter ||
+        r.driverId === driverFilter ||
+        activeDailyTrips(r).some((t) => t.driverId === driverFilter)),
+  );
   const name = (id: string) => data.masters.find((m) => m.id === id)?.name ?? '—';
   async function run(action: () => Promise<void>) {
     if (lock.current) return;
@@ -87,10 +104,46 @@ export default function DailyPanel({
     );
   }
   function edit(row: DailyRow | null) {
-    setEditing(row);
-    setEditingVersion(row ? (session?.body.version ?? null) : null);
-    setSelectedTruck(row?.truckId ?? '');
     draftId.current = crypto.randomUUID();
+    ui.update((s) => ({
+      ...s,
+      drafts: {
+        ...s.drafts,
+        [draftKey]: {
+          id: draftId.current,
+          editingId: row?.id,
+          version: row ? session?.body.version : undefined,
+          values: row
+            ? Object.fromEntries(
+                Object.entries(row)
+                  .filter(([key]) => key !== 'transactions')
+                  .map(([key, value]) => [key, value === null ? '' : String(value)]),
+              )
+            : {},
+        },
+      },
+    }));
+  }
+  function keepDraft(form: HTMLFormElement, changed: string) {
+    const values = Object.fromEntries(
+      [...new FormData(form)].map(([key, value]) => [key, String(value)]),
+    );
+    if (changed === 'truckId' && !editing)
+      values.capacity = String(
+        defaultTripCapacity(data.masters.find((m) => m.id === values.truckId)) ?? '',
+      );
+    ui.update((s) => ({
+      ...s,
+      drafts: {
+        ...s.drafts,
+        [draftKey]: {
+          id: draft?.id ?? draftId.current,
+          editingId: draft?.editingId,
+          version: draft?.version,
+          values,
+        },
+      },
+    }));
   }
   function masterSelect(
     key: string,
@@ -106,15 +159,17 @@ export default function DailyPanel({
           name={key}
           aria-label={label}
           required={required}
-          defaultValue={value}
-          onChange={key === 'truckId' ? (e) => setSelectedTruck(e.target.value) : undefined}
+          defaultValue={draft?.values[key] ?? value}
         >
           <option value="">เลือก{label}</option>
           {data.masters
-            .filter((m) => m.kind === kind && (m.active || m.id === value))
+            .filter(
+              (m) => m.kind === kind && (m.active || m.id === value || m.id === draft?.values[key]),
+            )
             .map((m) => (
               <option value={m.id} key={m.id}>
                 {m.name}
+                {!m.active ? ' (ปิดใช้งาน)' : ''}
               </option>
             ))}
         </select>
@@ -127,7 +182,7 @@ export default function DailyPanel({
     const f = new FormData(event.currentTarget),
       text = (key: string) => String(f.get(key) ?? '').trim();
     const row: DailyRow = {
-      id: editing?.id ?? draftId.current,
+      id: editing?.id ?? draft?.id ?? draftId.current,
       truckId: text('truckId'),
       driverId: text('driverId'),
       teamId: text('teamId'),
@@ -153,10 +208,21 @@ export default function DailyPanel({
     });
   }
   const verified = rows.filter((r) => verificationState(session!, r) === 'VERIFIED');
-  const volume = (list: DailyRow[]) => list.reduce((sum, r) => sum + r.tripCount * r.capacity, 0);
+  const volume = (list: DailyRow[]) => list.reduce((sum, r) => sum + deliveredVolume(r), 0);
+  if (!ui.ready)
+    return (
+      <section aria-label="งานรายวัน">
+        <p role="status">กำลังเปิดร่างงานรายวัน…</p>
+        {ui.error && <p role="alert">{ui.error}</p>}
+      </section>
+    );
   return (
-    <section aria-label="งานรายวัน">
+    <section aria-label="งานรายวัน" className="daily-operations">
       <h2>งานรายวัน → หลักฐาน → ตรวจยอด → ปิดวัน</h2>
+      <p role="status">
+        {busy ? 'กำลังบันทึกข้อมูล…' : ui.saving ? 'กำลังเก็บร่าง…' : 'เก็บร่างในเครื่องแล้ว'}
+      </p>
+      {ui.error && <p role="alert">{ui.error}</p>}
       <div className="operations-filters">
         <label>
           โครงการทำงาน
@@ -165,8 +231,8 @@ export default function DailyPanel({
             value={project}
             onChange={(e) => {
               setProject(e.target.value);
-              edit(null);
               setEvidenceRow('');
+              setCopyPreview(null);
             }}
           >
             <option value="">เลือกโครงการ</option>
@@ -185,8 +251,8 @@ export default function DailyPanel({
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
-              edit(null);
               setEvidenceRow('');
+              setCopyPreview(null);
             }}
           />
         </label>
@@ -200,17 +266,27 @@ export default function DailyPanel({
               if (s) {
                 setProject(s.projectId);
                 setDate(s.body.date);
-                edit(null);
+                setEvidenceRow('');
+                setCopyPreview(null);
               }
             }}
           >
             <option value="">เลือกวันทำงานเดิม</option>
             {dailySessions(data)
-              .filter((s) => !project || s.projectId === project)
+              .filter(
+                (s) =>
+                  (!project || s.projectId === project) &&
+                  (!historyState || s.body.state === historyState),
+              )
               .sort((a, b) => b.body.date.localeCompare(a.body.date))
               .map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.body.date} · {s.body.state}
+                  {s.body.date} ·{' '}
+                  {s.body.state === 'closed'
+                    ? 'ปิดวันแล้ว'
+                    : s.body.state === 'reopened'
+                      ? 'เปิดใหม่'
+                      : 'เปิดรับรายการ'}
                 </option>
               ))}
           </select>
@@ -218,6 +294,44 @@ export default function DailyPanel({
       </div>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
+      <details className="panel padded">
+        <summary>รายการวันทำงาน — เปิดรับ / ปิดวัน / ประวัติ</summary>
+        {dailySessions(data)
+          .filter(
+            (s) =>
+              (!project || s.projectId === project) &&
+              (!historyState || s.body.state === historyState),
+          )
+          .sort((a, b) => b.body.date.localeCompare(a.body.date))
+          .map((s) => (
+            <button
+              key={s.id}
+              onClick={() => {
+                ui.update((state) => ({ ...state, project: s.projectId, date: s.body.date }));
+                setEvidenceRow('');
+                setCopyPreview(null);
+              }}
+            >
+              {s.body.date} · {data.projects.find((p) => p.id === s.projectId)?.name} ·{' '}
+              {s.body.state === 'closed' ? 'ปิดวันแล้ว' : 'เปิดรับรายการ'} ·{' '}
+              {s.body.rows.reduce((n, r) => n + r.tripCount, 0)} เที่ยว · {volume(s.body.rows)} m³
+            </button>
+          ))}
+        {!dailySessions(data).length && <p>ยังไม่มีวันทำงาน เลือกโครงการและวันที่เพื่อเริ่มงาน</p>}
+      </details>
+      <label>
+        สถานะประวัติ{' '}
+        <select
+          aria-label="สถานะประวัติวันทำงาน"
+          value={historyState}
+          onChange={(e) => setHistoryState(e.target.value)}
+        >
+          <option value="">ทั้งหมด</option>
+          <option value="open">เปิดรับรายการ</option>
+          <option value="closed">ปิดวันแล้ว</option>
+          <option value="reopened">เปิดใหม่</option>
+        </select>
+      </label>
       {!session ? (
         <button
           disabled={busy || !project}
@@ -236,6 +350,17 @@ export default function DailyPanel({
                 : 'เปิดรับรายการ'}
           </p>
           <p>
+            ปริมาตรดินส่งจริงแบบหลวม ใช้ความจุของแต่ละเที่ยว ไม่รวมตัวคูณบวมตัวหรือบดอัด
+            ปริมาตรตามแบบ/บดอัดดูแยกในงานสำรวจ
+          </p>
+          <p role="status">
+            {data.sync?.entries[`workspaces/${session.id}`]?.status === 'synced'
+              ? 'ซิงก์วันทำงานกับ Cloud แล้ว'
+              : data.sync?.entries[`workspaces/${session.id}`]?.status === 'conflict'
+                ? 'วันทำงานขัดแย้ง — ตรวจสอบทั้งสองฉบับในส่วนซิงก์ด้านบน'
+                : 'วันทำงานบันทึกในเครื่อง — รอซิงก์ Cloud'}
+          </p>
+          <p>
             รถ {rows.length} คัน · คนขับ {new Set(rows.map((r) => r.driverId).filter(Boolean)).size}{' '}
             คน · เที่ยวบันทึก {rows.reduce((n, r) => n + r.tripCount, 0)} · ปริมาตร{' '}
             {volume(rows).toLocaleString('th-TH')} m³
@@ -250,7 +375,7 @@ export default function DailyPanel({
             <input
               aria-label="เหตุผลแก้ไข"
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={(e) => ui.update((s) => ({ ...s, reason: e.target.value }))}
             />
           </label>
           <details>
@@ -270,7 +395,14 @@ export default function DailyPanel({
           <div className="operations-actions">
             <button
               disabled={busy}
-              onClick={() => void mutate((old) => duplicateNextDay(old, session.id, owner))}
+              onClick={() => {
+                try {
+                  setCopyPreview(duplicatePreview(data, session.id));
+                  setError('');
+                } catch (e) {
+                  setError(connectionMessage(e));
+                }
+              }}
             >
               คัดลอกข้อมูลไปวันถัดไป
             </button>
@@ -329,6 +461,83 @@ export default function DailyPanel({
               เปิดวันใหม่พร้อมเหตุผล
             </button>
           </div>
+          {copyPreview && (
+            <section className="panel padded" aria-label="ตัวอย่างคัดลอกวันถัดไป">
+              <h3>ตรวจสอบก่อนคัดลอกไป {copyPreview.targetDate}</h3>
+              <p>
+                คัดลอกรถ {copyPreview.rows.length} คัน เริ่มศูนย์เที่ยว ไม่คัดลอกเที่ยวเดิม ไฟล์แนบ
+                ลายเซ็น หรือสถานะยืนยัน ปรับรถและคนขับได้หลังยืนยัน
+              </p>
+              {copyPreview.rows.map((r) => (
+                <p key={r.id}>
+                  {name(r.truckId)} · {name(r.driverId)} · {name(r.sourceId)} ·{' '}
+                  {r.soilType || 'ไม่ระบุชนิดดิน'} · {r.capacity} m³/เที่ยว
+                </p>
+              ))}
+              {copyPreview.warnings.map((warning) => (
+                <p role="alert" key={warning}>
+                  {warning}
+                </p>
+              ))}
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await onChange((old) =>
+                      duplicateNextDay(
+                        old,
+                        copyPreview.source.id,
+                        owner,
+                        copyPreview.source.body.version,
+                      ),
+                    );
+                    setCopyPreview(null);
+                  })
+                }
+              >
+                ยืนยันคัดลอกวันถัดไป
+              </button>
+              <button disabled={busy} onClick={() => setCopyPreview(null)}>
+                ยกเลิกคัดลอก
+              </button>
+            </section>
+          )}
+          <div className="operations-filters">
+            <label>
+              กรองรถ{' '}
+              <select
+                aria-label="กรองรถรายวัน"
+                value={truckFilter}
+                onChange={(e) => setTruckFilter(e.target.value)}
+              >
+                <option value="">รถทุกคัน</option>
+                {data.masters
+                  .filter((m) => m.kind === 'truck')
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              กรองคนขับ{' '}
+              <select
+                aria-label="กรองคนขับรายวัน"
+                value={driverFilter}
+                onChange={(e) => setDriverFilter(e.target.value)}
+              >
+                <option value="">คนขับทุกคน</option>
+                {data.masters
+                  .filter((m) => m.kind === 'driver')
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          </div>
           <div className="table-scroll">
             <table>
               <thead>
@@ -349,15 +558,21 @@ export default function DailyPanel({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {shownRows.map((row) => (
                   <tr key={row.id}>
-                    <td>{name(row.truckId)}</td>
+                    <td>
+                      {name(row.truckId)}
+                      {data.masters.some(
+                        (m) =>
+                          [row.truckId, row.driverId, row.sourceId].includes(m.id) && !m.active,
+                      ) && <p role="alert">มีข้อมูลปิดใช้งาน ปรับรายการก่อนเพิ่มเที่ยว</p>}
+                    </td>
                     <td>{name(row.driverId)}</td>
                     <td>{name(row.teamId)}</td>
                     <td>{row.tripCount}</td>
                     <td>{row.reportedTrips ?? 'ยังไม่กรอก'}</td>
                     <td>{row.reportedTrips === null ? '—' : row.tripCount - row.reportedTrips}</td>
-                    <td>{row.tripCount * row.capacity}</td>
+                    <td>{deliveredVolume(row)}</td>
                     <td>
                       {verificationState(session, row)} ·{' '}
                       {verificationLabels[verificationState(session, row)]}
@@ -410,8 +625,11 @@ export default function DailyPanel({
           </div>
           {session.body.state !== 'closed' && (
             <form
-              key={`${session.id}-${editing?.id ?? draftId.current}`}
+              key={`${session.id}-${draft?.id ?? draftId.current}`}
               onSubmit={(e) => void save(e)}
+              onChange={(e) =>
+                keepDraft(e.currentTarget, (e.target as HTMLElement).getAttribute('name') ?? '')
+              }
               className="panel padded"
             >
               <h3>{editing ? 'แก้ไขยอดรถ' : 'เพิ่มรถในวันทำงาน'}</h3>
@@ -422,11 +640,19 @@ export default function DailyPanel({
                 {masterSelect('sourceId', 'แหล่งดินทำงาน', 'source', editing?.sourceId)}
                 <label>
                   ชนิดดินทำงาน
-                  <select name="soilType" defaultValue={editing?.soilType ?? ''}>
+                  <select
+                    aria-label="ชนิดดินทำงาน"
+                    name="soilType"
+                    defaultValue={draft?.values.soilType ?? editing?.soilType ?? ''}
+                  >
                     <option value="">ไม่ระบุ</option>
                     {data.masters
                       .filter(
-                        (m) => m.kind === 'soilType' && (m.active || m.name === editing?.soilType),
+                        (m) =>
+                          m.kind === 'soilType' &&
+                          (m.active ||
+                            m.name === editing?.soilType ||
+                            m.name === draft?.values.soilType),
                       )
                       .map((m) => (
                         <option key={m.id}>{m.name}</option>
@@ -441,7 +667,7 @@ export default function DailyPanel({
                     type="number"
                     min={0}
                     step={1}
-                    defaultValue={editing?.tripCount ?? 0}
+                    defaultValue={draft?.values.tripCount ?? editing?.tripCount ?? 0}
                     required
                   />
                 </label>
@@ -455,8 +681,9 @@ export default function DailyPanel({
                     min={0.001}
                     step="any"
                     defaultValue={
+                      draft?.values.capacity ??
                       editing?.capacity ??
-                      data.masters.find((m) => m.id === selectedTruck)?.capacity ??
+                      defaultTripCapacity(data.masters.find((m) => m.id === selectedTruck)) ??
                       ''
                     }
                     required
@@ -470,12 +697,12 @@ export default function DailyPanel({
                     type="number"
                     min={0}
                     step={1}
-                    defaultValue={editing?.reportedTrips ?? ''}
+                    defaultValue={draft?.values.reportedTrips ?? editing?.reportedTrips ?? ''}
                   />
                 </label>
                 <label>
                   หมายเหตุงาน
-                  <input name="notes" defaultValue={editing?.notes ?? ''} />
+                  <input name="notes" defaultValue={draft?.values.notes ?? editing?.notes ?? ''} />
                 </label>
               </div>
               <button disabled={busy} type="submit">
@@ -488,6 +715,66 @@ export default function DailyPanel({
               )}
             </form>
           )}
+          {!shownRows.length && <p>ยังไม่มีรถตามตัวกรอง เลือกรถและคนขับเพื่อเริ่มบันทึก</p>}
+          <DailyTripCorrections
+            session={session}
+            masters={data.masters}
+            draft={ui.state.drafts[`correction-${session.id}`]}
+            busy={busy}
+            onDraft={(draft) =>
+              ui.update((s) => ({
+                ...s,
+                drafts: { ...s.drafts, [`correction-${session.id}`]: draft },
+              }))
+            }
+            onSave={() =>
+              void run(async () => {
+                const correction = ui.state.drafts[`correction-${session.id}`],
+                  v = correction.values;
+                await onChange((old) =>
+                  correctDailyTrip(
+                    old,
+                    session.id,
+                    correction.version ?? -1,
+                    v.rowId,
+                    v.tripId,
+                    {
+                      capacity: Number(v.capacity),
+                      driverId: v.driverId,
+                      sourceId: v.sourceId,
+                      soilType: v.soilType,
+                    },
+                    owner,
+                    v.reason,
+                  ),
+                );
+                ui.update((s) => ({
+                  ...s,
+                  drafts: {
+                    ...s.drafts,
+                    [`correction-${session.id}`]: { id: crypto.randomUUID(), values: {} },
+                  },
+                }));
+              })
+            }
+          />
+          <details>
+            <summary>รายการเที่ยวและประวัติแก้ไข</summary>
+            {rows.flatMap((row) =>
+              activeDailyTrips(row).map((trip) => (
+                <p key={trip.id}>
+                  {name(row.truckId)} · {name(trip.driverId)} · {trip.capacity} m³ ·{' '}
+                  {workTimestamp(trip.recordedAt)} · {trip.id}
+                </p>
+              )),
+            )}
+            {session.body.history?.map((entry) => (
+              <p key={entry.id}>
+                {workTimestamp(entry.at)} · {entry.action} · {entry.by} ·{' '}
+                {entry.reason || 'แก้ไขรายการ'}
+              </p>
+            ))}
+          </details>
           {rows.find((r) => r.id === evidenceRow) && (
             <EvidencePanel
               key={`${session.id}-${evidenceRow}-${rowFingerprint(
