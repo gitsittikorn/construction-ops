@@ -34,6 +34,18 @@ export function deleteRecord(
       );
   }
   const now = new Date().toISOString();
+  if (
+    (data.workspaces ?? []).some((item) =>
+      type === 'project'
+        ? item.projectId === id
+        : type === 'master' &&
+          item.recordType === 'daily' &&
+          item.body.rows.some((row) =>
+            [row.truckId, row.driverId, row.teamId, row.sourceId].includes(id),
+          ),
+    )
+  )
+    throw Error('ลบไม่ได้: มีวันทำงานหรือหลักฐานอ้างอิง กรุณาปิดใช้งานแทน');
   return {
     ...data,
     [key]: data[key].filter((item) => item.id !== id),

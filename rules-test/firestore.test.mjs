@@ -82,6 +82,8 @@ test('anonymous, non-admin and disabled accounts cannot read or write data', asy
       'documents',
       'driveFolders',
       'uniqueKeys',
+      'workspaces',
+      'evidenceFolders',
     ]) {
       await assertFails(getDoc(doc(db, 'users', 'admin', kind, 'forbidden')));
       await assertFails(

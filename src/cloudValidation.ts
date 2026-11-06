@@ -1,5 +1,6 @@
 import type { CloudRecord, EntityCollection } from './syncModel';
 import { payloadOf } from './syncModel';
+import { validateWorkspace } from './workspaceValidation';
 
 function object(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -28,6 +29,10 @@ export function validateCloudRecord(
     !(value.deletedAt === null || typeof value.deletedAt === 'string')
   )
     throw Error('รูปแบบข้อมูล Cloud ไม่ถูกต้อง');
+  if (collection === 'workspaces') {
+    validateWorkspace(p);
+    return;
+  }
   const strings =
     collection === 'projects'
       ? ['name', 'customer', 'location', 'startDate', 'endDate', 'status', 'description']
@@ -41,7 +46,7 @@ export function validateCloudRecord(
       ? ['latitude', 'longitude']
       : collection === 'masters'
         ? ['capacity', 'active', 'province', 'phone', 'truckType', 'tagIds']
-        : ['revision'];
+        : ['revision', 'capacityPerTrip'];
   const allowed = new Set(['id', 'createdAt', 'updatedAt', ...strings, ...optional]);
   if (
     Object.keys(p).some((key) => !allowed.has(key)) ||
@@ -114,6 +119,14 @@ export function validateCloudRecord(
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(p.time)))
   )
     throw Error('ข้อมูลเที่ยวรถ Cloud ไม่ถูกต้อง');
+  if (
+    collection === 'trips' &&
+    p.capacityPerTrip !== undefined &&
+    (typeof p.capacityPerTrip !== 'number' ||
+      !Number.isFinite(p.capacityPerTrip) ||
+      p.capacityPerTrip <= 0)
+  )
+    throw Error('ความจุต่อเที่ยว Cloud ไม่ถูกต้อง');
 }
 export function decodeCloudRecord(
   collection: EntityCollection,

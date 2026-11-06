@@ -73,6 +73,15 @@ export async function saveDocumentMetadata(owner: string, record: UploadRecord) 
   const db = ownerDatabase(owner),
     ref = doc(db, 'users', owner, 'documents', record.id);
   const metadata = {
+    ...(record.evidenceId
+      ? {
+          evidenceId: record.evidenceId,
+          driverId: record.driverId,
+          truckId: record.truckId,
+          workDate: record.workDate,
+          category: record.category,
+        }
+      : {}),
     id: record.id,
     owner,
     projectId: record.projectId,
@@ -102,6 +111,22 @@ export async function saveDocumentMetadata(owner: string, record: UploadRecord) 
         at: serverTimestamp(),
         fileId: record.driveId,
       });
+    }),
+  );
+}
+export async function resolveEvidenceFolder(
+  owner: string,
+  key: string,
+  candidate: { id: string; parentId: string; name: string },
+) {
+  const db = ownerDatabase(owner),
+    ref = doc(db, 'users', owner, 'evidenceFolders', key);
+  return boundedFirestore(
+    runTransaction(db, async (tx) => {
+      const existing = await tx.get(ref);
+      if (existing.exists()) return existing.data() as typeof candidate;
+      tx.set(ref, candidate);
+      return candidate;
     }),
   );
 }

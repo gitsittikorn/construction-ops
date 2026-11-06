@@ -7,6 +7,19 @@ export function workDate(now = new Date()) {
     day: '2-digit',
   }).format(now);
 }
+export function workTimestamp(value: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : value;
+}
 export function validateProject(project: Project) {
   if (!project.name.trim()) throw Error('กรุณาระบุชื่อโครงการ');
   if (project.endDate && project.startDate && project.endDate < project.startDate)
@@ -77,6 +90,13 @@ export function saveTrip(data: Data, trip: Trip, actor = 'local'): Data {
     if (id && !data.masters.some((m) => m.id === id && m.kind === kind && m.active))
       throw Error('ข้อมูลคนขับหรือแหล่งดินไม่พร้อมใช้งาน');
   const previous = data.trips.find((t) => t.id === trip.id);
+  const capacity =
+    trip.capacityPerTrip ??
+    (previous?.truckId === trip.truckId
+      ? previous.capacityPerTrip
+      : data.masters.find((m) => m.id === trip.truckId)?.capacity);
+  if (capacity !== undefined && Number.isFinite(capacity) && capacity > 0)
+    trip = { ...trip, capacityPerTrip: capacity };
   if (
     trip.soilType &&
     trip.soilType !== previous?.soilType &&

@@ -2,6 +2,7 @@ import { openDB } from 'idb';
 import { emptyData, type Data } from './models';
 import { withDeadline } from './async';
 import { prepareSync } from './syncModel';
+import type { UploadRecord } from './uploads';
 async function db() {
   const opening = openDB('construction-ops', 2, {
     upgrade(database) {
@@ -48,6 +49,14 @@ export async function persistData(owner: string, data: Data) {
 export async function updateData(owner: string, change: (previous: Data) => Data): Promise<Data> {
   return mutateData(owner, change, true);
 }
+export async function updateDataAndUploads(
+  owner: string,
+  uploads: UploadRecord[],
+  change: (previous: Data) => Data,
+) {
+  if (uploads.some((record) => record.owner !== owner)) throw Error('บัญชีของไฟล์ไม่ตรงกัน');
+  return mutateData(owner, change, true, uploads);
+}
 // Cloud acknowledgements/merges must not enqueue themselves as new local edits.
 export async function updateSyncData(
   owner: string,
@@ -59,25 +68,39 @@ async function mutateData(
   owner: string,
   change: (previous: Data) => Data,
   enqueue: boolean,
+  uploads: UploadRecord[] = [],
 ): Promise<Data> {
   const database = await db();
   try {
-    const transaction = database.transaction('state', 'readwrite');
-    const previous: Data = (await transaction.store.get(owner)) ?? structuredClone(emptyData);
+    const transaction = database.transaction(['state', 'uploads'], 'readwrite');
+    const store = transaction.objectStore('state');
+    const previous: Data = (await store.get(owner)) ?? structuredClone(emptyData);
     let next: Data;
     try {
-      if (enqueue && !previous.sync && !(await transaction.store.get(['phase1-backup', owner])))
-        await transaction.store.put(structuredClone(previous), ['phase1-backup', owner]);
+      if (enqueue && !previous.sync && !(await store.get(['phase1-backup', owner])))
+        await store.put(structuredClone(previous), ['phase1-backup', owner]);
+      if (enqueue && previous.workspaces === undefined && !(await store.get(['v4-backup', owner])))
+        await store.put(structuredClone(previous), ['v4-backup', owner]);
       next = change(previous);
       if (enqueue) next = prepareSync(previous, next);
+      for (const record of uploads) {
+        const old = await transaction.objectStore('uploads').get(record.id);
+        if (
+          old &&
+          (old.owner !== owner || old.evidenceId !== record.evidenceId || old.size !== record.size)
+        )
+          throw Error('รหัสไฟล์ซ้ำแต่ข้อมูลไม่ตรงกัน');
+        if (!old) await transaction.objectStore('uploads').add(record);
+      }
     } catch (error) {
       transaction.abort();
       await transaction.done.catch(() => {});
       throw error;
     }
-    await transaction.store.put(next, owner);
+    await store.put(next, owner);
     await transaction.done;
     notifyDataChanged(owner);
+    if (uploads.length) window.dispatchEvent(new Event('construction-uploads-changed'));
     return next;
   } finally {
     database.close();

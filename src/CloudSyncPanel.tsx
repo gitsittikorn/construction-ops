@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Data } from './models';
 import { integrityIssues, type CloudRecord } from './syncModel';
 import { exportLocalBackup } from './backup';
+import { workDate, workTimestamp } from './domain';
 
 function title(record: CloudRecord, data: Data) {
   const p = record.payload;
@@ -17,6 +18,15 @@ function Version({ record, data }: { record: CloudRecord | null; data: Data }) {
     ['สถานะข้อมูล', record.deletedAt ? 'ลบออกจากการใช้งานแล้ว' : 'ยังใช้งานอยู่'],
     ['แก้ไขล่าสุด', record.updatedAt],
   ];
+  if ('recordType' in p)
+    return (
+      <div>
+        <p>
+          {p.name} · {record.updatedAt}
+        </p>
+        <pre>{JSON.stringify(p.body, null, 2)}</pre>
+      </div>
+    );
   if ('projectId' in p)
     rows.push(
       ['โครงการ', data.projects.find((v) => v.id === p.projectId)?.name ?? p.projectId],
@@ -96,7 +106,7 @@ export default function CloudSyncPanel({
         url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `construction-ops-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `construction-ops-backup-${workDate()}.json`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
@@ -123,7 +133,7 @@ export default function CloudSyncPanel({
       )}
       <button onClick={() => void download()}>ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ</button>
       {data.sync?.restoredAt && (
-        <p>ตรวจข้อมูลจาก Cloud ล่าสุด: {new Date(data.sync.restoredAt).toLocaleString('th-TH')}</p>
+        <p>ตรวจข้อมูลจาก Cloud ล่าสุด: {workTimestamp(data.sync.restoredAt)}</p>
       )}
       {error && <p role="alert">{error}</p>}
       {failure && <p role="alert">{failure}</p>}

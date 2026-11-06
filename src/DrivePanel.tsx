@@ -25,6 +25,8 @@ import {
 import { getSessionIdentity, resolveDriveFolders, saveDocumentMetadata } from './firebase';
 import ProjectPicker from './ProjectPicker';
 import DriveConnectionDialog from './DriveConnectionDialog';
+import { ensureEvidenceFolder } from './evidenceFolders';
+import PrivateFileViewer from './PrivateFileViewer';
 import { getDriveSession, saveDriveSession, clearDriveSession } from './driveSession';
 import {
   driveBackendConfigured,
@@ -143,6 +145,10 @@ export default function DrivePanel({
   useEffect(() => {
     alive.current = true;
     void refresh().catch(() => setError('อ่านคิวอัปโหลดไม่สำเร็จ'));
+    const onUploads = () => {
+      void refresh().catch(reportError);
+    };
+    window.addEventListener('construction-uploads-changed', onUploads);
     if (driveConfigured)
       void loadGoogleIdentity()
         .then(() => {
@@ -153,6 +159,7 @@ export default function DrivePanel({
         });
     return () => {
       alive.current = false;
+      window.removeEventListener('construction-uploads-changed', onUploads);
     };
   }, [owner]);
   useEffect(() => {
@@ -282,7 +289,10 @@ export default function DrivePanel({
   async function prepare(record: UploadRecord): Promise<UploadRecord> {
     const projectFolders = await ensureProjectFolders(record.projectId);
     const driveId = record.driveId || (await generateDriveIds(await token(), 1))[0];
-    return { ...record, driveId, folderId: projectFolders.documentsId };
+    const folderId =
+      record.folderId ||
+      (await ensureEvidenceFolder(await token(), record, projectFolders.documentsId));
+    return { ...record, driveId, folderId };
   }
   async function createProjectFolders() {
     if (lock.current) return;
@@ -598,6 +608,20 @@ export default function DrivePanel({
         </div>
       ))}
       <div className="section-heading">
+        <button
+          disabled={!online || busy || owner === 'local'}
+          onClick={() => {
+            void import('./documentRecovery')
+              .then((module) => module.restoreDocumentMetadata(owner))
+              .then(async (count) => {
+                await refresh();
+                setNotice(`โหลดข้อมูลอ้างอิงเอกสารจาก Cloud ${count} รายการแล้ว`);
+              })
+              .catch(reportError);
+          }}
+        >
+          กู้คืนรายการเอกสารจาก Cloud
+        </button>
         <h3>
           คิวเอกสาร · {items.filter((item) => item.status !== 'synced').length} รายการรอดำเนินการ
         </h3>
@@ -633,6 +657,13 @@ export default function DrivePanel({
             {item.error && <p>{item.error}</p>}
             {item.status === 'synced' && (
               <>
+                {item.mimeType.startsWith('image/') && connected && online && (
+                  <PrivateFileViewer
+                    name={item.name}
+                    load={async () => downloadOriginal(await token(), item.driveId)}
+                    onError={reportError}
+                  />
+                )}
                 <a
                   className="text-button"
                   href={`https://drive.google.com/file/d/${encodeURIComponent(item.driveId)}/view`}

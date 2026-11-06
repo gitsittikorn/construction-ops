@@ -7,6 +7,7 @@ import {
   validateProject,
   validateMaster,
   workDate,
+  workTimestamp,
 } from '../domain';
 import { emptyData, type Data, type Trip } from '../models';
 import { persistData, loadData } from '../storage';
@@ -89,7 +90,8 @@ describe('trip integrity', () => {
   it('records edit history and rejects stale revisions', () => {
     const first = saveTrip(data, trip);
     const second = saveTrip(first, { ...trip, notes: 'changed', revision: 2 });
-    expect(second.audit[1].before).toEqual(trip);
+    expect(second.audit[1].before).toEqual(first.trips[0]);
+    expect(first.trips[0].capacityPerTrip).toBe(12);
     expect(second.trips).toHaveLength(1);
     expect(() => saveTrip(second, { ...trip, revision: 4 })).toThrow();
   });
@@ -103,6 +105,10 @@ describe('trip integrity', () => {
   });
 });
 describe('input validation', () => {
+  it('formats work timestamps in Bangkok even across the UTC date boundary', () => {
+    expect(workTimestamp('2026-11-05T17:30:00Z')).toContain('06/11/2569');
+    expect(workTimestamp('legacy')).toBe('legacy');
+  });
   it('requires a project name and ordered dates', () => {
     expect(() => validateProject({ ...project, name: ' ' })).toThrow();
     expect(() => validateProject({ ...project, endDate: '2026-01-01' })).toThrow();

@@ -7,6 +7,12 @@ import { loadData, persistData, updateData } from '../storage';
 import { emptyData } from '../models';
 import { fixture, project, truck, trip } from '../test/syncFixtures';
 import { deleteRecord } from '../deletion';
+import { createDaily, dailySessions, saveDailyRow, verifyDaily, closeDaily } from '../daily';
+import { saveEvidence } from '../evidence';
+import { listUploads, putUpload } from '../uploads';
+import { webcrypto } from 'node:crypto';
+import { File as NodeFile } from 'node:buffer';
+import { IDBFactory } from 'fake-indexeddb';
 
 const session = vi.hoisted(() => ({ owner: '', db: null as Firestore | null }));
 vi.mock('../firebase', () => ({
@@ -28,11 +34,103 @@ afterAll(async () => {
   await environment?.cleanup();
 });
 beforeEach(async () => {
+  vi.stubGlobal('crypto', webcrypto);
   session.owner = `integration-${crypto.randomUUID()}`;
   await environment.withSecurityRulesDisabled((context) =>
     setDoc(doc(context.firestore(), 'admins', session.owner), { enabled: true }),
   );
   session.db = environment.authenticatedContext(session.owner).firestore() as unknown as Firestore;
+});
+afterEach(() => vi.unstubAllGlobals());
+it('syncs a daily session with actual rules and restores proof metadata to a separate fake device after simulated Drive upload', async () => {
+  const owner = session.owner,
+    original = fixture();
+  original.masters.push({ ...truck, id: 'driver', kind: 'driver' });
+  await persistData(owner, original);
+  await updateData(owner, (data) => createDaily(data, 'p', '2026-11-06', owner));
+  let daily = dailySessions(await loadData(owner))[0];
+  await updateData(owner, (data) =>
+    saveDailyRow(
+      data,
+      daily.id,
+      daily.body.version,
+      {
+        id: 'row',
+        truckId: 'truck',
+        driverId: 'driver',
+        teamId: '',
+        sourceId: '',
+        soilType: '',
+        tripCount: 4,
+        capacity: 12,
+        reportedTrips: 4,
+        notes: '',
+      },
+      owner,
+    ),
+  );
+  for (const category of ['driver-photo', 'signature', 'trip-slip'] as const)
+    await saveEvidence(owner, daily.id, 'row', category, [
+      new NodeFile([`original ${category}`], `${category}.png`, {
+        type: 'image/png',
+      }) as unknown as File,
+    ]);
+  await synchronize(owner, firestoreTransport);
+  for (const file of await listUploads(owner)) {
+    const driveId = `simulated-private-drive-${file.id}`;
+    await setDoc(doc(session.db!, 'users', owner, 'documents', file.id), {
+      id: file.id,
+      owner,
+      projectId: file.projectId,
+      tripId: '',
+      evidenceId: file.evidenceId,
+      driverId: file.driverId,
+      truckId: file.truckId,
+      workDate: file.workDate,
+      category: file.category,
+      fileId: driveId,
+      folderId: 'private-folder',
+      name: file.name,
+      mimeType: file.mimeType,
+      size: file.size,
+      createdAt: file.createdAt,
+      status: 'synced',
+      uploadedAt: serverTimestamp(),
+    });
+    await putUpload({ ...file, status: 'synced', driveId, folderId: 'private-folder' });
+  }
+  daily = dailySessions(await loadData(owner))[0];
+  await expect(
+    updateData(owner, (data) => verifyDaily(data, daily.id, daily.body.version, owner, [])),
+  ).rejects.toThrow('อัปโหลด');
+  const uploads = await listUploads(owner);
+  daily = dailySessions(await loadData(owner))[0];
+  await updateData(owner, (data) =>
+    verifyDaily(data, daily.id, daily.body.version, owner, uploads),
+  );
+  daily = dailySessions(await loadData(owner))[0];
+  await updateData(owner, (data) => closeDaily(data, daily.id, daily.body.version, owner, uploads));
+  await synchronize(owner, firestoreTransport);
+  expect(
+    (await getDoc(doc(session.db!, 'users', owner, 'workspaces', daily.id))).data()?.payload.body
+      .state,
+  ).toBe('closed');
+  const sealedRef=doc(session.db!,'users',owner,'workspaces',daily.id),sealed=(await getDoc(sealedRef)).data()!;
+  await expect(setDoc(sealedRef,{...sealed,revision:sealed.revision+1,operationId:crypto.randomUUID(),serverUpdatedAt:serverTimestamp(),payload:{...sealed.payload,body:{...sealed.payload.body,state:'open',version:sealed.payload.body.version+1}}})).rejects.toMatchObject({code:'permission-denied'});
+  const originalDatabase = indexedDB;
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  try {
+    await synchronize(owner, firestoreTransport);
+    const restored = dailySessions(await loadData(owner))[0];
+    expect(restored.body.closures[0].volume).toBe(48);
+    expect(restored.body.history?.some((e) => e.action === 'daily-verify')).toBe(true);
+    expect(await listUploads(owner)).toHaveLength(3);
+    expect(
+      (await listUploads(owner)).every((file) => file.status === 'synced' && file.driveId),
+    ).toBe(true);
+  } finally {
+    vi.stubGlobal('indexedDB', originalDatabase);
+  }
 });
 it('uses the real adapter and rules for upload, verified restore, incremental edits and tombstones', async () => {
   const owner = session.owner,

@@ -24,6 +24,7 @@ export interface CloudBatch {
   cursors: SyncState['cursors'];
 }
 export interface CloudTransport {
+  restoreDocuments?: (owner: string) => Promise<number>;
   authorize(owner: string): Promise<void>;
   pull(owner: string, cursors: SyncState['cursors']): Promise<CloudBatch>;
   push(owner: string, collection: EntityCollection, entry: SyncEntry): Promise<CloudRecord>;
@@ -202,6 +203,11 @@ export async function synchronize(
       const batch = await transport.pull(owner, previous.sync!.cursors);
       assertActive();
       await updateSyncData(owner, (data) => mergeCloud(data, batch));
+      if (transport.restoreDocuments) {
+        status('กำลังกู้คืนข้อมูลอ้างอิงเอกสารจาก Cloud');
+        await transport.restoreDocuments(owner);
+        assertActive();
+      }
       status('กำลังส่งข้อมูลที่รอซิงก์');
       for (const collection of collections) {
         const state = (await loadData(owner)).sync!;

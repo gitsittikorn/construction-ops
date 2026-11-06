@@ -18,6 +18,8 @@ export function withDeadline<T>(
   });
 }
 export function connectionMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'name' in error && error.name === 'QuotaExceededError')
+    return 'พื้นที่เก็บข้อมูลเต็ม กรุณาอัปโหลดหรือสำรองข้อมูลก่อนบันทึกใหม่ อย่าล้างข้อมูลเว็บไซต์';
   const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
   if (code === 'permission-denied')
     return 'Firestore ไม่อนุญาต กรุณาตรวจ Rules ล่าสุดและ admins/{UID} ที่มี enabled: true';

@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { devDiagnosticsPlugin } from './devDiagnosticsPlugin';
+import { precachePlugin } from './precachePlugin';
 export default defineConfig({
-  plugins: [react(), devDiagnosticsPlugin()],
+  plugins: [react(), devDiagnosticsPlugin(), precachePlugin()],
   test: {
     include: ['src/test/**/*.test.{ts,tsx}'],
     globals: true,

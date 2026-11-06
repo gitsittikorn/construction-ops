@@ -20,6 +20,13 @@ export async function withUploadLock(owner: string, task: () => Promise<void>) {
   }
 }
 export interface UploadRecord {
+  evidenceId?: string;
+  driverName?: string;
+  truckName?: string;
+  driverId?: string;
+  truckId?: string;
+  workDate?: string;
+  category?: import('./workspaceModels').EvidenceCategory;
   id: string;
   owner: string;
   projectId: string;

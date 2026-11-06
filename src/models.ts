@@ -27,6 +27,7 @@ export interface Master extends Base {
   tagIds?: string[];
 }
 export interface Trip extends Base {
+  capacityPerTrip?: number;
   projectId: string;
   date: string;
   time: string;
@@ -48,6 +49,8 @@ export interface Audit {
   after: unknown;
 }
 export interface Data {
+  workspaces?: import('./workspaceModels').WorkspaceRecord[];
+  deletedWorkspaces?: (import('./workspaceModels').WorkspaceRecord & { deletedAt: string })[];
   projects: Project[];
   masters: Master[];
   trips: Trip[];

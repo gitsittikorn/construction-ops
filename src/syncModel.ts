@@ -1,8 +1,9 @@
 import type { Data, Master, Project, Trip } from './models';
+import type { WorkspaceRecord } from './workspaceModels';
 
-export const collections = ['projects', 'masters', 'trips'] as const;
+export const collections = ['projects', 'masters', 'trips', 'workspaces'] as const;
 export type EntityCollection = (typeof collections)[number];
-export type Entity = Project | Master | Trip;
+export type Entity = Project | Master | Trip | WorkspaceRecord;
 export interface CloudRecord {
   schemaVersion: 1;
   id: string;
@@ -55,12 +56,14 @@ export function sameVersion(a: CloudRecord | null, b: CloudRecord | null) {
 }
 function records(data: Data, collection: EntityCollection): Entity[] {
   return [
-    ...data[collection],
+    ...(data[collection] ?? []),
     ...(collection === 'trips'
       ? (data.deletedTrips ?? [])
       : collection === 'projects'
         ? (data.deletedProjects ?? [])
-        : (data.deletedMasters ?? [])),
+        : collection === 'masters'
+          ? (data.deletedMasters ?? [])
+          : (data.deletedWorkspaces ?? [])),
   ];
 }
 export function prepareSync(previous: Data, next: Data): Data {
@@ -157,11 +160,13 @@ export function applyRecord(
       ? 'deletedTrips'
       : collection === 'projects'
         ? 'deletedProjects'
-        : 'deletedMasters';
+        : collection === 'masters'
+          ? 'deletedMasters'
+          : 'deletedWorkspaces';
   return {
     ...data,
     [collection]: [
-      ...data[collection].filter((entity) => entity.id !== record.id),
+      ...(data[collection] ?? []).filter((entity) => entity.id !== record.id),
       ...(record.deletedAt ? [] : [item]),
     ],
     [deletedKey]: [
@@ -189,5 +194,36 @@ export function integrityIssues(data: Data): string[] {
     for (const id of master.tagIds ?? [])
       if (!masters.some((m) => m.id === id && m.kind === 'tag'))
         issues.push(`ข้อมูล ${master.id}: ไม่พบทีม ${id}`);
+  const workspaceRecords = [...(data.workspaces ?? []), ...(data.deletedWorkspaces ?? [])];
+  for (const record of workspaceRecords) {
+    if (!projects.has(record.projectId)) issues.push(`งาน ${record.name}: ไม่พบโครงการ`);
+    if (record.recordType === 'daily')
+      for (const proof of Object.values(record.body.verifications))
+        if (
+          !workspaceRecords.some(
+            (r) =>
+              r.id === proof.evidenceId &&
+              r.recordType === 'evidence' &&
+              r.body.sessionId === record.id &&
+              r.body.fingerprint === proof.fingerprint,
+          )
+        )
+          issues.push(`งาน ${record.name}: ไม่พบหลักฐานที่ยืนยัน`);
+    if (record.recordType === 'daily')
+      for (const row of record.body.rows)
+        for (const [id, kind] of [
+          [row.truckId, 'truck'],
+          [row.driverId, 'driver'],
+          [row.teamId, 'tag'],
+          [row.sourceId, 'source'],
+        ])
+          if (id && !masters.some((m) => m.id === id && m.kind === kind))
+            issues.push(`งาน ${record.name}: ไม่พบ ${kind} ${id}`);
+    if (
+      record.recordType === 'evidence' &&
+      !workspaceRecords.some((r) => r.id === record.body.sessionId && r.recordType === 'daily')
+    )
+      issues.push(`หลักฐาน ${record.name}: ไม่พบวันทำงาน`);
+  }
   return issues;
 }

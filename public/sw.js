@@ -1,19 +1,30 @@
-const CACHE = 'construction-shell-v3';
+const CACHE = 'construction-shell-v4';
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) =>
-        cache.addAll([
-          '/',
-          '/icon.svg',
-          '/company-logo.jpg',
-          '/login-earthwork.png',
-          '/manifest.webmanifest',
-        ]),
-      ),
+    caches.open(CACHE).then(async (cache) => {
+      const response = await fetch('/precache-manifest.json', { cache: 'no-store' });
+      if (!response.ok) throw Error('App assets are not ready');
+      const assets = await response.json();
+      if (
+        !Array.isArray(assets) ||
+        assets.some((url) => typeof url !== 'string' || !/^\/assets\/[^/]+\.(js|css)$/.test(url))
+      )
+        throw Error('Invalid app asset manifest');
+      return cache.addAll([
+        '/',
+        '/icon.svg',
+        '/company-logo.jpg',
+        '/login-earthwork.png',
+        '/manifest.webmanifest',
+        '/icon-192.png',
+        '/icon-512.png',
+        ...assets,
+      ]);
+    }),
   );
-  self.skipWaiting();
+});
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'ACTIVATE_UPDATE') self.skipWaiting();
 });
 self.addEventListener('activate', (event) =>
   event.waitUntil(
@@ -39,7 +50,9 @@ self.addEventListener('fetch', (event) => {
   ) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
-        const hit = await cache.match(event.request);
+        // Build assets are immutable and never user-specific; ignore preview-server
+        // Vary: Origin so precached module requests also match their import headers.
+        const hit = await cache.match(event.request, { ignoreVary: true });
         if (hit) return hit;
         const response = await fetch(event.request);
         if (response.ok) await cache.put(event.request, response.clone());

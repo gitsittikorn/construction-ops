@@ -162,6 +162,8 @@ export async function pullCloud(owner: string, cursors: SyncState['cursors']): P
   return { records, cursors: next };
 }
 export const firestoreTransport: CloudTransport = {
+  restoreDocuments: async (owner) =>
+    (await import('./documentRecovery')).restoreDocumentMetadata(owner),
   authorize: authorizeCloud,
   pull: pullCloud,
   push: pushCloudRecord,

@@ -9,10 +9,18 @@ export default defineConfig({
     headless: true,
     channel: process.platform === 'win32' ? 'msedge' : undefined,
   },
-  webServer: {
-    command: 'node scripts/e2e-server.mjs',
-    url: 'http://127.0.0.1:5174',
-    reuseExistingServer: false,
-    timeout: 30000,
-  },
+  webServer: [
+    {
+      command: 'node scripts/e2e-server.mjs',
+      url: 'http://127.0.0.1:5174',
+      reuseExistingServer: false,
+      timeout: 30000,
+    },
+    {
+      command: 'node scripts/production-e2e-server.mjs',
+      url: 'http://127.0.0.1:5175',
+      reuseExistingServer: false,
+      timeout: 60000,
+    },
+  ],
 });

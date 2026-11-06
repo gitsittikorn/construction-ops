@@ -38,6 +38,13 @@ import { canonical, payloadOf } from './syncModel';
 import { deleteRecord } from './deletion';
 import { listUploads } from './uploads';
 import CloudSyncPanel from './CloudSyncPanel';
+import OperationsDashboard from './OperationsDashboard';
+import { reportRows, reportTotals, emptyReportFilter } from './reports';
+import { connectionMessage } from './async';
+import { lazy, Suspense } from 'react';
+const DailyPanel = lazy(() => import('./DailyPanel'));
+const ReportsPanel = lazy(() => import('./ReportsPanel'));
+const SurveyPanel = lazy(() => import('./SurveyPanel'));
 import { companyName, companyLogo } from './branding';
 import LoginPage from './LoginPage';
 import DrivePanel from './DrivePanel';
@@ -52,8 +59,10 @@ const pages = [
   ['overview', 'ภาพรวม', LayoutDashboard],
   ['projects', 'โครงการ', FolderOpen],
   ['trips', 'บันทึกเที่ยวรถ', Truck],
+  ['daily', 'งานรายวันและตรวจยอด', Truck],
   ['masters', 'ข้อมูลพื้นฐาน', Database],
   ['reports', 'รายงาน', BarChart3],
+  ['businessReports', 'รายงานธุรกิจ', BarChart3],
   ['survey', 'สำรวจและคำนวณ', Calculator],
   ['settings', 'การตั้งค่า', Settings],
 ] as const;
@@ -264,7 +273,7 @@ export default function App() {
     }
   }
   function message(e: unknown) {
-    return e instanceof Error ? e.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+    return connectionMessage(e);
   }
   function open(type: typeof modal, record: typeof editing = null) {
     setConfirmDelete(false);
@@ -549,19 +558,21 @@ export default function App() {
                   : 'จัดการข้อมูลอย่างเป็นระบบ พร้อมสำหรับการทำงานหน้างาน'}
               </p>
             </div>
-            <button
-              className="primary"
-              onClick={() =>
-                open(page === 'projects' ? 'project' : page === 'masters' ? 'master' : 'trip')
-              }
-            >
-              <Plus size={18} />
-              {page === 'projects'
-                ? 'เพิ่มโครงการ'
-                : page === 'masters'
-                  ? 'เพิ่มข้อมูล'
-                  : 'บันทึกเที่ยวรถ'}
-            </button>
+            {!['daily', 'businessReports', 'survey'].includes(page) && (
+              <button
+                className="primary"
+                onClick={() =>
+                  open(page === 'projects' ? 'project' : page === 'masters' ? 'master' : 'trip')
+                }
+              >
+                <Plus size={18} />
+                {page === 'projects'
+                  ? 'เพิ่มโครงการ'
+                  : page === 'masters'
+                    ? 'เพิ่มข้อมูล'
+                    : 'บันทึกเที่ยวรถ'}
+              </button>
+            )}
           </div>
           {!configured && (
             <div className="local-banner">
@@ -622,7 +633,18 @@ export default function App() {
                   <section className="stats">
                     {(
                       [
-                        ['เที่ยวรถวันนี้', todayTrips.length, 'เที่ยว', Truck],
+                        [
+                          'เที่ยวรถวันนี้',
+                          reportTotals(
+                            reportRows(data, {
+                              ...emptyReportFilter,
+                              from: workDate(),
+                              to: workDate(),
+                            }),
+                          ).trips,
+                          'เที่ยว',
+                          Truck,
+                        ],
                         ['โครงการที่ดำเนินการ', active.length, 'โครงการ', FolderOpen],
                         [
                           'รถบรรทุกพร้อมใช้งาน',
@@ -653,6 +675,7 @@ export default function App() {
                       </article>
                     ))}
                   </section>
+                  <OperationsDashboard owner={owner} data={data} onDaily={() => setPage('daily')} />
                   <div className="dashboard-grid">
                     <section className="panel">
                       <div className="section-heading">
@@ -716,6 +739,21 @@ export default function App() {
                     </section>
                   </div>
                 </>
+              )}
+              {page === 'daily' && (
+                <Suspense fallback={<p>กำลังเปิดงานรายวัน…</p>}>
+                  <DailyPanel owner={owner} data={data} onChange={change} online={online} />
+                </Suspense>
+              )}
+              {page === 'businessReports' && (
+                <Suspense fallback={<p>กำลังเปิดรายงาน…</p>}>
+                  <ReportsPanel data={data} />
+                </Suspense>
+              )}
+              {page === 'survey' && (
+                <Suspense fallback={<p>กำลังเปิดงานสำรวจ…</p>}>
+                  <SurveyPanel data={data} owner={owner} onChange={change} />
+                </Suspense>
               )}
               {page === 'projects' && (
                 <>

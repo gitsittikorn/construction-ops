@@ -22,6 +22,45 @@ function harness() {
   return { listeners, cache, caches, fetch, self };
 }
 describe('service worker cache policy (simulated worker)', () => {
+  it('preloads every build asset and activates an update only on an explicit message', async () => {
+    const h = harness();
+    h.fetch.mockResolvedValue({ ok: true, json: async () => ['/assets/lazy.js'] });
+    let task: Promise<unknown> = Promise.resolve();
+    h.listeners.install({
+      waitUntil: (value: Promise<unknown>) => {
+        task = value;
+      },
+    });
+    await task;
+    expect(h.cache.addAll).toHaveBeenCalledWith(
+      expect.arrayContaining(['/assets/lazy.js', '/icon-192.png']),
+    );
+    expect(h.self.skipWaiting).not.toHaveBeenCalled();
+    h.listeners.message({ data: { type: 'ACTIVATE_UPDATE' } });
+    expect(h.self.skipWaiting).toHaveBeenCalledOnce();
+  });
+  it('matches immutable precached modules despite Vary headers, and rejects foreign precache paths', async () => {
+    const h = harness();
+    h.cache.match.mockResolvedValue('module');
+    let response: Promise<unknown> = Promise.resolve();
+    const request = { url: 'https://site.test/assets/lazy.js', method: 'GET' };
+    h.listeners.fetch({
+      request,
+      respondWith: (value: Promise<unknown>) => {
+        response = value;
+      },
+    });
+    expect(await response).toBe('module');
+    expect(h.cache.match).toHaveBeenCalledWith(request, { ignoreVary: true });
+    h.fetch.mockResolvedValue({ ok: true, json: async () => ['https://other.test/bad.js'] });
+    let task: Promise<unknown> = Promise.resolve();
+    h.listeners.install({
+      waitUntil: (value: Promise<unknown>) => {
+        task = value;
+      },
+    });
+    await expect(task).rejects.toThrow('Invalid');
+  });
   it('only removes this application’s obsolete caches', async () => {
     const h = harness();
     let task: Promise<unknown> = Promise.resolve();
