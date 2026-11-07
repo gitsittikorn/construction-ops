@@ -101,3 +101,45 @@ test('P4: foreign metadata and interrupted media never create a cache; safe retr
   await expect(page.getByText('มีต้นฉบับในเครื่อง พร้อมดูออฟไลน์', { exact: true })).toBeVisible();
   expect([attempt, mediaReads]).toEqual([3, 2]);
 });
+
+test('P4: a second isolated browser has no inherited cache and must independently restore its authorized original', async ({
+  browser,
+}) => {
+  // Two fresh browser profiles model separate local stores, not physical Android devices.
+  const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
+  try {
+    for (const context of contexts) {
+      const page = await context.newPage();
+      await isolate(page);
+      let reads = 0;
+      await page.route(
+        'https://www.googleapis.com/drive/v3/files/restore-file**',
+        async (route) => {
+          reads++;
+          if (new URL(route.request().url()).searchParams.get('alt') === 'media')
+            await route.fulfill({ contentType: 'image/png', body: png });
+          else await route.fulfill({ json: metadata });
+        },
+      );
+      await page.goto('http://127.0.0.1:5174/e2e/restore-harness.html');
+      await expect(
+        page.getByRole('button', { name: 'เก็บต้นฉบับไว้ดูออฟไลน์', exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('มีต้นฉบับในเครื่อง พร้อมดูออฟไลน์', { exact: true }),
+      ).toHaveCount(0);
+      expect(reads).toBe(0);
+      await page.getByRole('button', { name: 'เก็บต้นฉบับไว้ดูออฟไลน์', exact: true }).click();
+      await expect(
+        page.getByText('มีต้นฉบับในเครื่อง พร้อมดูออฟไลน์', { exact: true }),
+      ).toBeVisible();
+      await context.setOffline(true);
+      const event = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'ดาวน์โหลดต้นฉบับ', exact: true }).click();
+      expect(await readFile((await (await event).path())!)).toEqual(png);
+      expect(reads).toBe(2);
+    }
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
+  }
+});

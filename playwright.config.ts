@@ -8,6 +8,9 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:5174',
     headless: true,
     channel: process.platform === 'win32' ? 'msedge' : undefined,
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : undefined,
   },
   webServer: [
     {

@@ -31,3 +31,9 @@ Cached originals are separate from pending uploads. Existing JSON backups still 
 ## Changed files
 
 `src/documentCache.ts`, `src/drive.ts`, `src/DrivePanel.tsx`, `src/EvidencePanel.tsx`, `src/test/documentCache.test.ts`, `src/test/drive.test.ts`, `e2e/restore-harness.html`, `e2e/document-restore.spec.ts` and progress documentation. Existing React/TypeScript/Vite/Firebase/Drive/IndexedDB architecture retained. No new dependencies or secrets.
+
+## Current validated gate — 2026-11-08
+
+รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน
+
+เพิ่ม browser test สอง isolated profiles: profile ที่สองไม่มี inherited cache ต้อง restore references ที่ seed ใน fixture และดาวน์โหลด bytes ของตัวเอง; ตรวจ offline byte equality ทั้งสอง profile ใช้ synthetic identity/intercepted metadata/media ไม่ใช่การทดสอบ Google หรืออุปกรณ์จริง และไม่ได้แทนการทดสอบ metadata restore จาก Firestore
