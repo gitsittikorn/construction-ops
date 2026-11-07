@@ -470,9 +470,18 @@ export function evidenceFiles(
   session: DailySession,
   row: DailyRow,
   uploads: UploadRecord[],
+  owner: string,
 ) {
   const evidence = evidenceFor(data, session, row).at(-1);
   if (!evidence || evidence.recordType !== 'evidence') throw Error('ยังไม่มีหลักฐานของยอดปัจจุบัน');
+  if (
+    evidence.projectId !== session.projectId ||
+    evidence.body.date !== session.body.date ||
+    evidence.body.truckId !== row.truckId ||
+    evidence.body.driverId !== row.driverId ||
+    new Set(evidence.body.files.map((file) => file.uploadId)).size !== evidence.body.files.length
+  )
+    throw Error('ข้อมูลอ้างอิงหลักฐานไม่ตรงกัน');
   const files = evidence.body.files.map((f) => ({
     ...f,
     record: uploads.find((u) => u.id === f.uploadId),
@@ -492,8 +501,10 @@ export function evidenceFiles(
     files.some(
       (f) =>
         f.record?.status !== 'synced' ||
+        f.record.owner !== owner ||
         f.record.evidenceId !== evidence.id ||
         !f.record.driveId ||
+        !f.record.folderId ||
         f.record.category !== f.category ||
         f.record.projectId !== session.projectId ||
         f.record.driverId !== row.driverId ||
@@ -502,6 +513,8 @@ export function evidenceFiles(
     )
   )
     throw Error('ยังมีหลักฐานรออัปโหลด หรือข้อมูลอ้างอิงหลักฐานไม่ตรงกัน');
+  if (new Set(files.map((file) => file.record!.driveId)).size !== files.length)
+    throw Error('ไฟล์หลักฐานอ้างอิง Drive ซ้ำกัน');
   return { evidence, fileIds: files.map((f) => f.record!.driveId) };
 }
 export function verificationState(
@@ -544,7 +557,7 @@ export function verifyDaily(
         if (verificationState(s, row) === 'VERIFIED') continue;
         if (!row.driverId || row.reportedTrips !== row.tripCount)
           throw Error('ระบุคนขับและตรวจยอดบันทึกกับรายงานให้ตรงกันก่อนยืนยัน');
-        const { evidence, fileIds } = evidenceFiles(data, s, row, uploads);
+        const { evidence, fileIds } = evidenceFiles(data, s, row, uploads, actor);
         const verification: Verification = {
           fingerprint: rowFingerprint(s, row),
           evidenceId: evidence.id,
@@ -576,7 +589,7 @@ export function closeDaily(
       if (!s.body.rows.length || s.body.rows.some((r) => verificationState(s, r) !== 'VERIFIED'))
         throw Error('ต้องยืนยันรายการทุกคันก่อนปิดวัน');
       for (const row of s.body.rows) {
-        const { evidence, fileIds } = evidenceFiles(data, s, row, uploads);
+        const { evidence, fileIds } = evidenceFiles(data, s, row, uploads, actor);
         const proof = s.body.verifications[row.id];
         if (
           proof.evidenceId !== evidence.id ||

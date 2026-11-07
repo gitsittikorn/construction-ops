@@ -308,6 +308,28 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     36,
   );
   expect(stored.audit.some((a: any) => a.action === 'daily-reopen')).toBe(true);
+  // Reopening requires an explicit new verification, then preserves both closure snapshots.
+  await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).click();
+  await expect(page.locator('section[aria-label="งานรายวัน"]').getByRole('alert')).toContainText(
+    'ยืนยัน',
+  );
+  await page.getByRole('button', { name: 'ยืนยันยอดทั้งวัน', exact: true }).click();
+  await expect(page.getByRole('cell', { name: /^VERIFIED / })).toBeVisible();
+  await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).click();
+  await expect(page.getByText('สถานะวัน: ปิดวันแล้ว', { exact: true })).toBeVisible();
+  await page.reload();
+  const closed = await page.evaluate(async () => {
+    const path = '/src/storage.ts';
+    return (await (await import(path)).loadData('local')).workspaces.find(
+      (r: any) => r.recordType === 'daily',
+    );
+  });
+  expect(closed.body.state).toBe('closed');
+  expect(closed.body.closures).toHaveLength(2);
+  expect(closed.body.closures[0]).toEqual(
+    stored.workspaces.find((r: any) => r.recordType === 'daily').body.closures[0],
+  );
+  expect(closed.body.closures[1]).toMatchObject({ trips: 3, volume: 36 });
 });
 
 const evidencePng = Buffer.from(

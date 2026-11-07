@@ -393,3 +393,42 @@ it('rejects counts above the transaction limit without losing existing legacy ag
   ).toThrow('5,000');
   expect(dailyRowVolume(session.body.rows[0])).toBe(60012);
 });
+
+it('rejects foreign owners, missing folders, duplicate Drive IDs and mismatched evidence context before verification or closure', () => {
+  const ready = readyEvidence(dailyFixture());
+  const session = dailySessions(ready.data)[0];
+  for (const uploads of [
+    ready.uploads.map((file) => ({ ...file, owner: 'another-owner' })),
+    ready.uploads.map((file) => ({ ...file, folderId: '' })),
+    ready.uploads.map((file) => ({ ...file, driveId: 'one-file-for-all-categories' })),
+  ]) {
+    expect(() =>
+      verifyDaily(ready.data, session.id, session.body.version, 'admin', uploads),
+    ).toThrow();
+    const verified = verifyDaily(
+      ready.data,
+      session.id,
+      session.body.version,
+      'admin',
+      ready.uploads,
+    );
+    const current = dailySessions(verified)[0];
+    expect(() =>
+      closeDaily(verified, current.id, current.body.version, 'admin', uploads),
+    ).toThrow();
+    expect(current.body.state).toBe('open');
+    expect(current.body.closures).toEqual([]);
+  }
+  for (const field of ['projectId', 'date', 'truckId', 'driverId'] as const) {
+    const data = structuredClone(ready.data);
+    const evidence = data.workspaces!.find(
+      (record) => record.recordType === 'evidence',
+    )! as EvidenceRecord;
+    if (field === 'projectId') evidence.projectId = 'other-project';
+    else evidence.body[field] = 'other-context';
+    expect(() =>
+      verifyDaily(data, session.id, session.body.version, 'admin', ready.uploads),
+    ).toThrow('ตรงกัน');
+  }
+  expect(session.body.verifications).toEqual({});
+});

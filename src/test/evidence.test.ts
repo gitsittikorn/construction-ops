@@ -145,7 +145,12 @@ it('records the signer and time, replaces proof safely and invalidates previous 
     }),
   ).toThrow('ลายเซ็น');
   for (const file of await listUploads(owner))
-    await putUpload({ ...file, status: 'synced', driveId: `test-${file.id}` });
+    await putUpload({
+      ...file,
+      status: 'synced',
+      driveId: `test-${file.id}`,
+      folderId: 'test-private-folder',
+    });
   const uploads = await listUploads(owner);
   await updateData(owner, (data) => {
     const s = dailySessions(data)[0];
