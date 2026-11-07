@@ -103,3 +103,69 @@ it('escapes CSV/HTML injection and keeps Thai BOM and plate text', () => {
   expect(html).toContain('size:A4');
   expect(html).toContain('counter(page)');
 });
+
+it('reconciles mixed capacity snapshots once per truck/day without losing the reported count or fabricating a default capacity', async () => {
+  let value = data();
+  const session = dailySessions(value)[0];
+  value = saveDailyRow(
+    value,
+    session.id,
+    session.body.version,
+    { ...session.body.rows[0], tripCount: 6, capacity: 20, reportedTrips: 7 },
+    'admin',
+  );
+  const rows = reportRows(value, { ...emptyReportFilter, from: '2026-11-06' });
+  const table = reportTable(value, rows, 'verification');
+  const daily = table.slice(1).filter((row) => row.at(-1) === 'วันทำงาน');
+  expect(daily).toHaveLength(1);
+  expect(daily[0].slice(6, 12)).toEqual([
+    6,
+    7,
+    -1,
+    'หลายความจุ (ใช้ snapshot รายเที่ยว)',
+    80,
+    'MISMATCHED',
+  ]);
+  const sheet = await readSheet(
+    await readBlobBytes(await reportWorkbook(value, rows, 'verification')),
+    'รายงาน',
+  );
+  expect(
+    sheet
+      .slice(1)
+      .find((row) => row[12] === 'วันทำงาน')
+      ?.slice(6, 11),
+  ).toEqual([6, 7, -1, 'หลายความจุ (ใช้ snapshot รายเที่ยว)', 80]);
+  expect(reportTotals(rows).volume).toBe(80);
+});
+
+it('never compares a filtered subset of historical drivers with the full truck reported count', () => {
+  let value = data();
+  value.masters.push({ ...truck, id: 'driver-new', kind: 'driver', name: 'คนขับใหม่' });
+  const session = dailySessions(value)[0];
+  value = saveDailyRow(
+    value,
+    session.id,
+    session.body.version,
+    {
+      ...session.body.rows[0],
+      driverId: 'driver-new',
+      tripCount: 6,
+      capacity: 20,
+      reportedTrips: 6,
+    },
+    'admin',
+  );
+  const all = reportTable(value, reportRows(value, emptyReportFilter), 'verification');
+  expect(
+    all
+      .slice(1)
+      .find((row) => row[12] === 'วันทำงาน')
+      ?.slice(6, 9),
+  ).toEqual([6, 6, 0]);
+  const subset = reportRows(value, { ...emptyReportFilter, driver: 'driver-new' });
+  const table = reportTable(value, subset, 'verification');
+  expect(table[1].slice(6, 9)).toEqual([1, '', '']);
+  expect(table[1][10]).toBe(20);
+  expect(table[1][11]).toContain('ไม่เทียบยอดทั้งคัน');
+});

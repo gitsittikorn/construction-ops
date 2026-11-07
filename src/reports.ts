@@ -36,6 +36,10 @@ export const emptyReportFilter: ReportFilter = {
   verification: '',
 };
 export interface ReportRow {
+  reconciliation?: { id: string; trips: number; reported: number | null };
+  mixedCapacity?: boolean;
+  driverLabel?: string;
+  sourceLabel?: string;
   id: string;
   project: string;
   date: string;
@@ -79,6 +83,11 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
       const segments = dailyTripSegments(r);
       return segments.map((segment, index) => ({
         id: `${s.id}:${r.id}:${index}`,
+        reconciliation: {
+          id: JSON.stringify([s.id, r.id]),
+          trips: r.tripCount,
+          reported: r.reportedTrips,
+        },
         project: s.projectId,
         date: s.body.date,
         truck: r.truckId,
@@ -128,6 +137,32 @@ export function reportTable(
 ): (string | number)[][] {
   const name = (id: string) => data.masters.find((m) => m.id === id)?.name ?? id;
   const project = (id: string) => data.projects.find((p) => p.id === id)?.name ?? id;
+  if (type === 'verification') {
+    const groups = new Map<string, ReportRow[]>();
+    for (const row of rows) {
+      const key = row.reconciliation?.id ?? row.id;
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+    rows = [...groups.values()].map((group) => {
+      const first = group[0];
+      if (!first.reconciliation) return first;
+      const trips = group.reduce((total, row) => total + row.trips, 0);
+      const complete = trips === first.reconciliation.trips;
+      const capacities = new Set(group.map((row) => row.capacity));
+      return {
+        ...first,
+        id: first.reconciliation.id,
+        trips,
+        reported: complete ? first.reconciliation.reported : null,
+        volume: group.reduce((total, row) => total + (row.volume ?? 0), 0),
+        driverLabel: [...new Set(group.map((row) => name(row.driver) || 'ไม่ระบุ'))].join(' / '),
+        sourceLabel: [...new Set(group.map((row) => name(row.source) || 'ไม่ระบุ'))].join(' / '),
+        capacity: capacities.size === 1 ? first.capacity : null,
+        mixedCapacity: capacities.size > 1,
+        status: complete ? first.status : `${first.status} · เฉพาะเที่ยวที่กรอง ไม่เทียบยอดทั้งคัน`,
+      };
+    });
+  }
   if (type === 'daily' || type === 'verification')
     return [
       [
@@ -149,13 +184,13 @@ export function reportTable(
         r.date,
         project(r.project),
         name(r.truck),
-        name(r.driver),
+        r.driverLabel ?? name(r.driver),
         name(r.team),
-        name(r.source),
+        r.sourceLabel ?? name(r.source),
         r.trips,
         r.reported ?? '',
         r.reported === null ? '' : r.trips - r.reported,
-        r.capacity ?? 'ไม่มี snapshot',
+        r.mixedCapacity ? 'หลายความจุ (ใช้ snapshot รายเที่ยว)' : (r.capacity ?? 'ไม่มี snapshot'),
         r.volume ?? 'ไม่ทราบ',
         r.status,
         r.origin,

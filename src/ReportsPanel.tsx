@@ -123,6 +123,12 @@ export default function ReportsPanel({ data }: { data: Data }) {
         เที่ยวเดิมที่ไม่มี snapshot ความจุจะไม่ถูกเดาปริมาตร และไม่ถูกนับเป็นยอดยืนยัน
         ยอดจากวันทำงานและบันทึกรายเที่ยวแสดงที่มาแยกกัน
       </p>
+      {type === 'verification' && (
+        <p>
+          รายงานตรวจยอดรวมต่อรถต่อวันตามความจุรายเที่ยว หากกรองเหลือบางเที่ยวของรถ
+          จะไม่เปรียบเทียบกับยอดรายงานทั้งคัน
+        </p>
+      )}
       {(error || problem) && <p role="alert">{error || problem}</p>}
       <div className="operations-actions">
         <button

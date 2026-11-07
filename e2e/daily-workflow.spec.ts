@@ -699,3 +699,48 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   ).toBeVisible();
   await context.setOffline(false);
 });
+
+test('P6: mixed capacity reconciliation preserves mismatches in the UI, CSV and XLSX and rejects invalid ranges', async ({
+  page,
+}) => {
+  await seed(page);
+  await createRow(page);
+  await page.getByRole('button', { name: 'แก้ไข 00123', exact: true }).click();
+  await page.getByLabel('ความจุต่อเที่ยว', { exact: true }).fill('20');
+  await page.getByLabel('เที่ยวบันทึก', { exact: true }).fill('4');
+  await page.getByLabel('เที่ยวรายงาน', { exact: true }).fill('5');
+  await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
+  await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
+    .click();
+  await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('verification');
+  const row = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('td').nth(6)).toHaveText('4');
+  await expect(row.locator('td').nth(7)).toHaveText('5');
+  await expect(row.locator('td').nth(8)).toHaveText('-1');
+  await expect(row.locator('td').nth(9)).toContainText('หลายความจุ');
+  await expect(row.locator('td').nth(10)).toHaveText('56');
+  for (const format of ['CSV', 'Excel']) {
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: `ส่งออกรายงาน ${format}`, exact: true }).click();
+    const bytes = await readFile((await (await download).path())!);
+    if (format === 'CSV') {
+      expect(bytes.toString('utf8')).toContain('"4","5","\'-1"');
+      expect(bytes.toString('utf8')).toContain('หลายความจุ');
+    } else {
+      const { readSheet } = await import('read-excel-file/universal');
+      const sheet = await readSheet(Uint8Array.from(bytes).buffer, 'รายงาน');
+      expect(sheet[1].slice(6, 11)).toEqual([4, 5, -1, 'หลายความจุ (ใช้ snapshot รายเที่ยว)', 56]);
+    }
+  }
+  await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2026-12-01');
+  await page.getByLabel('รายงานถึงวันที่', { exact: true }).fill('2026-01-01');
+  await expect(page.getByRole('alert')).toContainText('ช่วงวันที่');
+  await expect(page.getByRole('button', { name: 'ส่งออกรายงาน CSV', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'ส่งออกรายงาน Excel', exact: true }),
+  ).toBeDisabled();
+});
