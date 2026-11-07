@@ -890,3 +890,44 @@ test('P7: survey import previews safely, rejects stale/invalid data, persists ex
   await page.getByLabel('ระดับเดิม G1-0', { exact: true }).fill('1');
   await expect(grid.locator('line[data-contour-level]').first()).toBeVisible();
 });
+
+test('P8: coarse-pointer tablet targets remain usable and report controls work by keyboard', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 800, height: 1280 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    await seed(page);
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
+      .click();
+    const panel = page.locator('section[aria-label="รายงานธุรกิจ"]');
+    for (const control of [
+      panel.getByLabel('รูปแบบรายงาน', { exact: true }),
+      panel.getByRole('button', { name: 'ส่งออกรายงาน CSV', exact: true }),
+      panel.getByRole('button', { name: 'หน้าถัดไป', exact: true }),
+    ]) {
+      const bounds = (await control.boundingBox())!;
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+      expect(bounds.width).toBeGreaterThanOrEqual(44);
+    }
+    const checkbox = panel.getByLabel('แนบเลขอ้างอิงหลักฐาน', { exact: true });
+    await checkbox.focus();
+    await page.keyboard.press('Space');
+    await expect(checkbox).toBeChecked();
+    await expect(
+      panel.getByRole('columnheader', { name: 'เลขอ้างอิงหลักฐาน', exact: true }),
+    ).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true,
+    );
+  } finally {
+    await context.close();
+  }
+});

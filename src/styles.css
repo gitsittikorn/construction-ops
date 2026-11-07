@@ -1481,3 +1481,23 @@ main.login-screen {
     flex: 1 1 170px;
   }
 }
+
+@media (pointer: coarse) {
+  .shell button,
+  .shell select,
+  .shell input:not([type='checkbox']):not([type='radio']) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .shell .daily-operations button,
+  .shell .daily-operations input,
+  .shell .daily-operations select {
+    min-height: 48px;
+  }
+  .shell label:has(> input[type='checkbox']) {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}

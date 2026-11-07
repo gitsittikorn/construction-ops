@@ -1,6 +1,6 @@
 import type { Data } from './models';
 import { csv } from './domain';
-import { dailySessions, verificationState, evidenceFor } from './daily';
+import { dailySessions, verificationState, rowFingerprint } from './daily';
 import { dailyTripSegments } from './dailyTrips';
 import { validDate } from './daily';
 import type { SheetData } from 'write-excel-file/universal';
@@ -65,6 +65,14 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
     (filter.from && filter.to && filter.from > filter.to)
   )
     throw Error('ช่วงวันที่รายงานไม่ถูกต้อง');
+  const evidenceIndex = new Map<string, string[]>();
+  for (const record of data.workspaces ?? []) {
+    if (record.recordType !== 'evidence') continue;
+    const key = JSON.stringify([record.body.sessionId, record.body.rowId, record.body.fingerprint]);
+    const entries = evidenceIndex.get(key) ?? [];
+    entries.push(`Evidence: ${record.id}`);
+    evidenceIndex.set(key, entries);
+  }
   const legacy: ReportRow[] = data.trips.map((t) => ({
     id: t.id,
     project: t.projectId,
@@ -84,12 +92,16 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
   const daily: ReportRow[] = dailySessions(data).flatMap((s) =>
     s.body.rows.flatMap((r) => {
       const segments = dailyTripSegments(r);
+      const state = verificationState(s, r);
+      const evidenceRefs = [
+        ...(evidenceIndex.size
+          ? (evidenceIndex.get(JSON.stringify([s.id, r.id, rowFingerprint(s, r)])) ?? [])
+          : []),
+        ...(s.body.verifications[r.id]?.fileIds ?? []).map((id) => `Drive: ${id}`),
+      ];
       return segments.map((segment, index) => ({
         id: `${s.id}:${r.id}:${index}`,
-        evidenceRefs: [
-          ...evidenceFor(data, s, r).map((evidence) => `Evidence: ${evidence.id}`),
-          ...(s.body.verifications[r.id]?.fileIds ?? []).map((id) => `Drive: ${id}`),
-        ],
+        evidenceRefs,
         reconciliation: {
           id: JSON.stringify([s.id, r.id]),
           trips: r.tripCount,
@@ -105,8 +117,8 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
         reported: segments.length === 1 ? r.reportedTrips : null,
         capacity: segment.capacity,
         volume: segment.tripCount * segment.capacity,
-        verified: verificationState(s, r) === 'VERIFIED',
-        status: verificationState(s, r),
+        verified: state === 'VERIFIED',
+        status: state,
         origin: s.body.state === 'closed' ? 'วันปิดแล้ว' : 'วันทำงาน',
       }));
     }),
