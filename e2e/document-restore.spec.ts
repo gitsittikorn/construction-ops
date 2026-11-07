@@ -143,3 +143,48 @@ test('P4: a second isolated browser has no inherited cache and must independentl
     await Promise.all(contexts.map((context) => context.close()));
   }
 });
+
+test('P4: a read-only Drive audit reports missing and unmapped files without deleting metadata or requesting originals', async ({
+  page,
+}) => {
+  await isolate(page);
+  const requests: string[] = [];
+  await page.route('https://www.googleapis.com/drive/v3/files?**', async (route) => {
+    requests.push(route.request().method());
+    await route.fulfill({
+      json: {
+        files: [
+          {
+            ...metadata,
+            id: 'unmapped-file',
+            name: 'from-another-device.png',
+            appProperties: { owner: 'phase4-isolated', operationId: 'another-operation' },
+          },
+        ],
+      },
+    });
+  });
+  await page.route('https://www.googleapis.com/drive/v3/files/restore-file**', async (route) => {
+    requests.push(route.request().method());
+    expect(new URL(route.request().url()).searchParams.has('alt')).toBe(false);
+    await route.fulfill({ status: 404, json: {} });
+  });
+  await page.goto('/e2e/restore-harness.html');
+  await page.getByRole('button', { name: 'ตรวจไฟล์ใน Drive', exact: true }).click();
+  await expect(
+    page.getByText('ตรวจข้อมูลอ้างอิง 1 ไฟล์ · พบข้อสังเกต 2 รายการ', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('private-proof.png: ไม่พบไฟล์หรือไม่มีสิทธิ์เข้าถึง', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('from-another-device.png: ยังไม่พบข้อมูลอ้างอิงในเครื่องนี้', { exact: true }),
+  ).toBeVisible();
+  const stored = await page.evaluate(async () => {
+    const path = '/src/uploads.ts';
+    return (await import(path)).listUploads('phase4-isolated');
+  });
+  expect(stored).toHaveLength(1);
+  expect(stored[0]).toMatchObject({ status: 'synced', driveId: 'restore-file' });
+  expect(requests).toEqual(['GET', 'GET']);
+});

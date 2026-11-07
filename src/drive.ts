@@ -165,7 +165,7 @@ export async function generateDriveIds(token: string, count: number): Promise<st
     throw Error('สร้าง Drive File ID ไม่สำเร็จ');
   return result.ids;
 }
-interface DriveFile {
+export interface DriveFile {
   id: string;
   name?: string;
   size?: string;
@@ -173,6 +173,37 @@ interface DriveFile {
   trashed?: boolean;
   parents?: string[];
   appProperties?: Record<string, string>;
+}
+// Inventory is limited to files created by this app for the current owner.
+export async function listOwnedDriveFiles(token: string, owner: string): Promise<DriveFile[]> {
+  const escape = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const query = `trashed = false and mimeType != 'application/vnd.google-apps.folder' and appProperties has { key='owner' and value='${escape(owner)}' }`;
+  const files: DriveFile[] = [];
+  const seen = new Set<string>();
+  let pageToken = '';
+  for (let page = 0; page < 100; page++) {
+    const params = new URLSearchParams({
+      q: query,
+      pageSize: '100',
+      fields:
+        'nextPageToken,incompleteSearch,files(id,name,size,mimeType,trashed,parents,appProperties)',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+    const result = await (await call(token, `/files?${params}`)).json();
+    if (result.incompleteSearch || !Array.isArray(result.files))
+      throw Error('Drive ส่งรายการไฟล์ไม่ครบ กรุณาตรวจใหม่ภายหลัง');
+    for (const file of result.files) {
+      if (typeof file.id !== 'string' || !file.id || file.appProperties?.owner !== owner)
+        throw Error('รายการไฟล์ Drive ไม่ตรงกับบัญชี');
+      files.push(file);
+    }
+    if (!result.nextPageToken) return files;
+    if (typeof result.nextPageToken !== 'string' || seen.has(result.nextPageToken))
+      throw Error('Drive ส่งหน้ารายการซ้ำ กรุณาตรวจใหม่ภายหลัง');
+    pageToken = result.nextPageToken;
+    seen.add(pageToken);
+  }
+  throw Error('รายการไฟล์มากเกินขอบเขตการตรวจครั้งนี้ ยังยืนยันว่าตรวจครบไม่ได้');
 }
 export async function getDriveFile(token: string, id: string): Promise<DriveFile | null> {
   try {

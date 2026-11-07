@@ -11,7 +11,10 @@ import {
   uploadOriginal,
   downloadVerifiedOriginal,
   DriveError,
+  getDriveFile,
+  listOwnedDriveFiles,
 } from './drive';
+import { auditDriveDocuments, type DocumentAudit } from './documentAudit';
 import {
   getFolders,
   putFolders,
@@ -71,6 +74,7 @@ export default function DrivePanel({
     files: {},
   });
   const cached = originals.owner === owner ? originals.files : {};
+  const [audit, setAudit] = useState<{ owner: string; result: DocumentAudit } | null>(null);
   const [connectionPrompt, setConnectionPrompt] = useState<'connect' | 'expired' | null>(() =>
     driveConfigured && !driveBackendConfigured && owner !== 'local' && !getDriveSession(owner)
       ? 'connect'
@@ -480,6 +484,27 @@ export default function DrivePanel({
       if (alive.current) setBusy(false);
     }
   }
+  async function auditDocuments() {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError('');
+    setAudit(null);
+    try {
+      session();
+      const result = await auditDriveDocuments(owner, await listUploads(owner), {
+        active: () => alive.current && getSessionIdentity()?.uid === owner,
+        list: async () => listOwnedDriveFiles(await token(), owner),
+        get: async (id) => getDriveFile(await token(), id),
+      });
+      if (alive.current && getSessionIdentity()?.uid === owner) setAudit({ owner, result });
+    } catch (error) {
+      if (alive.current) reportError(error);
+    } finally {
+      lock.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
   return (
     <section className="panel padded drive-panel">
       {connectionPrompt && (
@@ -520,6 +545,37 @@ export default function DrivePanel({
           </button>
         )}
       </div>
+      <button
+        className="secondary"
+        disabled={!connected || !online || busy || owner === 'local'}
+        onClick={() => void auditDocuments()}
+      >
+        ตรวจไฟล์ใน Drive
+      </button>
+      {audit?.owner === owner && (
+        <div role="status">
+          <p>
+            ตรวจข้อมูลอ้างอิง {audit.result.checked} ไฟล์ · พบข้อสังเกต {audit.result.issues.length}{' '}
+            รายการ
+          </p>
+          <p>
+            ไม่ลบหรือแก้ไฟล์อัตโนมัติ รายการที่ไม่พบข้อมูลอ้างอิงอาจมาจากอุปกรณ์อื่น
+            ให้ซิงก์ข้อมูลก่อนตรวจซ้ำ ผลตรวจนี้ไม่เปลี่ยนการยืนยันยอด
+          </p>
+          <ul>
+            {audit.result.issues.map((issue) => (
+              <li key={`${issue.kind}-${issue.id}`}>
+                {issue.name}:{' '}
+                {issue.kind === 'missing'
+                  ? 'ไม่พบไฟล์หรือไม่มีสิทธิ์เข้าถึง'
+                  : issue.kind === 'mismatch'
+                    ? 'ข้อมูลไฟล์ไม่ตรงกับข้อมูลอ้างอิง'
+                    : 'ยังไม่พบข้อมูลอ้างอิงในเครื่องนี้'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p>
         บัญชี Drive: {getSessionIdentity()?.email || 'ยังไม่ได้เข้าสู่ระบบ'} ·{' '}
         {connected

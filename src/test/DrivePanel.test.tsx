@@ -186,6 +186,9 @@ it('saves files offline, then uploads and retains bytes until metadata succeeds'
   const success = (await listUploads(mocks.owner))[0];
   expect(success.driveId).toBe(failed.driveId);
   expect(success.blob).toBeUndefined();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'ตัดการเชื่อมต่อ' })).toBeEnabled(),
+  );
   await user.click(screen.getByRole('button', { name: 'ตัดการเชื่อมต่อ' }));
   expect(screen.getByRole('button', { name: 'อัปโหลด / ลองใหม่' })).toBeDisabled();
 });

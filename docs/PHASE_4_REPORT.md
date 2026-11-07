@@ -37,3 +37,15 @@ Cached originals are separate from pending uploads. Existing JSON backups still 
 รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน
 
 เพิ่ม browser test สอง isolated profiles: profile ที่สองไม่มี inherited cache ต้อง restore references ที่ seed ใน fixture และดาวน์โหลด bytes ของตัวเอง; ตรวจ offline byte equality ทั้งสอง profile ใช้ synthetic identity/intercepted metadata/media ไม่ใช่การทดสอบ Google หรืออุปกรณ์จริง และไม่ได้แทนการทดสอบ metadata restore จาก Firestore
+
+## Phase 4 continuation — read-only document audit
+
+เพิ่ม documentAudit.ts และปุ่ม “ตรวจไฟล์ใน Drive”: อ่าน inventory เฉพาะ appProperties.owner ของบัญชีปัจจุบันผ่าน drive.file scope, อ่าน reference ที่ synced เพื่อตรวจ missing/trashed/size/MIME/owner/operation/folder mismatch และแสดง unreferenced candidates เฉพาะไฟล์ที่มองเห็นได้ใน scope นี้ ไม่อ้างว่าตรวจ Drive ทั้งบัญชี
+
+Pending/metadata-pending records ใช้ป้องกัน false orphan หลัง upload สำเร็จแต่ metadata ยังไม่ acknowledged การพบไฟล์ที่ยังไม่มี reference ในเครื่องอาจเกิดจากอุปกรณ์อื่น จึงให้ซิงก์และตรวจใหม่ ไม่ลบไฟล์หรือเปลี่ยน verification/queue อัตโนมัติ pagination ที่ไม่ครบ/ซ้ำ, auth failure หรือ account change ต้องจบเป็น error ไม่แสดงผลสำเร็จบางส่วน
+
+Coverage mapping: drive.test.ts ทดสอบ OAuth timeout/partial consent/expiry/account/private resumable verification, uploads.test.ts ทดสอบ durable bytes/metadata failure/stable ID/retry/locks, DrivePanel.test.tsx และ driveBackend.test.ts ทดสอบ renewal/revocation/reconnect/account change; documentCache/document-restore ทดสอบ cache/private bytes แยก browser profiles; documentAudit tests ทดสอบ inventory GET-only, missing/mismatch/unmapped, pending protection และ incomplete pagination. E2E audit ตรวจว่าไม่มี media download, write หรือ metadata deletion
+
+Existing disconnect test รอปุ่ม enabled หลัง queue finalization ก่อนคลิก เพื่อทดสอบ user interaction จริงโดยยังคง assertion ว่า disconnect ปิด upload capability
+
+Gate 2026-11-08: cloud npm run check exit 0, frontend 260, backend 10, rules 7, emulator integration 8, E2E 43 ผ่าน; format/lint/typecheck/build/HTTP smoke PASS. ไม่มี real-service/device tests.

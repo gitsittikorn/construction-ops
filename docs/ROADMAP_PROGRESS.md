@@ -12,7 +12,7 @@ COMPLETE ในคอลัมน์ automated gate หมายถึง implem
 | 1     | PARTIAL  | sync/outbox/conflict/account/rules/clean-profile regression ผ่าน; docs/PHASE_1_REPORT.md                                            | real auth expiry/cloud restore บริการจริงยัง NOT VERIFIED                                                                               |
 | 2     | COMPLETE | baseline implementation commit d13a2fb; daily-workflow + phase2-daily E2E ผ่านในชุดเต็มล่าสุด; docs/PHASE_2_REPORT.md               | regression ต้องคงผ่าน; real service/device acceptance แยก NOT VERIFIED                                                                  |
 | 3     | COMPLETE | baseline implementation commit bd884dc; image/signature/changed totals/offline/verify-close-reopen E2E ผ่าน; docs/PHASE_3_REPORT.md | camera/stylus/Android และ Google จริง NOT VERIFIED                                                                                      |
-| 4     | PARTIAL  | private restore/cache, foreign metadata, interrupted media และ independent profiles ผ่าน; docs/PHASE_4_REPORT.md                    | ตรวจ coverage OAuth expiry/partial upload/orphan inventory เทียบ Master ให้ครบ; real cloud/device ยัง NOT VERIFIED                      |
+| 4     | PARTIAL  | private restore/cache, foreign metadata, interrupted media และ independent profiles ผ่าน; docs/PHASE_4_REPORT.md                    | OAuth/partial failure coverage mapped; read-only missing/mismatch/unmapped inventory ผ่าน; real cloud/device ยัง NOT VERIFIED           |
 | 5     | PARTIAL  | reconcile, proof guards, close/reopen/reclose/audit/snapshots ผ่าน; docs/PHASE_5_REPORT.md                                          | ตรวจ correction-reason policy บน open days, role/sync coverage เทียบ Master และ real service acceptance ก่อนประกาศครบ                   |
 | 6     | PARTIAL  | seven report forms, filters, mixed capacity reconciliation, CSV/XLSX/PDF/offline regression ผ่าน; docs/PHASE_6_REPORT.md            | weekly/monthly summaries, export metadata/optional evidence refs และ loose-vs-compacted/design labels ต้องตรวจ/เติมให้ครบ               |
 | 7     | PARTIAL  | surveying.ts/SurveyPanel.tsx มี BM/TP/grid/slope/cut-fill/history/export และ tests                                                  | ยังไม่ยืนยัน survey CSV/XLSX import และ contour/2D visualization ตาม Master; 3D optional; ยังไม่มี phase acceptance report              |
@@ -22,8 +22,8 @@ COMPLETE ในคอลัมน์ automated gate หมายถึง implem
 
 ## Checkpoint / resume
 
-- Current phase: Phase 4 requirements/acceptance audit หลัง Phase 2–3 regression ผ่าน
-- Task: เก็บ Master/Progress/Bug Tracker ลง Git และปิด regression ของ local fixes ที่เริ่มไว้ก่อนรับ Master
+- Current phase: Phase 5 correction-reason audit หลัง Phase 1–4 isolated gate ผ่าน
+- Task: เดิน Master ต่อจาก earliest gaps; Phase 1 auth-expiry regression และ Phase 4 read-only inventory audit ผ่านแล้ว
 - Baseline: `ad490a8`; previous phase commits: P2 `d13a2fb`, P3 `bd884dc`, P4 cache `335daa2` ดู `git log` ประกอบ
 - Reviewed changes: AGENTS/docs; daily proof owner/context/folder/duplicate guards; reconciliation report grouping; Playwright executable override; related unit/E2E tests source/test fixes committed locally; ดูรายการ commits ด้านล่างและ `git status` สำหรับงานที่ยังไม่ commit
 - Latest validation: ดู TEST_RESULTS.md และ PHASE_4_6_REVIEW.md; final full check exit 0: frontend 256, backend 10, rules 7, integration 8, E2E 42; lint/typecheck/build/smoke PASS
@@ -50,3 +50,7 @@ COMPLETE ในคอลัมน์ automated gate หมายถึง implem
 | `f7a6266` | Phase 4 independent browser profiles, cloud Chromium override และ evidence report   |
 
 Roadmap/AGENTS/documentation commit ดู `git log -1 -- AGENTS.md docs/MASTER_ROADMAP.md`; ไม่ใส่ self-referential commit hash ในไฟล์เดียวกับที่ต้อง commit ไม่ได้ push commits เหล่านี้ขึ้น remote
+
+## Continuation gate — 2026-11-08
+
+Phase 1 auth expiry mid-batch retains queue/idempotency; Phase 2–3 full regression retained; Phase 4 read-only inventory audit now implemented. Full gate exit 0: frontend 260, backend 10, rules 7, integration 8, E2E 43. Next: Phase 5 open-day correction reasons, then Phase 6 calendar reports/export metadata, Phase 7 import/visualization and Phase 8 audit. Real cloud/device acceptance stays NOT VERIFIED, not a reason to invent credentials or claim production readiness.
