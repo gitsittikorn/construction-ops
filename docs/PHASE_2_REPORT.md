@@ -43,3 +43,7 @@ Real Firebase/Drive/OAuth, physical Android touch/camera/stylus/PWA installation
 ## Changed files and commits
 
 Phase 2 verification commit: `d13a2fb`. Earlier session changes were preserved in externally created `932ec5e`. Across recovery and Phase 2: `.prettierrc.json`, `backend/test/drive.test.mjs`, `src/daily.ts`, `src/DailyPanel.tsx`, `src/reports.ts`, `src/workspaceModels.ts`, `src/workspaceValidation.ts`, `src/test/daily.test.ts`, `src/emulator-test/cloudSync.test.ts` (format only), `e2e/daily-workflow.spec.ts`, `docs/PHASE_2_PROGRESS.md`, and this report. No lockfile changes or credentials committed.
+
+## Current validated gate — 2026-11-08
+
+รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน

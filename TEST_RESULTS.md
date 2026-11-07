@@ -7,3 +7,7 @@ Baseline ก่อนเริ่ม V4: Phase 1 `npm.cmd run check` ผ่า�
 ## Milestone daily core
 
 `npm.cmd run check` PASS: format, TypeScript, frontend 193, backend 10, existing rules 7, existing integration 4, build, HTTP smoke, browser regression 20 (234 tests) เพิ่ม daily domain tests ครอบคลุม duplicate/stale/negative/copy/undo/verification/close/reopen และ envelope แต่ยังต้องเพิ่ม integration สำหรับ workspaces และ real-service/manual acceptance ห้ามนับผลนี้เป็นผลสุดท้ายของรายงานหรือ survey ที่เพิ่มภายหลัง
+
+## Current validated gate — 2026-11-08
+
+รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน

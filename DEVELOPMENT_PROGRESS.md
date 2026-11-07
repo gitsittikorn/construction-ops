@@ -1,5 +1,7 @@
 # Development progress — Master Prompt V4.0
 
+สถานะปัจจุบันตาม Master Roadmap อยู่ใน [docs/ROADMAP_PROGRESS.md](docs/ROADMAP_PROGRESS.md) และ [docs/BUG_TRACKER.md](docs/BUG_TRACKER.md) (2026-11-08) ข้อความด้านล่างเป็น checkpoint/history เดิม ไม่ใช้แทน current phase acceptance.
+
 ## Resume checkpoint — 2026-11-07
 
 Phase 4 continuation: เพิ่ม private original cache แยกจาก pending uploads พร้อมตรวจไฟล์/บัญชี/ข้อมูลอ้างอิงก่อนบันทึก และปุ่มเก็บ/ดูต้นฉบับ offline; npm.cmd run check exit 0: frontend 235, backend 10, rules 7, integration 5, E2E 34 รวม 291 เคสผ่าน ดู docs/PHASE_4_REPORT.md บริการจริงและ Android hardware ยัง NOT VERIFIED จึงคง Phase 4 เป็น PARTIAL

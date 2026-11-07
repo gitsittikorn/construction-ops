@@ -1,5 +1,12 @@
 # Khok Kloi Backhoe Engineering · Construction Operations
 
+## การทำงานต่อทุก Codex session
+
+อ่าน [AGENTS.md](AGENTS.md), [Master Roadmap Phase 0–8](docs/MASTER_ROADMAP.md),
+[สถานะและ checkpoint](docs/ROADMAP_PROGRESS.md), [Bug Tracker](docs/BUG_TRACKER.md)
+และรายงาน phase ที่เกี่ยวข้อง แล้วตรวจ Git/source ก่อนทำงานต่อ เอกสารเหล่านี้เก็บข้อกำหนดถาวร
+แต่ต้องเทียบผลทดสอบจริงเสมอ ไม่ใช้สถานะจากแชตเก่าแทนหลักฐาน และห้าม push/deploy โดยไม่ได้รับอนุญาต
+
 ระบบบริหารงานถมดินรุ่นเริ่มต้น React / TypeScript / Vite ออกแบบสำหรับแท็บเล็ต ภาษาไทย
 
 ผลตรวจ Phase 1 ล่าสุด (2026-11-06): ดู [Phase 1 audit and E2E report](docs/PHASE_1_E2E_REPORT.md) สำหรับ coverage, บั๊กที่แก้ และข้อจำกัด ข้อความขอบเขต/roadmap ด้านล่างบางส่วนเป็นบันทึกรุ่นเก่า: ปัจจุบันมี project/master sync, durable outbox, conflict handling และ cloud restore แล้ว การผ่าน Emulator ไม่ใช่การยืนยันบริการจริงหรือความพร้อม production

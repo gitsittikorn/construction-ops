@@ -47,3 +47,7 @@ Known limits: 200 trucks/session, 1,000 new transactions/truck/day, 100 closure 
 ## Changed files
 
 Implementation: `src/EvidencePanel.tsx`, `src/SignaturePad.tsx`, `src/evidence.ts`, `src/daily.ts`, `src/workspaceModels.ts`, `src/workspaceValidation.ts`. Tests: `e2e/daily-workflow.spec.ts`, `src/test/SignaturePad.test.tsx`, `src/test/EvidencePanel.test.tsx`, `src/test/daily.test.ts`, `src/test/evidence.test.ts`. Reports/checkpoints: this report, Phase 2 report wording, FEATURE_CHECKLIST.md, DEVELOPMENT_PROGRESS.md and README.md. No dependency or credential files changed in Phase 3.
+
+## Current validated gate — 2026-11-08
+
+รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน
