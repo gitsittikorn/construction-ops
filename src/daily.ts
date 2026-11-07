@@ -399,6 +399,7 @@ export function evidenceFiles(
     files.some(
       (f) =>
         f.record?.status !== 'synced' ||
+        f.record.evidenceId !== evidence.id ||
         !f.record.driveId ||
         f.record.category !== f.category ||
         f.record.projectId !== session.projectId ||
@@ -444,7 +445,10 @@ export function verifyDaily(
     (s) => {
       const rows = s.body.rows.filter((r) => !rowId || r.id === rowId);
       if (!rows.length) throw Error('ไม่มีรายการให้ยืนยัน');
+      if (rows.every((row) => verificationState(s, row) === 'VERIFIED'))
+        throw Error('ยืนยันยอดนี้แล้ว');
       for (const row of rows) {
+        if (verificationState(s, row) === 'VERIFIED') continue;
         if (!row.driverId || row.reportedTrips !== row.tripCount)
           throw Error('ระบุคนขับและตรวจยอดบันทึกกับรายงานให้ตรงกันก่อนยืนยัน');
         const { evidence, fileIds } = evidenceFiles(data, s, row, uploads);
@@ -478,7 +482,15 @@ export function closeDaily(
     (s) => {
       if (!s.body.rows.length || s.body.rows.some((r) => verificationState(s, r) !== 'VERIFIED'))
         throw Error('ต้องยืนยันรายการทุกคันก่อนปิดวัน');
-      for (const row of s.body.rows) evidenceFiles(data, s, row, uploads);
+      for (const row of s.body.rows) {
+        const { evidence, fileIds } = evidenceFiles(data, s, row, uploads);
+        const proof = s.body.verifications[row.id];
+        if (
+          proof.evidenceId !== evidence.id ||
+          canonical([...proof.fileIds].sort()) !== canonical([...fileIds].sort())
+        )
+          throw Error('หลักฐานเปลี่ยนแล้ว กรุณายืนยันใหม่ก่อนปิดวัน');
+      }
       s.body.closures.push({
         at: new Date().toISOString(),
         by: actor,

@@ -38,4 +38,8 @@ The first browser run failed a test locator selecting the wrong truck after row 
 
 ## Boundaries
 
-Real Firebase/Drive/OAuth, physical Android touch/camera/stylus/PWA installation remain NOT VERIFIED. Browser sync and Drive acknowledgements are explicitly simulated. Firestore emulator uses `demo-construction-ops` only; browser servers blank all real cloud configuration. No production data, IndexedDB, credentials, deployment or push was performed. Phase 4 restoration of original private files on another device remains separate from local persistence and metadata recovery.
+Real Firebase/Drive/OAuth, physical Android touch/camera/stylus/PWA installation remain NOT VERIFIED. Browser sync and Drive acknowledgements are explicitly simulated. Firestore emulator uses `demo-construction-ops` only; browser servers blank all real cloud configuration. Existing user IndexedDB was not cleared or overwritten; browser tests use isolated profiles. No production writes, credential changes, deployment or push. Phase 4 restoration of original private files on another device remains separate from local persistence and metadata recovery.
+
+## Changed files and commits
+
+Phase 2 verification commit: `d13a2fb`. Earlier session changes were preserved in externally created `932ec5e`. Across recovery and Phase 2: `.prettierrc.json`, `backend/test/drive.test.mjs`, `src/daily.ts`, `src/DailyPanel.tsx`, `src/reports.ts`, `src/workspaceModels.ts`, `src/workspaceValidation.ts`, `src/test/daily.test.ts`, `src/emulator-test/cloudSync.test.ts` (format only), `e2e/daily-workflow.spec.ts`, `docs/PHASE_2_PROGRESS.md`, and this report. No lockfile changes or credentials committed.

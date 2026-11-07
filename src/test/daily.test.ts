@@ -186,6 +186,75 @@ it('closes with an immutable verified snapshot, blocks edits, reopens only with 
   );
   expect(dailySessions(data)[0].body.closures[0].rows[0].tripCount).toBe(3);
 });
+it('rejects duplicate confirmation and proof that changed after verification', () => {
+  let { data, uploads } = readyEvidence(dailyFixture());
+  let session = dailySessions(data)[0];
+  data = verifyDaily(data, session.id, session.body.version, 'admin', uploads);
+  session = dailySessions(data)[0];
+  expect(() => verifyDaily(data, session.id, session.body.version, 'admin', uploads)).toThrow(
+    'ยืนยันยอดนี้แล้ว',
+  );
+  expect(() =>
+    closeDaily(
+      data,
+      session.id,
+      session.body.version,
+      'admin',
+      uploads.map((u) => ({ ...u, driveId: `changed-${u.id}` })),
+    ),
+  ).toThrow('หลักฐานเปลี่ยน');
+  expect(() =>
+    closeDaily(
+      data,
+      session.id,
+      session.body.version,
+      'admin',
+      uploads.map((u) => ({ ...u, evidenceId: 'another-evidence' })),
+    ),
+  ).toThrow('อัปโหลด');
+});
+it('bulk confirmation preserves rows already verified while confirming the remaining truck', () => {
+  let { data, uploads } = readyEvidence(dailyFixture());
+  data = { ...data, masters: [...data.masters, { ...truck, id: 'truck2' }] };
+  let session = dailySessions(data)[0];
+  data = verifyDaily(data, session.id, session.body.version, 'admin', uploads, 'row');
+  session = dailySessions(data)[0];
+  const original = structuredClone(session.body.verifications.row);
+  data = saveDailyRow(
+    data,
+    session.id,
+    session.body.version,
+    { ...row, id: 'row2', truckId: 'truck2' },
+    'admin',
+  );
+  session = dailySessions(data)[0];
+  const evidence = structuredClone(
+    data.workspaces!.find((r) => r.recordType === 'evidence')!,
+  ) as EvidenceRecord;
+  evidence.id = 'evidence2';
+  evidence.body.rowId = 'row2';
+  evidence.body.truckId = 'truck2';
+  evidence.body.fingerprint = rowFingerprint(
+    session,
+    session.body.rows.find((r) => r.id === 'row2')!,
+  );
+  evidence.body.files = evidence.body.files.map((f) => ({ ...f, uploadId: `${f.uploadId}2` }));
+  data = commitWorkspace(data, evidence, 'admin', 'evidence-save');
+  uploads = [
+    ...uploads,
+    ...uploads.map((u) => ({
+      ...u,
+      id: `${u.id}2`,
+      evidenceId: 'evidence2',
+      truckId: 'truck2',
+      driveId: `${u.driveId}2`,
+    })),
+  ];
+  data = verifyDaily(data, session.id, session.body.version, 'admin', uploads);
+  session = dailySessions(data)[0];
+  expect(session.body.verifications.row).toEqual(original);
+  expect(session.body.rows.every((r) => verificationState(session, r) === 'VERIFIED')).toBe(true);
+});
 it('invalidates manual verification when reported counts change even if recorded trips and evidence context stay identical', () => {
   let { data, uploads } = readyEvidence(dailyFixture());
   let s = dailySessions(data)[0];

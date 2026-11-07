@@ -117,6 +117,15 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
   } else if (r.recordType === 'evidence') {
     const b = r.body;
     if (
+      b.signature &&
+      (b.signature.signerId !== b.driverId ||
+        typeof b.signature.signerName !== 'string' ||
+        !b.signature.signerName.trim() ||
+        !Number.isFinite(Date.parse(b.signature.signedAt)) ||
+        !b.files.some((f) => f.category === 'signature' && f.uploadId === b.signature!.uploadId))
+    )
+      throw Error('ข้อมูลผู้ลงลายเซ็นไม่ตรงกับหลักฐาน');
+    if (
       !/^\d{4}-\d{2}-\d{2}$/.test(b.date) ||
       ['sessionId', 'rowId', 'truckId', 'driverId', 'fingerprint'].some(
         (key) => typeof b[key as keyof typeof b] !== 'string',

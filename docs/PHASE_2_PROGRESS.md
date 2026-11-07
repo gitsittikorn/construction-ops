@@ -19,3 +19,5 @@ Dependencies are being installed with npm.cmd ci. No production data, credential
 ## Verified checkpoint
 
 Phase 2: COMPLETE for implementation and isolated automated acceptance. All Phase 2 areas above now pass the automated gate; real-service/device status remains NOT VERIFIED. Final check exit 0: 222 frontend + 10 backend + 7 rules + 5 integration + 30 E2E tests passed. See PHASE_2_REPORT.md for the scenario mapping, legacy conversion and safety bounds. Next: Phase 3 audit, fixes and tests without restarting existing functionality.
+
+Phase 3 subsequently COMPLETE for the isolated automated gate: final check exit 0 with 228 frontend + 10 backend + 7 rules + 5 integration + 32 E2E tests passing. See PHASE_3_REPORT.md. Next checkpoint: Phase 4 real-service/device acceptance and private original restoration; no push or deployment.
