@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
+import { canonical } from './syncModel';
+import { readSurveyImport, surveyCsv } from './surveyImport';
+import { surveyContours } from './surveyContours';
 import type { Data } from './models';
 import type { SurveyBody, SurveyRecord, LevelObservation } from './workspaceModels';
 import {
@@ -57,6 +60,32 @@ export default function SurveyPanel({
       return { value: null, error: (e as Error).message };
     }
   }, [body]);
+  const contours = useMemo(() => (result.value ? surveyContours(body) : []), [body, result.value]);
+  const [importing, setImporting] = useState(false);
+  const [preview, setPreview] = useState<{
+    name: string;
+    owner: string;
+    baseline: string;
+    points: SurveyBody['points'];
+  } | null>(null);
+  const current = useRef({ owner, body, project, id });
+  current.current = { owner, body, project, id };
+  async function importPoints(file: File) {
+    setImporting(true);
+    setPreview(null);
+    setError('');
+    const baseline = canonical({ owner, body, project, id });
+    try {
+      const points = await readSurveyImport(file, body);
+      if (current.current.owner !== owner || canonical(current.current) !== baseline)
+        throw Error('ข้อมูลสำรวจหรือบัญชีเปลี่ยนแล้ว กรุณาเลือกไฟล์ใหม่');
+      setPreview({ name: file.name, owner, baseline, points });
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  }
   let observations: ReturnType<typeof levelSurvey> = [];
   try {
     observations = levelSurvey(body.benchmark, body.elevation, body.observations);
@@ -276,6 +305,7 @@ export default function SurveyPanel({
         <label>
           ผิวออกแบบ
           <select
+            aria-label="ผิวออกแบบ"
             value={body.design}
             onChange={(e) => setBody({ ...body, design: e.target.value as SurveyBody['design'] })}
           >
@@ -387,6 +417,62 @@ export default function SurveyPanel({
         </table>
       </div>
       <button onClick={generate}>สร้าง / ปรับกริดตามขนาดแปลง</button>
+      <p>
+        นำเข้าพิกัดหน่วยเมตรตามขนาดและระยะกริดปัจจุบัน ใช้ CSV หรือชีต กริด จากไฟล์ที่ส่งออก
+        ตรวจตัวอย่างก่อนแทนจุดในแบบร่าง ข้อมูลประวัติเดิมยังไม่เปลี่ยนจนกดบันทึก
+      </p>
+      <label>
+        นำเข้าจุดสำรวจ CSV / Excel
+        <input
+          type="file"
+          accept=".csv,.xlsx"
+          disabled={importing}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) void importPoints(file);
+          }}
+        />
+      </label>
+      {preview?.owner === owner && (
+        <div role="region" aria-label="ตัวอย่างนำเข้าจุดสำรวจ">
+          <p>
+            {preview.name} · {preview.points.length} จุด · ระดับเดิม{' '}
+            {Math.min(...preview.points.map((point) => point.existing))} ถึง{' '}
+            {Math.max(...preview.points.map((point) => point.existing))} m
+          </p>
+          <button
+            onClick={() => {
+              if (canonical({ owner, body, project, id }) !== preview.baseline) {
+                setError('ข้อมูลสำรวจเปลี่ยนแล้ว กรุณาเลือกไฟล์ใหม่');
+                return;
+              }
+              setBody({ ...body, points: preview.points });
+              setPreview(null);
+              setPage(0);
+              setError('');
+              setNotice('นำเข้าจุดในแบบร่างแล้ว กรุณาตรวจผลก่อนบันทึกประวัติ');
+            }}
+          >
+            ยืนยันนำเข้าจุดสำรวจ
+          </button>
+          <button onClick={() => setPreview(null)}>ยกเลิกนำเข้า</button>
+        </div>
+      )}
+      <button
+        onClick={() => {
+          try {
+            downloadBlob(
+              new Blob([surveyCsv(body)], { type: 'text/csv;charset=utf-8' }),
+              'survey-grid.csv',
+            );
+          } catch (error) {
+            setError((error as Error).message);
+          }
+        }}
+      >
+        ส่งออกสำรวจ CSV
+      </button>
       <div className="operations-filters">
         <label>
           รหัสจุดกริด
@@ -426,28 +512,58 @@ export default function SurveyPanel({
         {result.value?.designVolumeAboveBM.toFixed(3) ?? '—'} m³ · วิธีสามเหลี่ยม linear ตามแนว
         SW–NE ของแต่ละเซลล์ ไม่หักล้าง cut/fill
       </p>
-      {!!body.points.length && (
+      {!!body.points.length && result.value && (
         <svg
           className="survey-grid"
           viewBox={`-2 -2 ${body.width + 4} ${body.length + 4}`}
           role="img"
           aria-label="กริดระดับเดิม แบบ และตัดถม"
         >
+          {contours.map((line, index) => (
+            <line
+              key={index}
+              data-contour-level={line.level}
+              x1={line.x1}
+              y1={body.length - line.y1}
+              x2={line.x2}
+              y2={body.length - line.y2}
+              stroke="#285b8a"
+              strokeWidth={Math.min(body.width, body.length) / 350}
+            >
+              <title>ระดับเดิมประมาณ {line.level.toFixed(3)} m</title>
+            </line>
+          ))}
           {body.points.map((p) => (
             <g key={p.id}>
               <circle
+                data-point-id={p.id}
                 cx={p.x}
-                cy={p.y}
+                cy={body.length - p.y}
                 r={Math.min(body.width, body.length) / 90}
                 fill={designElevation(body, p) >= p.existing ? '#168248' : '#bb432b'}
               />
-              <text x={p.x} y={p.y} fontSize={Math.min(body.width, body.length) / 45}>
-                {p.id}: {p.existing.toFixed(2)}/{designElevation(body, p).toFixed(2)}
-              </text>
+              <title>
+                {p.id}: X {p.x}, Y {p.y}, แบบ−เดิม{' '}
+                {(designElevation(body, p) - p.existing).toFixed(3)} m
+              </title>
+              {body.points.length <= 100 && (
+                <text
+                  x={p.x}
+                  y={body.length - p.y}
+                  fontSize={Math.min(body.width, body.length) / 45}
+                >
+                  {p.id}: {p.existing.toFixed(2)}/{designElevation(body, p).toFixed(2)}
+                </text>
+              )}
             </g>
           ))}
         </svg>
       )}
+      <p>
+        กริด 2D: จุดกำเนิดซ้ายล่าง · X บวกไปขวา · Y บวกขึ้นบน · สีเขียวถม/เท่าระดับ สีแดงตัด
+        เส้นสีน้ำเงินเป็นชั้นความสูงประมาณจาก linear interpolation ตามสามเหลี่ยม SW–NE
+        ไม่ใช่จุดที่สำรวจเพิ่ม กริดเกิน 400 จุดแสดงเฉพาะจุดเพื่อประสิทธิภาพ
+      </p>
       {body.design === 'slope' && (
         <p>
           ทิศระดับลด: X {body.slopeX > 0 ? 'ลบ' : body.slopeX < 0 ? 'บวก' : 'คงที่'} / Y{' '}

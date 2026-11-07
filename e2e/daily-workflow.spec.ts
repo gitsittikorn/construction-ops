@@ -817,3 +817,76 @@ test('P6: calendar reports apply date filters before grouping and export Bangkok
   await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2028-01-01');
   await expect(rows).toHaveCount(0);
 });
+
+test('P7: survey import previews safely, rejects stale/invalid data, persists exact levels and roundtrips XLSX with correct Y orientation', async ({
+  page,
+}) => {
+  await seed(page);
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'สำรวจและคำนวณ', exact: true })
+    .click();
+  for (const label of ['กว้างแปลง (m)', 'ยาวแปลง (m)', 'ระยะกริด X (m)', 'ระยะกริด Y (m)'])
+    await page.getByLabel(label, { exact: true }).fill('10');
+  await page.getByLabel('ระดับ BM (m)', { exact: true }).fill('0');
+  await page.getByLabel('ระดับแบบที่จุดกำเนิด (m)', { exact: true }).fill('1');
+  await page.getByLabel('ผิวออกแบบ', { exact: true }).selectOption('custom');
+  await page.getByRole('button', { name: 'สร้าง / ปรับกริดตามขนาดแปลง', exact: true }).click();
+  const input = page.getByLabel('นำเข้าจุดสำรวจ CSV / Excel', { exact: true });
+  const csv = Buffer.from(
+    '\uFEFFจุด,X m,Y m,ระดับเดิม m,ระดับแบบ m\r\nG0-0,0,0,-1,1\r\nG1-0,10,0,-1,1\r\nG0-1,0,10,-1,1\r\nG1-1,10,10,-1,1',
+    'utf8',
+  );
+  const upload = () =>
+    input.setInputFiles({ name: 'points.csv', mimeType: 'text/csv', buffer: csv });
+  await upload();
+  await expect(page.getByRole('region', { name: 'ตัวอย่างนำเข้าจุดสำรวจ' })).toContainText('4 จุด');
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('0');
+  await page.getByLabel('ระดับ BM (m)', { exact: true }).fill('1');
+  await page.getByRole('button', { name: 'ยืนยันนำเข้าจุดสำรวจ', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('ข้อมูลสำรวจเปลี่ยน');
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('0');
+  await page.getByLabel('ระดับ BM (m)', { exact: true }).fill('0');
+  await upload();
+  await page.getByRole('button', { name: 'ยืนยันนำเข้าจุดสำรวจ', exact: true }).click();
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
+  await expect(page.getByText(/ถมแน่น 200.000 m³/)).toBeVisible();
+  const grid = page.getByRole('img', { name: 'กริดระดับเดิม แบบ และตัดถม', exact: true });
+  await expect(grid.locator('circle[data-point-id="G0-0"]')).toHaveAttribute('cy', '10');
+  await expect(grid.locator('circle[data-point-id="G0-1"]')).toHaveAttribute('cy', '0');
+  await page.getByRole('button', { name: 'บันทึกประวัติสำรวจ', exact: true }).click();
+  const id = await page.evaluate(async () => {
+    const path = '/src/storage.ts';
+    return (await (await import(path)).loadData('local')).workspaces.find(
+      (record: any) => record.recordType === 'survey',
+    ).id;
+  });
+  await page.reload();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'สำรวจและคำนวณ', exact: true })
+    .click();
+  await page.getByLabel('ประวัติงานสำรวจ', { exact: true }).selectOption(id);
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
+  await input.setInputFiles({
+    name: 'bad.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('bad,header\r\n1,2'),
+  });
+  await expect(page.getByRole('alert')).toContainText('หัวตาราง');
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
+  const event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'ส่งออกสำรวจ Excel', exact: true }).click();
+  const bytes = await readFile((await (await event).path())!);
+  await page.getByLabel('ระดับเดิม G0-0', { exact: true }).fill('0');
+  await input.setInputFiles({
+    name: 'roundtrip.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: bytes,
+  });
+  await expect(page.getByRole('region', { name: 'ตัวอย่างนำเข้าจุดสำรวจ' })).toContainText('4 จุด');
+  await page.getByRole('button', { name: 'ยืนยันนำเข้าจุดสำรวจ', exact: true }).click();
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
+  await page.getByLabel('ระดับเดิม G1-0', { exact: true }).fill('1');
+  await expect(grid.locator('line[data-contour-level]').first()).toBeVisible();
+});
