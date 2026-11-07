@@ -37,6 +37,8 @@ npm run check
 
 ยังไม่ถือว่าตรวจรับ production: Google/Firebase/Drive/OAuth จริงและ Android hardware ยัง NOT VERIFIED ผล Drive ใน automated tests เป็นตัวจำลอง ส่วน Firestore ใช้ local emulator เท่านั้น Phase 4 ต้องตรวจการกู้คืนไฟล์ต้นฉบับส่วนตัวบนอุปกรณ์ใหม่และบริการจริง
 
+กู้คืนต้นฉบับไว้ดู offline ได้จากหน้า Drive ด้วยปุ่ม **เก็บต้นฉบับไว้ดูออฟไลน์** หลังตรวจข้อมูลอ้างอิง/ชนิด/ขนาดไฟล์แล้ว สำเนานี้แยกจากคิวไฟล์รออัปโหลดและไม่เปลี่ยนผลตรวจยอด ดู [Phase 4 report](docs/PHASE_4_REPORT.md) สำหรับผลทดสอบและขอบเขตที่ยังไม่ยืนยัน
+
 ## Google Drive
 
 เพิ่ม `VITE_GOOGLE_CLIENT_ID` ใน `.env.local` เปิด Drive API และตั้งค่า OAuth consent/origins ให้ตรงกับ URL ที่เปิด เช่น `http://localhost:5173` เชื่อม Drive ด้วยบัญชีเดียวกับ Firebase ที่หน้า **การตั้งค่า** ก่อนอัปโหลด ต้องเผยแพร่ `firestore.rules` รุ่นนี้ใน Firebase Console หรือ Firebase CLI และเอกสาร `admins/{uid}` ต้องมี `enabled: true`

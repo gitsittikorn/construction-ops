@@ -2,6 +2,8 @@
 
 ## Resume checkpoint — 2026-11-07
 
+Phase 4 continuation: เพิ่ม private original cache แยกจาก pending uploads พร้อมตรวจไฟล์/บัญชี/ข้อมูลอ้างอิงก่อนบันทึก และปุ่มเก็บ/ดูต้นฉบับ offline; npm.cmd run check exit 0: frontend 235, backend 10, rules 7, integration 5, E2E 34 รวม 291 เคสผ่าน ดู docs/PHASE_4_REPORT.md บริการจริงและ Android hardware ยัง NOT VERIFIED จึงคง Phase 4 เป็น PARTIAL
+
 คำสั่งรอบนี้คือกู้ความคืบหน้า Phase 2 และทำ Phase 3 ต่อ โดยใช้โค้ดจริงเป็นหลัก ไม่เริ่มใหม่และไม่แตะข้อมูล production
 
 - Phase 2 COMPLETE เฉพาะ implementation/isolated automated gate: commit `d13a2fb`; frontend 222, backend 10, rules 7, emulator integration 5, E2E 30 ผ่านทั้งหมด พร้อม typecheck/build/format/smoke และ clean

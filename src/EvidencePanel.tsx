@@ -7,6 +7,7 @@ import { listUploads, type UploadRecord } from './uploads';
 import SignaturePad from './SignaturePad';
 import { connectionMessage } from './async';
 import { evidenceLabels } from './workspaceLabels';
+import { readCachedOriginal } from './documentCache';
 
 function Preview({ file, name }: { file: Blob; name: string }) {
   const [url, setUrl] = useState('');
@@ -36,12 +37,27 @@ export default function EvidencePanel({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [warning, setWarning] = useState('');
+  const [originals, setOriginals] = useState<{ owner: string; files: Record<string, Blob> }>({
+    owner,
+    files: {},
+  });
   useEffect(() => {
     let alive = true;
     const refresh = () => {
       void listUploads(owner)
-        .then((files) => {
-          if (alive) setUploads(files);
+        .then(async (files) => {
+          const cached = await Promise.all(
+            files.map(async (file) => [file.id, await readCachedOriginal(owner, file)] as const),
+          );
+          if (alive) {
+            setUploads(files);
+            setOriginals({
+              owner,
+              files: Object.fromEntries(
+                cached.filter((entry): entry is readonly [string, Blob] => entry[1] !== null),
+              ),
+            });
+          }
         })
         .catch((error) => {
           if (alive) setError(connectionMessage(error));
@@ -179,7 +195,9 @@ export default function EvidencePanel({
       )}
       {files.map((f) => (
         <div key={f.id}>
-          {f.blob && <Preview file={f.blob} name={`ภาพที่บันทึก ${f.name}`} />}
+          {(f.blob || (originals.owner === owner && originals.files[f.id])) && (
+            <Preview file={f.blob ?? originals.files[f.id]} name={`ภาพที่บันทึก ${f.name}`} />
+          )}
           <p>
             {f.name} ·{' '}
             {f.status === 'synced'

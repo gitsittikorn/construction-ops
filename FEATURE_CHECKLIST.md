@@ -1,5 +1,7 @@
 # Feature checklist — V4.0
 
+อัปเดต Phase 4 วันที่ 2026-11-07: private original restore/offline cache ผ่าน isolated automated gate แล้ว (291 tests รวม E2E 34) แต่ real OAuth/Drive/Android ยัง NOT VERIFIED จึงคงสถานะ PARTIAL ดู docs/PHASE_4_REPORT.md
+
 สถานะเริ่มงานจาก source audit วันที่ 2026-11-06
 
 | Phase | Status      | Acceptance ที่ยังไม่ผ่าน/ยังไม่ยืนยัน                                                                  |

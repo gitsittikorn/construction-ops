@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Isolated private original restoration</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import DrivePanel from '/src/DrivePanel.tsx';
+      import { listUploads, putUpload } from '/src/uploads.ts';
+      import { saveDriveSession } from '/src/driveSession.ts';
+      import '/src/styles.css';
+      const owner = 'phase4-isolated';
+      if (!(await listUploads(owner)).length)
+        await putUpload({
+          id: 'restore-operation',
+          owner,
+          projectId: 'restore-project',
+          tripId: '',
+          name: 'private-proof.png',
+          mimeType: 'image/png',
+          size: atob(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=',
+          ).length,
+          createdAt: '2026-11-07T00:00:00Z',
+          status: 'synced',
+          driveId: 'restore-file',
+          folderId: 'restore-folder',
+          error: '',
+        });
+      saveDriveSession(owner, { token: 'synthetic-test-only', expiresAt: Date.now() + 3600000 });
+      createRoot(document.getElementById('root')).render(
+        React.createElement(DrivePanel, {
+          owner,
+          online: true,
+          trips: [],
+          projects: [
+            {
+              id: 'restore-project',
+              name: 'Isolated restore',
+              status: 'active',
+              createdAt: 'now',
+              updatedAt: 'now',
+              customer: '',
+              location: '',
+              startDate: '',
+              endDate: '',
+              description: '',
+            },
+          ],
+        }),
+      );
+    </script>
+  </body>
+</html>
