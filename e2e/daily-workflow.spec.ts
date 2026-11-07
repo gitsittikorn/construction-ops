@@ -405,6 +405,7 @@ test('P3: reject blank/cleared signatures, replace proof, invalidate/reconfirm t
   await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
   await page.getByRole('button', { name: 'แก้ไข 00123', exact: true }).click();
   await page.getByLabel('เที่ยวรายงาน', { exact: true }).fill('4');
+  await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจยอดตามใบเที่ยวใหม่');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
   await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
   await expect(page.getByText(/^สถานะหลักฐาน: INCOMPLETE /)).toBeVisible();
@@ -709,6 +710,11 @@ test('P6: mixed capacity reconciliation preserves mismatches in the UI, CSV and 
   await page.getByLabel('ความจุต่อเที่ยว', { exact: true }).fill('20');
   await page.getByLabel('เที่ยวบันทึก', { exact: true }).fill('4');
   await page.getByLabel('เที่ยวรายงาน', { exact: true }).fill('5');
+  await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
+  await expect(page.locator('section[aria-label="งานรายวัน"]').getByRole('alert')).toContainText(
+    'เหตุผล',
+  );
+  await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจยอดตามใบเที่ยวใหม่');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
   await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
   await page

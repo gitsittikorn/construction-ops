@@ -13,3 +13,11 @@
 ## Current validated gate — 2026-11-08
 
 รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน
+
+## Correction reasons — 2026-11-08
+
+แก้ GAP-P5 ใน saveDailyRow: ลดเที่ยวที่บันทึกไว้ หรือแก้/ล้าง reported total ที่เคยกรอกแล้ว ต้องระบุเหตุผล แม้วันยัง open; first report และ +1 ตามปกติไม่ต้องมีเหตุผล ส่วน reopened day และ per-trip correction คง guard เดิม เหตุผลถูกบันทึกใน daily history/audit transaction เดียวกัน
+
+ตรวจ version ก่อน correction reason เพื่อไม่ให้ข้อความใหม่บัง stale-edit conflict; invalid negative/noninteger input ยังผ่านไปยัง validation เดิมและไม่เขียนข้อมูล ทดสอบปฏิเสธ missing reason โดย data ไม่เปลี่ยน, increment สำเร็จ, correction พร้อมเหตุผลสำเร็จ และ E2E form retry หลังระบุเหตุผล โดยไม่เปลี่ยน assertion เดิมให้ข้ามกรณีผิด
+
+Phase 5 gate: npm run check exit 0 (cloud command), frontend 261, backend 10, rules 7, emulator integration 8, E2E 43; format/lint/typecheck/build/smoke PASS. Authorization/sync evidence includes actual Firestore rules rejecting unauthorized reopening and restoring the immutable closure/verification audit on an independent fake device in src/emulator-test/cloudSync.test.ts. Real services/devices remain NOT VERIFIED.

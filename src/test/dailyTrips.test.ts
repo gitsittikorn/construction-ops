@@ -178,7 +178,14 @@ it('P2-06 snapshots capacities and drivers; corrections void trips with an audit
   expect(reportTotals(reportRows(data, { ...emptyReportFilter, driver: 'driver' })).volume).toBe(
     18,
   );
-  data = saveDailyRow(data, s.id, s.body.version, { ...s.body.rows[0], tripCount: 3 }, 'admin');
+  data = saveDailyRow(
+    data,
+    s.id,
+    s.body.version,
+    { ...s.body.rows[0], tripCount: 3 },
+    'admin',
+    'ตัดเที่ยวซ้ำ',
+  );
   s = dailySessions(data)[0];
   expect(deliveredVolume(s.body.rows[0])).toBe(18);
   expect(s.body.rows[0].transactions!.slice(0, 3)).toEqual(initial);

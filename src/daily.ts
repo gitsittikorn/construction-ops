@@ -249,9 +249,22 @@ export function saveDailyRow(
   actor: string,
   reason = '',
 ) {
-  const previous = dailySessions(data)
-    .find((s) => s.id === id)
-    ?.body.rows.find((r) => r.id === row.id);
+  const session = dailySessions(data).find((s) => s.id === id);
+  if (!session || session.body.version !== version)
+    throw Error('ข้อมูลเปลี่ยนแล้ว กรุณาเปิดวันทำงานใหม่');
+  const previous = session.body.rows.find((r) => r.id === row.id);
+  if (
+    previous &&
+    ((Number.isSafeInteger(row.tripCount) &&
+      row.tripCount >= 0 &&
+      row.tripCount < previous.tripCount) ||
+      (previous.reportedTrips !== null &&
+        row.reportedTrips !== previous.reportedTrips &&
+        (row.reportedTrips === null ||
+          (Number.isSafeInteger(row.reportedTrips) && row.reportedTrips >= 0)))) &&
+    !reason.trim()
+  )
+    throw Error('กรุณาระบุเหตุผลเมื่อลดเที่ยวหรือแก้ไขยอดรายงานเดิม');
   if (row.tripCount > (previous?.tripCount ?? 0)) {
     for (const [value, kind] of [
       [row.truckId, 'truck'],

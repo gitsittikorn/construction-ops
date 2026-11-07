@@ -261,7 +261,14 @@ it('invalidates manual verification when reported counts change even if recorded
   data = verifyDaily(data, s.id, s.body.version, 'admin', uploads);
   s = dailySessions(data)[0];
   expect(verificationState(s, s.body.rows[0])).toBe('VERIFIED');
-  data = saveDailyRow(data, s.id, s.body.version, { ...s.body.rows[0], reportedTrips: 4 }, 'admin');
+  data = saveDailyRow(
+    data,
+    s.id,
+    s.body.version,
+    { ...s.body.rows[0], reportedTrips: 4 },
+    'admin',
+    'แก้ใบเที่ยว',
+  );
   s = dailySessions(data)[0];
   expect(s.body.verifications).toEqual({});
   expect(verificationState(s, s.body.rows[0])).toBe('MISMATCHED');
@@ -431,4 +438,41 @@ it('rejects foreign owners, missing folders, duplicate Drive IDs and mismatched 
     ).toThrow('ตรงกัน');
   }
   expect(session.body.verifications).toEqual({});
+});
+
+it('requires reasons for reducing recorded trips or changing an existing reported total, while normal increments stay fast', () => {
+  let data = dailyFixture();
+  let session = dailySessions(data)[0];
+  const initial = structuredClone(data);
+  for (const row of [
+    { ...session.body.rows[0], tripCount: 2 },
+    { ...session.body.rows[0], reportedTrips: 2 },
+    { ...session.body.rows[0], reportedTrips: null },
+  ]) {
+    expect(() => saveDailyRow(data, session.id, session.body.version, row, 'admin')).toThrow(
+      'เหตุผล',
+    );
+    expect(data).toEqual(initial);
+  }
+  data = saveDailyRow(
+    data,
+    session.id,
+    session.body.version,
+    { ...session.body.rows[0], tripCount: 4 },
+    'admin',
+  );
+  session = dailySessions(data)[0];
+  data = saveDailyRow(
+    data,
+    session.id,
+    session.body.version,
+    { ...session.body.rows[0], tripCount: 2, reportedTrips: 2 },
+    'admin',
+    'ตัดเที่ยวที่บันทึกซ้ำ',
+  );
+  expect(dailySessions(data)[0].body.history!.at(-1)).toMatchObject({
+    reason: 'ตัดเที่ยวที่บันทึกซ้ำ',
+    by: 'admin',
+  });
+  expect(dailySessions(data)[0].body.rows[0].tripCount).toBe(2);
 });

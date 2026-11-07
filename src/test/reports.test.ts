@@ -113,6 +113,7 @@ it('reconciles mixed capacity snapshots once per truck/day without losing the re
     session.body.version,
     { ...session.body.rows[0], tripCount: 6, capacity: 20, reportedTrips: 7 },
     'admin',
+    'แก้ยอดรายงานจากใบเที่ยว',
   );
   const rows = reportRows(value, { ...emptyReportFilter, from: '2026-11-06' });
   const table = reportTable(value, rows, 'verification');
@@ -155,6 +156,7 @@ it('never compares a filtered subset of historical drivers with the full truck r
       reportedTrips: 6,
     },
     'admin',
+    'แก้ยอดรายงานจากใบเที่ยว',
   );
   const all = reportTable(value, reportRows(value, emptyReportFilter), 'verification');
   expect(
