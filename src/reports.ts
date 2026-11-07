@@ -1,6 +1,6 @@
 import type { Data } from './models';
 import { csv } from './domain';
-import { dailySessions, verificationState } from './daily';
+import { dailySessions, verificationState, dailyRowVolume } from './daily';
 import { validDate } from './daily';
 import type { SheetData } from 'write-excel-file/universal';
 
@@ -85,7 +85,7 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
       trips: r.tripCount,
       reported: r.reportedTrips,
       capacity: r.capacity,
-      volume: r.tripCount * r.capacity,
+      volume: dailyRowVolume(r),
       verified: verificationState(s, r) === 'VERIFIED',
       status: verificationState(s, r),
       origin: s.body.state === 'closed' ? 'วันปิดแล้ว' : 'วันทำงาน',

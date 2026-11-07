@@ -115,8 +115,20 @@ it('syncs a daily session with actual rules and restores proof metadata to a sep
     (await getDoc(doc(session.db!, 'users', owner, 'workspaces', daily.id))).data()?.payload.body
       .state,
   ).toBe('closed');
-  const sealedRef=doc(session.db!,'users',owner,'workspaces',daily.id),sealed=(await getDoc(sealedRef)).data()!;
-  await expect(setDoc(sealedRef,{...sealed,revision:sealed.revision+1,operationId:crypto.randomUUID(),serverUpdatedAt:serverTimestamp(),payload:{...sealed.payload,body:{...sealed.payload.body,state:'open',version:sealed.payload.body.version+1}}})).rejects.toMatchObject({code:'permission-denied'});
+  const sealedRef = doc(session.db!, 'users', owner, 'workspaces', daily.id),
+    sealed = (await getDoc(sealedRef)).data()!;
+  await expect(
+    setDoc(sealedRef, {
+      ...sealed,
+      revision: sealed.revision + 1,
+      operationId: crypto.randomUUID(),
+      serverUpdatedAt: serverTimestamp(),
+      payload: {
+        ...sealed.payload,
+        body: { ...sealed.payload.body, state: 'open', version: sealed.payload.body.version + 1 },
+      },
+    }),
+  ).rejects.toMatchObject({ code: 'permission-denied' });
   const originalDatabase = indexedDB;
   vi.stubGlobal('indexedDB', new IDBFactory());
   try {

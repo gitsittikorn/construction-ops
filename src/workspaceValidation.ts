@@ -51,6 +51,21 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
       trucks = new Set<string>();
     for (const row of b.rows) {
       if (
+        row.trips &&
+        (!Array.isArray(row.trips) ||
+          row.trips.length !== row.tripCount ||
+          new Set(row.trips.map((t) => t.id)).size !== row.trips.length ||
+          row.trips.some(
+            (t) =>
+              typeof t.id !== 'string' ||
+              !t.id ||
+              !Number.isFinite(t.capacity) ||
+              t.capacity <= 0 ||
+              !Number.isFinite(Date.parse(t.recordedAt)),
+          ))
+      )
+        throw Error('ข้อมูลรายเที่ยวไม่ถูกต้อง');
+      if (
         ['id', 'truckId', 'driverId', 'teamId', 'sourceId', 'soilType', 'notes'].some(
           (key) => typeof row[key as keyof typeof row] !== 'string',
         ) ||

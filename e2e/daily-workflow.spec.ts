@@ -58,6 +58,53 @@ async function createRow(page: Page) {
   await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
 }
 
+test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved capacity snapshots', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2026-11-06T17:00:01Z') });
+  await seed(page);
+  await page.evaluate(async () => {
+    const path = '/src/storage.ts';
+    await (
+      await import(path)
+    ).updateData('local', (data: any) => ({
+      ...data,
+      masters: [...data.masters, { ...data.masters[0], id: 'truck2', name: '00234', capacity: 20 }],
+    }));
+  });
+  await page.reload();
+  await createRow(page);
+  await expect(page.getByLabel('วันที่ทำงาน', { exact: true })).toHaveValue('2026-11-07');
+  await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck2');
+  await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
+  await page.getByLabel('เที่ยวบันทึก', { exact: true }).fill('2');
+  await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
+  await expect(
+    page.getByText(/รถ 2 คัน · คนขับ 1 คน · เที่ยวบันทึก 5 · ปริมาตร 76 m³/),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'แก้ไข 00123', exact: true }).click();
+  await page.getByLabel('ความจุต่อเที่ยว', { exact: true }).fill('15');
+  await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
+  await page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true }).click();
+  await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 91 m³/)).toBeVisible();
+  await page.getByText('ตรวจและแก้ไขรายเที่ยว', { exact: true }).click();
+  const input = page.getByLabel(/^ความจุเที่ยว /).first();
+  await input.fill('10');
+  await page.getByRole('button', { name: 'แก้ไขรายเที่ยว', exact: true }).first().click();
+  await expect(page.locator('section[aria-label="งานรายวัน"]').getByRole('alert')).toContainText(
+    'เหตุผล',
+  );
+  await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจความจุจริง');
+  await page.getByRole('button', { name: 'แก้ไขรายเที่ยว', exact: true }).first().click();
+  await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
+  await page.reload();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
+    .click();
+  await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
+});
+
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1000 },
   { name: 'tablet-portrait', width: 800, height: 1280 },
@@ -99,6 +146,54 @@ for (const viewport of [
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2),
     ).toBe(true);
   });
+
+test('P2: daily outbox retains failed synchronization and retries idempotently with simulated transport', async ({
+  page,
+}) => {
+  await seed(page);
+  await createRow(page);
+  const result = await page.evaluate(async () => {
+    const storagePath = '/src/storage.ts',
+      syncPath = '/src/cloudSync.ts';
+    const storage = await import(storagePath),
+      sync = await import(syncPath);
+    const remote = new Map<string, any>();
+    let fail = true;
+    const transport = {
+      authorize: async () => {},
+      pull: async () => ({ records: [], cursors: {} }),
+      read: async () => null,
+      push: async (_owner: string, collection: string, entry: any) => {
+        if (fail && collection === 'workspaces') throw Error('synthetic connection interrupted');
+        const key = `${collection}/${entry.desired.id}`;
+        remote.set(key, entry.desired);
+        return entry.desired;
+      },
+    };
+    let error = '';
+    try {
+      await sync.synchronize('local', transport);
+    } catch (e) {
+      error = String(e);
+    }
+    const failed = await storage.loadData('local');
+    fail = false;
+    await sync.synchronize('local', transport);
+    await sync.synchronize('local', transport);
+    const restored = await storage.loadData('local');
+    return {
+      error,
+      pending: Object.values(failed.sync.entries).some(
+        (e: any) => e.status === 'pending' && e.error,
+      ),
+      synced: Object.values(restored.sync.entries).every((e: any) => e.status === 'synced'),
+      sessions: [...remote.keys()].filter((key) => key.startsWith('workspaces/')).length,
+      trips: restored.workspaces[0].body.rows[0].tripCount,
+    };
+  });
+  expect(result).toMatchObject({ pending: true, synced: true, sessions: 1, trips: 3 });
+  expect(result.error).toContain('synthetic connection interrupted');
+});
 
 test('tablet evidence capture and signature survive refresh; simulated upload acknowledgements enable explicit verify/close/reopen', async ({
   page,

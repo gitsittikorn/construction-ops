@@ -22,12 +22,17 @@ export function summarizeDaily(session: DailySession) {
     for (const row of session.body.rows) {
       const previous = values.get(row[key]) ?? { id: row[key], trips: 0, volume: 0 };
       previous.trips += row.tripCount;
-      previous.volume += row.tripCount * row.capacity;
+      previous.volume += dailyRowVolume(row);
       values.set(row[key], previous);
     }
     return [...values.values()];
   };
   return { byTruck: group('truckId'), byDriver: group('driverId'), bySource: group('sourceId') };
+}
+export function dailyRowVolume(row: DailyRow) {
+  return row.trips
+    ? row.trips.reduce((sum, trip) => sum + trip.capacity, 0)
+    : row.tripCount * row.capacity;
 }
 export function rowFingerprint(session: DailySession, row: DailyRow) {
   return canonical({
@@ -41,6 +46,7 @@ export function rowFingerprint(session: DailySession, row: DailyRow) {
     tripCount: row.tripCount,
     capacity: row.capacity,
     notes: row.notes,
+    ...(row.trips ? { trips: row.trips } : {}),
   });
 }
 export function validateDaily(data: Data, session: DailySession) {
@@ -52,6 +58,19 @@ export function validateDaily(data: Data, session: DailySession) {
   if (!data.projects.some((p) => p.id === session.projectId)) throw Error('ไม่พบโครงการ');
   const trucks = new Set<string>();
   for (const row of session.body.rows) {
+    if (
+      row.trips &&
+      (row.trips.length !== row.tripCount ||
+        new Set(row.trips.map((t) => t.id)).size !== row.trips.length ||
+        row.trips.some(
+          (t) =>
+            !t.id ||
+            !Number.isFinite(t.capacity) ||
+            t.capacity <= 0 ||
+            !Number.isFinite(Date.parse(t.recordedAt)),
+        ))
+    )
+      throw Error('ข้อมูลรายเที่ยวไม่ถูกต้อง');
     if (trucks.has(row.truckId)) throw Error('รถคันนี้มีในวันทำงานแล้ว');
     trucks.add(row.truckId);
     if (
@@ -179,7 +198,10 @@ export function updateDaily(
   ];
   validateDaily(data, next);
   for (const row of next.body.rows)
-    if (next.body.verifications[row.id]?.fingerprint !== rowFingerprint(next, row) || row.reportedTrips !== row.tripCount)
+    if (
+      next.body.verifications[row.id]?.fingerprint !== rowFingerprint(next, row) ||
+      row.reportedTrips !== row.tripCount
+    )
       delete next.body.verifications[row.id];
   return commitWorkspace(data, next, actor, action);
 }
@@ -191,6 +213,26 @@ export function saveDailyRow(
   actor: string,
   reason = '',
 ) {
+  const previous = dailySessions(data)
+    .find((s) => s.id === id)
+    ?.body.rows.find((r) => r.id === row.id);
+  if (!Number.isSafeInteger(row.tripCount) || row.tripCount < 0)
+    throw Error('เที่ยวต้องเป็นจำนวนเต็มตั้งแต่ศูนย์');
+  if (row.tripCount <= 1000 && Number.isSafeInteger(row.tripCount) && row.tripCount >= 0) {
+    const at = new Date().toISOString();
+    const trips = previous?.trips
+      ? structuredClone(previous.trips)
+      : Array.from({ length: Math.min(previous?.tripCount ?? 0, row.tripCount) }, () => ({
+          id: crypto.randomUUID(),
+          capacity: previous!.capacity,
+          recordedAt: at,
+          migrated: true,
+        }));
+    trips.length = Math.min(trips.length, row.tripCount);
+    while (trips.length < row.tripCount)
+      trips.push({ id: crypto.randomUUID(), capacity: row.capacity, recordedAt: at });
+    row = { ...row, trips };
+  } else if (previous?.trips) throw Error('รองรับรายการรายเที่ยวสูงสุด 1,000 เที่ยวต่อรถต่อวัน');
   for (const [value, kind] of [
     [row.truckId, 'truck'],
     [row.driverId, 'driver'],
@@ -241,6 +283,33 @@ export function undoDaily(data: Data, id: string, version: number, actor: string
     reason,
   );
 }
+export function correctDailyTrip(
+  data: Data,
+  id: string,
+  version: number,
+  rowId: string,
+  tripId: string,
+  capacity: number,
+  actor: string,
+  reason: string,
+) {
+  if (!reason.trim()) throw Error('กรุณาระบุเหตุผลแก้ไขรายเที่ยว');
+  return updateDaily(
+    data,
+    id,
+    version,
+    actor,
+    'daily-update',
+    (session) => {
+      const trip = session.body.rows
+        .find((r) => r.id === rowId)
+        ?.trips?.find((t) => t.id === tripId);
+      if (!trip) throw Error('ไม่พบรายการเที่ยว');
+      trip.capacity = capacity;
+    },
+    reason,
+  );
+}
 export function duplicateNextDay(data: Data, id: string, actor: string) {
   const source = dailySessions(data).find((s) => s.id === id);
   if (!source) throw Error('ไม่พบวันต้นทาง');
@@ -260,6 +329,7 @@ export function duplicateNextDay(data: Data, id: string, actor: string) {
         tripCount: 0,
         reportedTrips: null,
         notes: '',
+        trips: [],
       }));
     },
   );
@@ -315,7 +385,10 @@ export function verificationState(
   session: DailySession,
   row: DailyRow,
 ): 'PENDING' | 'MATCHED' | 'MISMATCHED' | 'VERIFIED' | 'REOPENED' {
-  if (row.reportedTrips === row.tripCount && session.body.verifications[row.id]?.fingerprint === rowFingerprint(session, row))
+  if (
+    row.reportedTrips === row.tripCount &&
+    session.body.verifications[row.id]?.fingerprint === rowFingerprint(session, row)
+  )
     return 'VERIFIED';
   if (session.body.state === 'reopened') return 'REOPENED';
   return row.reportedTrips === null
@@ -383,7 +456,7 @@ export function closeDaily(
         rows: structuredClone(s.body.rows),
         verifications: structuredClone(s.body.verifications),
         trips: s.body.rows.reduce((n, r) => n + r.tripCount, 0),
-        volume: s.body.rows.reduce((n, r) => n + r.tripCount * r.capacity, 0),
+        volume: s.body.rows.reduce((n, r) => n + dailyRowVolume(r), 0),
       });
       s.body.state = 'closed';
     },

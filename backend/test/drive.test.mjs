@@ -140,56 +140,79 @@ test('disconnect removes credentials and another account cannot read the connect
   await s.service.disconnect(user);
   await assert.rejects(s.service.session(user), { code: 'reconnect_required' });
 });
-test('HTTP endpoints enforce Firebase identity, admin access, exact origin, CSRF header and input validation', async (t) => {
-  const s = setup();
-  const app = createApp({
-    service: s.service,
-    allowedOrigins: ['https://app.example.com'],
-    async verifyUser(token) {
-      if (token === 'bad') throw Error('bad token');
-      return { ...user, enabled: token !== 'disabled' };
-    },
-  });
-  const server = app.listen(0, '127.0.0.1');
-  await new Promise((resolve) => server.once('listening', resolve));
-  t.after(() => new Promise((resolve) => server.close(resolve)));
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const headers = {
-    Origin: 'https://app.example.com',
-    Authorization: 'Bearer good',
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-  };
-  const post = (path, body = {}, override = {}) =>
-    fetch(`${base}/api/drive/${path}`, {
-      method: 'POST',
-      headers: { ...headers, ...override },
-      body: JSON.stringify(body),
+test(
+  'HTTP endpoints enforce Firebase identity, admin access, exact origin, CSRF header and input validation',
+  { timeout: 20000 },
+  async (t) => {
+    const s = setup();
+    const app = createApp({
+      service: s.service,
+      allowedOrigins: ['https://app.example.com'],
+      async verifyUser(token) {
+        if (token === 'bad') throw Error('bad token');
+        return { ...user, enabled: token !== 'disabled' };
+      },
     });
-  assert.equal((await fetch(`${base}/health`)).status, 200);
-  assert.equal(
-    (await post('exchange', { code: 'test' }, { Origin: 'https://evil.example' })).status,
-    403,
-  );
-  assert.equal((await post('exchange', { code: 'test' }, { 'X-Requested-With': '' })).status, 403);
-  assert.equal(
-    (await post('exchange', { code: 'test' }, { Authorization: 'Bearer bad' })).status,
-    401,
-  );
-  assert.equal(
-    (await post('exchange', { code: 'test' }, { Authorization: 'Bearer disabled' })).status,
-    403,
-  );
-  assert.equal((await post('exchange', {})).status, 400);
-  assert.equal(s.calls.exchange, 0);
-  const response = await post('exchange', { code: 'test' });
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('cache-control'), 'no-store');
-  assert.ok(!JSON.stringify(await response.json()).includes('refresh-secret'));
-  assert.equal((await post('session')).status, 200);
-  assert.equal(
-    (await fetch(`${base}/api/drive/connection`, { method: 'DELETE', headers })).status,
-    204,
-  );
-  assert.equal((await post('session')).status, 409);
-});
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise((resolve) => server.once('listening', resolve));
+    t.after(
+      () =>
+        new Promise((resolve) => {
+          server.closeAllConnections();
+          server.close(resolve);
+        }),
+    );
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const headers = {
+      Origin: 'https://app.example.com',
+      Authorization: 'Bearer good',
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    const post = (path, body = {}, override = {}) =>
+      fetch(`${base}/api/drive/${path}`, {
+        signal: AbortSignal.timeout(5000),
+        method: 'POST',
+        headers: { ...headers, ...override },
+        body: JSON.stringify(body),
+      });
+    assert.equal(
+      (await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) })).status,
+      200,
+    );
+    assert.equal(
+      (await post('exchange', { code: 'test' }, { Origin: 'https://evil.example' })).status,
+      403,
+    );
+    assert.equal(
+      (await post('exchange', { code: 'test' }, { 'X-Requested-With': '' })).status,
+      403,
+    );
+    assert.equal(
+      (await post('exchange', { code: 'test' }, { Authorization: 'Bearer bad' })).status,
+      401,
+    );
+    assert.equal(
+      (await post('exchange', { code: 'test' }, { Authorization: 'Bearer disabled' })).status,
+      403,
+    );
+    assert.equal((await post('exchange', {})).status, 400);
+    assert.equal(s.calls.exchange, 0);
+    const response = await post('exchange', { code: 'test' });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.ok(!JSON.stringify(await response.json()).includes('refresh-secret'));
+    assert.equal((await post('session')).status, 200);
+    assert.equal(
+      (
+        await fetch(`${base}/api/drive/connection`, {
+          method: 'DELETE',
+          headers,
+          signal: AbortSignal.timeout(5000),
+        })
+      ).status,
+      204,
+    );
+    assert.equal((await post('session')).status, 409);
+  },
+);

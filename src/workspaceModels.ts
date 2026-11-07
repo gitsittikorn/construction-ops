@@ -1,6 +1,7 @@
 import type { Base } from './models';
 
 export interface DailyRow {
+  trips?: { id: string; capacity: number; recordedAt: string; migrated?: boolean }[];
   id: string;
   truckId: string;
   driverId: string;

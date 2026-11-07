@@ -15,6 +15,8 @@ import {
   verificationState,
   summarizeDaily,
   rowFingerprint,
+  dailyRowVolume,
+  correctDailyTrip,
 } from './daily';
 import { listUploads } from './uploads';
 import EvidencePanel from './EvidencePanel';
@@ -41,7 +43,7 @@ export default function DailyPanel({
     [notice, setNotice] = useState(''),
     [reason, setReason] = useState(''),
     [editing, setEditing] = useState<DailyRow | null>(null),
-    [editingVersion,setEditingVersion] = useState<number|null>(null),
+    [editingVersion, setEditingVersion] = useState<number | null>(null),
     [evidenceRow, setEvidenceRow] = useState(''),
     [selectedTruck, setSelectedTruck] = useState(''),
     [busy, setBusy] = useState(false),
@@ -88,7 +90,7 @@ export default function DailyPanel({
   }
   function edit(row: DailyRow | null) {
     setEditing(row);
-    setEditingVersion(row ? session?.body.version ?? null : null);
+    setEditingVersion(row ? (session?.body.version ?? null) : null);
     setSelectedTruck(row?.truckId ?? '');
     draftId.current = crypto.randomUUID();
   }
@@ -140,13 +142,20 @@ export default function DailyPanel({
     };
     await run(async () => {
       await onChange((old) =>
-          saveDailyRow(old, session.id, editing ? editingVersion ?? -1 : session.body.version, row, owner, reason),
+        saveDailyRow(
+          old,
+          session.id,
+          editing ? (editingVersion ?? -1) : session.body.version,
+          row,
+          owner,
+          reason,
+        ),
       );
       edit(null);
     });
   }
   const verified = rows.filter((r) => verificationState(session!, r) === 'VERIFIED');
-  const volume = (list: DailyRow[]) => list.reduce((sum, r) => sum + r.tripCount * r.capacity, 0);
+  const volume = (list: DailyRow[]) => list.reduce((sum, r) => sum + dailyRowVolume(r), 0);
   return (
     <section aria-label="งานรายวัน">
       <h2>งานรายวัน → หลักฐาน → ตรวจยอด → ปิดวัน</h2>
@@ -350,7 +359,7 @@ export default function DailyPanel({
                     <td>{row.tripCount}</td>
                     <td>{row.reportedTrips ?? 'ยังไม่กรอก'}</td>
                     <td>{row.reportedTrips === null ? '—' : row.tripCount - row.reportedTrips}</td>
-                    <td>{row.tripCount * row.capacity}</td>
+                    <td>{dailyRowVolume(row)}</td>
                     <td>
                       {verificationState(session, row)} ·{' '}
                       {verificationLabels[verificationState(session, row)]}
@@ -493,6 +502,48 @@ export default function DailyPanel({
               row={rows.find((r) => r.id === evidenceRow)!}
             />
           )}
+          <details>
+            <summary>ตรวจและแก้ไขรายเที่ยว</summary>
+            <p>เที่ยวเก่าที่แปลงจากยอดรวมมีรหัสใหม่ ณ วันที่แปลง โดยคงความจุเดิมไว้</p>
+            {rows.map((row) =>
+              row.trips?.map((trip) => (
+                <form
+                  key={trip.id}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const capacity = Number(new FormData(event.currentTarget).get('capacity'));
+                    void mutate((old) =>
+                      correctDailyTrip(
+                        old,
+                        session.id,
+                        session.body.version,
+                        row.id,
+                        trip.id,
+                        capacity,
+                        owner,
+                        reason,
+                      ),
+                    );
+                  }}
+                >
+                  <label>
+                    {name(row.truckId)} · {trip.id}
+                    {trip.migrated ? ' · จากยอดรวมเดิม' : ''}
+                    <input
+                      aria-label={`ความจุเที่ยว ${trip.id}`}
+                      name="capacity"
+                      type="number"
+                      min="0.001"
+                      step="any"
+                      required
+                      defaultValue={trip.capacity}
+                    />
+                  </label>
+                  <button disabled={busy || session.body.state === 'closed'}>แก้ไขรายเที่ยว</button>
+                </form>
+              )),
+            )}
+          </details>
           {!!session.body.closures.length && (
             <details>
               <summary>ประวัติปิดวัน {session.body.closures.length} ครั้ง</summary>

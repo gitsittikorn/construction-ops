@@ -186,8 +186,17 @@ it('closes with an immutable verified snapshot, blocks edits, reopens only with 
   );
   expect(dailySessions(data)[0].body.closures[0].rows[0].tripCount).toBe(3);
 });
-it('invalidates manual verification when reported counts change even if recorded trips and evidence context stay identical',()=>{
-  let {data,uploads}=readyEvidence(dailyFixture());let s=dailySessions(data)[0];data=verifyDaily(data,s.id,s.body.version,'admin',uploads);s=dailySessions(data)[0];expect(verificationState(s,s.body.rows[0])).toBe('VERIFIED');data=saveDailyRow(data,s.id,s.body.version,{...s.body.rows[0],reportedTrips:4},'admin');s=dailySessions(data)[0];expect(s.body.verifications).toEqual({});expect(verificationState(s,s.body.rows[0])).toBe('MISMATCHED');expect(()=>closeDaily(data,s.id,s.body.version,'admin',uploads)).toThrow('ยืนยัน');
+it('invalidates manual verification when reported counts change even if recorded trips and evidence context stay identical', () => {
+  let { data, uploads } = readyEvidence(dailyFixture());
+  let s = dailySessions(data)[0];
+  data = verifyDaily(data, s.id, s.body.version, 'admin', uploads);
+  s = dailySessions(data)[0];
+  expect(verificationState(s, s.body.rows[0])).toBe('VERIFIED');
+  data = saveDailyRow(data, s.id, s.body.version, { ...s.body.rows[0], reportedTrips: 4 }, 'admin');
+  s = dailySessions(data)[0];
+  expect(s.body.verifications).toEqual({});
+  expect(verificationState(s, s.body.rows[0])).toBe('MISMATCHED');
+  expect(() => closeDaily(data, s.id, s.body.version, 'admin', uploads)).toThrow('ยืนยัน');
 });
 it('syncs daily/evidence through the existing envelope and validates relationships', () => {
   const { data } = readyEvidence(dailyFixture()),
@@ -203,4 +212,79 @@ it('syncs daily/evidence through the existing envelope and validates relationshi
   expect(dailySessions(restored)).toHaveLength(1);
   expect(integrityIssues(restored)).toEqual([]);
   expect(integrityIssues({ ...restored, masters: [] })).not.toEqual([]);
+});
+import { correctDailyTrip, dailyRowVolume, summarizeDaily } from '../daily';
+import { emptyReportFilter, reportRows } from '../reports';
+import { validateWorkspace } from '../workspaceValidation';
+
+it('preserves per-trip capacities, creates unique IDs and recalculates correction in summaries and reports', () => {
+  let data = dailyFixture();
+  let session = dailySessions(data)[0];
+  const before = structuredClone(session.body.rows[0].trips!);
+  data = saveDailyRow(
+    data,
+    session.id,
+    session.body.version,
+    { ...session.body.rows[0], tripCount: 4, capacity: 20 },
+    'admin',
+  );
+  session = dailySessions(data)[0];
+  const row = session.body.rows[0];
+  expect(row.trips!.slice(0, 3)).toEqual(before);
+  expect(new Set(row.trips!.map((t) => t.id)).size).toBe(4);
+  expect(dailyRowVolume(row)).toBe(56);
+  expect(() =>
+    correctDailyTrip(data, session.id, session.body.version, row.id, before[0].id, 10, 'admin', ''),
+  ).toThrow('เหตุผล');
+  data = correctDailyTrip(
+    data,
+    session.id,
+    session.body.version,
+    row.id,
+    before[0].id,
+    10,
+    'admin',
+    'แก้ความจุ',
+  );
+  session = dailySessions(data)[0];
+  expect(summarizeDaily(session).byTruck[0].volume).toBe(54);
+  expect(
+    reportRows(data, emptyReportFilter).find((r) => r.id === `${session.id}:${row.id}`)?.volume,
+  ).toBe(54);
+  expect(() => validateWorkspace(session)).not.toThrow();
+  expect(() =>
+    correctDailyTrip(
+      data,
+      session.id,
+      session.body.version,
+      row.id,
+      before[0].id,
+      -1,
+      'admin',
+      'ผิด',
+    ),
+  ).toThrow('รายเที่ยว');
+  expect(() =>
+    correctDailyTrip(data, session.id, session.body.version, row.id, 'missing', 10, 'admin', 'ผิด'),
+  ).toThrow('ไม่พบ');
+  const copied = duplicateNextDay(data, session.id, 'admin');
+  expect(dailySessions(copied)[1].body.rows[0].trips).toEqual([]);
+  expect(dailySessions(copied)[0]).toEqual(session);
+});
+
+it('migrates aggregate rows only on edit without replacing the old audit snapshot', () => {
+  let data = dailyFixture();
+  let session = dailySessions(data)[0];
+  delete session.body.rows[0].trips;
+  data = saveDailyRow(
+    data,
+    session.id,
+    session.body.version,
+    { ...session.body.rows[0], tripCount: 4, capacity: 20 },
+    'admin',
+  );
+  session = dailySessions(data)[0];
+  expect(session.body.rows[0].trips!.filter((t) => t.migrated)).toHaveLength(3);
+  expect(dailyRowVolume(session.body.rows[0])).toBe(56);
+  expect((data.audit.at(-1)!.before as typeof session).body.rows[0].trips).toBeUndefined();
 });
