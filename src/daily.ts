@@ -185,6 +185,24 @@ export function updateDaily(
       after: next.body.rows.find((r) => r.id === rowId) ?? null,
     }))
     .filter((change) => canonical(change.before) !== canonical(change.after));
+  const tripChanges = changes.flatMap(({ rowId, before, after }) => {
+    const beforeTrips = new Map(before?.trips?.map((trip) => [trip.id, trip]));
+    const afterTrips = new Map(after?.trips?.map((trip) => [trip.id, trip]));
+    return [...new Set([...beforeTrips.keys(), ...afterTrips.keys()])]
+      .map((tripId) => ({
+        rowId,
+        tripId,
+        before: beforeTrips.get(tripId) ?? null,
+        after: afterTrips.get(tripId) ?? null,
+      }))
+      .filter((change) => canonical(change.before) !== canonical(change.after));
+  });
+  const summary = (row: DailyRow | null) => {
+    if (!row) return null;
+    const value = { ...row };
+    delete value.trips;
+    return value;
+  };
   next.body.history = [
     ...(old.body.history ?? []),
     {
@@ -193,7 +211,12 @@ export function updateDaily(
       reason: reason.trim(),
       at: next.updatedAt,
       by: actor,
-      changes: structuredClone(changes),
+      changes: changes.map((change) => ({
+        rowId: change.rowId,
+        before: summary(change.before),
+        after: summary(change.after),
+      })),
+      tripChanges: structuredClone(tripChanges),
     },
   ];
   validateDaily(data, next);
@@ -232,7 +255,13 @@ export function saveDailyRow(
     while (trips.length < row.tripCount)
       trips.push({ id: crypto.randomUUID(), capacity: row.capacity, recordedAt: at });
     row = { ...row, trips };
-  } else if (previous?.trips) throw Error('รองรับรายการรายเที่ยวสูงสุด 1,000 เที่ยวต่อรถต่อวัน');
+  } else if (
+    !previous ||
+    row.tripCount !== previous.tripCount ||
+    row.capacity !== previous.capacity ||
+    previous.trips
+  )
+    throw Error('รองรับรายการรายเที่ยวสูงสุด 1,000 เที่ยวต่อรถต่อวัน');
   for (const [value, kind] of [
     [row.truckId, 'truck'],
     [row.driverId, 'driver'],

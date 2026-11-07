@@ -88,14 +88,27 @@ test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved c
   await page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true }).click();
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 91 m³/)).toBeVisible();
   await page.getByText('ตรวจและแก้ไขรายเที่ยว', { exact: true }).click();
-  const input = page.getByLabel(/^ความจุเที่ยว /).first();
+  const tripId = await page.evaluate(async () => {
+    const path = '/src/storage.ts';
+    const data = await (await import(path)).loadData('local');
+    return data.workspaces
+      .find((s: any) => s.recordType === 'daily')
+      .body.rows.find((r: any) => r.truckId === 'truck').trips[0].id;
+  });
+  const input = page.getByLabel(`ความจุเที่ยว ${tripId}`, { exact: true });
   await input.fill('10');
-  await page.getByRole('button', { name: 'แก้ไขรายเที่ยว', exact: true }).first().click();
+  await input
+    .locator('xpath=ancestor::form')
+    .getByRole('button', { name: 'แก้ไขรายเที่ยว', exact: true })
+    .click();
   await expect(page.locator('section[aria-label="งานรายวัน"]').getByRole('alert')).toContainText(
     'เหตุผล',
   );
   await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจความจุจริง');
-  await page.getByRole('button', { name: 'แก้ไขรายเที่ยว', exact: true }).first().click();
+  await input
+    .locator('xpath=ancestor::form')
+    .getByRole('button', { name: 'แก้ไขรายเที่ยว', exact: true })
+    .click();
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
   await page.reload();
   await page
@@ -215,6 +228,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     .getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true })
     .setInputFiles({ name: 'driver.png', mimeType: 'image/png', buffer: png });
   await page.getByRole('button', { name: 'บันทึกภาพต้นฉบับ', exact: true }).click();
+  await expect(page.getByText('driver.png · อยู่ในคิวอัปโหลด', { exact: true })).toBeVisible();
   await page.getByLabel('ประเภทภาพหลักฐาน', { exact: true }).selectOption('trip-slip');
   await page.getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true }).setInputFiles([
     { name: 'slip-1.png', mimeType: 'image/png', buffer: png },
@@ -225,6 +239,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     },
   ]);
   await page.getByRole('button', { name: 'บันทึกภาพต้นฉบับ', exact: true }).click();
+  await expect(page.getByText('slip-2.png · อยู่ในคิวอัปโหลด', { exact: true })).toBeVisible();
   const canvas = page.getByLabel('พื้นที่ลงลายเซ็น', { exact: true });
   await canvas.scrollIntoViewIfNeeded();
   const bounds = (await canvas.boundingBox())!,
@@ -362,5 +377,77 @@ test('production PWA caches lazy assets and preserves pending data through offli
   await page.getByRole('button', { name: 'ส่งออกรายงาน Excel', exact: true }).click();
   expect((await event).suggestedFilename()).toBe('daily-report.xlsx');
   expect(failures).toEqual([]);
+  await context.setOffline(false);
+});
+
+test('P2: production daily trip recording survives a genuinely offline page reload', async ({
+  page,
+  context,
+}) => {
+  await page.goto('http://127.0.0.1:5175');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('construction-ops', 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const base = { createdAt: '2026-11-06T00:00:00Z', updatedAt: '2026-11-06T00:00:00Z' };
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction('state', 'readwrite');
+      transaction.objectStore('state').put(
+        {
+          projects: [
+            {
+              ...base,
+              id: 'p',
+              name: 'Offline daily',
+              customer: '',
+              location: '',
+              startDate: '',
+              endDate: '',
+              status: 'active',
+              description: '',
+            },
+          ],
+          masters: [
+            {
+              ...base,
+              id: 'truck',
+              kind: 'truck',
+              name: '00123',
+              detail: '',
+              capacity: 12,
+              active: true,
+            },
+          ],
+          trips: [],
+          audit: [],
+        },
+        'local',
+      );
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+  });
+  await page.reload();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
+  await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
+  await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true })).toBeVisible();
+  await context.setOffline(true);
+  await page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true }).click();
+  await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 12 m³/)).toBeVisible();
+  await page.reload();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
+    .click();
+  await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 12 m³/)).toBeVisible();
   await context.setOffline(false);
 });

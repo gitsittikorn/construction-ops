@@ -28,6 +28,12 @@ export interface DailyBody {
     at: string;
     by: string;
     changes: { rowId: string; before: DailyRow | null; after: DailyRow | null }[];
+    tripChanges?: {
+      rowId: string;
+      tripId: string;
+      before: NonNullable<DailyRow['trips']>[number] | null;
+      after: NonNullable<DailyRow['trips']>[number] | null;
+    }[];
   }[];
   date: string;
   version: number;

@@ -15,3 +15,7 @@ Baseline: `b0c3855` on `main`; working tree clean. No interrupted uncommitted ch
 Existing FEATURE_CHECKLIST.md contains stale NOT STARTED statuses. DEVELOPMENT_PROGRESS.md claims later implementation but leaves final validation pending. Neither is accepted as current test evidence.
 
 Dependencies are being installed with npm.cmd ci. No production data, credentials, or deployments involved. Next: verify baseline, finish transaction snapshots, execute full npm.cmd run check and record actual results.
+
+## Verified checkpoint
+
+Phase 2: COMPLETE for implementation and isolated automated acceptance. All Phase 2 areas above now pass the automated gate; real-service/device status remains NOT VERIFIED. Final check exit 0: 222 frontend + 10 backend + 7 rules + 5 integration + 30 E2E tests passed. See PHASE_2_REPORT.md for the scenario mapping, legacy conversion and safety bounds. Next: Phase 3 audit, fixes and tests without restarting existing functionality.

@@ -248,6 +248,12 @@ it('preserves per-trip capacities, creates unique IDs and recalculates correctio
   );
   session = dailySessions(data)[0];
   expect(summarizeDaily(session).byTruck[0].volume).toBe(54);
+  expect(session.body.history!.at(-1)!.tripChanges![0]).toMatchObject({
+    tripId: before[0].id,
+    before: { capacity: 12 },
+    after: { capacity: 10 },
+  });
+  expect(session.body.history!.at(-1)!.changes[0].before!.trips).toBeUndefined();
   expect(
     reportRows(data, emptyReportFilter).find((r) => r.id === `${session.id}:${row.id}`)?.volume,
   ).toBe(54);
@@ -287,4 +293,30 @@ it('migrates aggregate rows only on edit without replacing the old audit snapsho
   expect(session.body.rows[0].trips!.filter((t) => t.migrated)).toHaveLength(3);
   expect(dailyRowVolume(session.body.rows[0])).toBe(56);
   expect((data.audit.at(-1)!.before as typeof session).body.rows[0].trips).toBeUndefined();
+});
+
+it('rejects counts above the transaction limit without losing existing legacy aggregates', () => {
+  const data = dailyFixture();
+  const session = dailySessions(data)[0];
+  expect(() =>
+    saveDailyRow(
+      data,
+      session.id,
+      session.body.version,
+      { ...session.body.rows[0], tripCount: 1001 },
+      'admin',
+    ),
+  ).toThrow('1,000');
+  delete session.body.rows[0].trips;
+  session.body.rows[0].tripCount = 1001;
+  expect(() =>
+    saveDailyRow(
+      data,
+      session.id,
+      session.body.version,
+      { ...session.body.rows[0], capacity: 13 },
+      'admin',
+    ),
+  ).toThrow('1,000');
+  expect(dailyRowVolume(session.body.rows[0])).toBe(12012);
 });
