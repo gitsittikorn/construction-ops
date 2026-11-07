@@ -303,3 +303,14 @@ export async function uploadOriginal(
 export async function downloadOriginal(token: string, id: string): Promise<Blob> {
   return (await call(token, `/files/${encodeURIComponent(id)}?alt=media`)).blob();
 }
+export async function downloadVerifiedOriginal(token: string, record: UploadRecord): Promise<Blob> {
+  if (record.status !== 'synced' || !record.driveId || !record.folderId)
+    throw Error('ต้องมีข้อมูลอัปโหลดที่ยืนยันแล้วก่อนกู้คืนต้นฉบับ');
+  const file = await getDriveFile(token, record.driveId);
+  if (!file) throw Error('ไม่พบต้นฉบับใน Drive ข้อมูลในเครื่องยังอยู่');
+  validateUploadedFile(file, record);
+  const blob = await downloadOriginal(token, record.driveId);
+  if (blob.size !== record.size || blob.type.split(';')[0] !== record.mimeType)
+    throw Error('ไฟล์ที่ดาวน์โหลดไม่ตรงกับต้นฉบับ กรุณาลองใหม่');
+  return blob;
+}

@@ -1,21 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Data } from './models';
 import type { DailySession, DailyRow, EvidenceCategory } from './workspaceModels';
-import { evidenceFor, verificationState } from './daily';
+import { evidenceFor, verificationState, dailyRowVolume } from './daily';
 import { saveEvidence, evidenceStatus, storageWarning } from './evidence';
 import { listUploads, type UploadRecord } from './uploads';
 import SignaturePad from './SignaturePad';
 import { connectionMessage } from './async';
 import { evidenceLabels } from './workspaceLabels';
+import { readCachedOriginal } from './documentCache';
 
-function Preview({ file }: { file: File }) {
+function Preview({ file, name }: { file: Blob; name: string }) {
   const [url, setUrl] = useState('');
   useEffect(() => {
     const value = URL.createObjectURL(file);
     setUrl(value);
     return () => URL.revokeObjectURL(value);
   }, [file]);
-  return <img className="evidence-preview" src={url} alt={file.name} />;
+  return <img className="evidence-preview" src={url} alt={name} />;
 }
 export default function EvidencePanel({
   owner,
@@ -28,6 +29,7 @@ export default function EvidencePanel({
   session: DailySession;
   row: DailyRow;
 }) {
+  const lock = useRef(false);
   const [selected, setSelected] = useState<File[]>([]),
     [category, setCategory] = useState<EvidenceCategory>('driver-photo'),
     [uploads, setUploads] = useState<UploadRecord[]>([]),
@@ -35,14 +37,34 @@ export default function EvidencePanel({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [warning, setWarning] = useState('');
+  const [originals, setOriginals] = useState<{ owner: string; files: Record<string, Blob> }>({
+    owner,
+    files: {},
+  });
   useEffect(() => {
     let alive = true;
     const refresh = () => {
-      void listUploads(owner).then((files) => {
-        if (alive) setUploads(files);
-      });
+      void listUploads(owner)
+        .then(async (files) => {
+          const cached = await Promise.all(
+            files.map(async (file) => [file.id, await readCachedOriginal(owner, file)] as const),
+          );
+          if (alive) {
+            setUploads(files);
+            setOriginals({
+              owner,
+              files: Object.fromEntries(
+                cached.filter((entry): entry is readonly [string, Blob] => entry[1] !== null),
+              ),
+            });
+          }
+        })
+        .catch((error) => {
+          if (alive) setError(connectionMessage(error));
+        });
     };
     refresh();
+    window.addEventListener('construction-uploads-changed', refresh);
     const timer = setInterval(refresh, 3000);
     void storageWarning()
       .then(setWarning)
@@ -50,6 +72,7 @@ export default function EvidencePanel({
     return () => {
       alive = false;
       clearInterval(timer);
+      window.removeEventListener('construction-uploads-changed', refresh);
     };
   }, [owner, data]);
   const current = evidenceFor(data, session, row).at(-1);
@@ -60,7 +83,8 @@ export default function EvidencePanel({
           .filter((u): u is UploadRecord => !!u)
       : [];
   async function save(files: File[], role = category) {
-    if (busy) return;
+    if (lock.current) return;
+    lock.current = true;
     setBusy(true);
     setError('');
     try {
@@ -71,17 +95,39 @@ export default function EvidencePanel({
       setError(connectionMessage(e));
       throw e;
     } finally {
+      lock.current = false;
       setBusy(false);
     }
   }
   return (
-    <section className="panel padded">
+    <section className="panel padded" aria-label="หลักฐานประจำรถ">
       <h2>หลักฐานคนขับและใบเที่ยว</h2>
       <p>
         สถานะหลักฐาน: {evidenceStatus(files, verificationState(session, row) === 'VERIFIED')} ·{' '}
         {evidenceLabels[evidenceStatus(files, verificationState(session, row) === 'VERIFIED')]}
       </p>
       <p>หลักฐานผูกกับวันที่ รถ คนขับ และยอดปัจจุบัน การแก้ยอดต้องเก็บหลักฐานชุดใหม่</p>
+      <p>
+        ข้อมูลก่อนลงลายเซ็น: {data.masters.find((m) => m.id === row.driverId)?.name ?? row.driverId}{' '}
+        ·{data.masters.find((m) => m.id === row.truckId)?.name} · {session.body.date} ·
+        {row.tripCount} เที่ยว · {dailyRowVolume(row)} m³
+      </p>
+      <ul aria-label="รายการตรวจหลักฐาน">
+        {(['driver-photo', 'trip-slip', 'signature'] as const).map((role) => {
+          const selected = files.filter((f) => f.category === role);
+          return (
+            <li key={role}>
+              {role === 'driver-photo' ? 'รูปคนขับ' : role === 'trip-slip' ? 'ใบเที่ยว' : 'ลายเซ็น'}
+              :{' '}
+              {!selected.length
+                ? 'ยังไม่มี'
+                : selected.every((f) => f.status === 'synced' && f.driveId)
+                  ? 'ตรวจการอัปโหลด Cloud แล้ว'
+                  : 'บันทึกในเครื่อง รออัปโหลด'}
+            </li>
+          );
+        })}
+      </ul>
       {warning && <p role="alert">{warning}</p>}
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
@@ -89,6 +135,7 @@ export default function EvidencePanel({
         ประเภทภาพ
         <select
           aria-label="ประเภทภาพหลักฐาน"
+          disabled={busy || session.body.state === 'closed'}
           value={category}
           onChange={(e) => {
             setCategory(e.target.value as EvidenceCategory);
@@ -106,7 +153,7 @@ export default function EvidencePanel({
           aria-label="ภาพหลักฐาน"
           type="file"
           accept="image/*"
-          capture="environment"
+          capture={category === 'driver-photo' ? 'user' : 'environment'}
           multiple={category === 'trip-slip'}
           disabled={busy || session.body.state === 'closed'}
           onChange={(e) => setSelected(Array.from(e.target.files ?? []))}
@@ -125,7 +172,7 @@ export default function EvidencePanel({
       </label>
       {selected.map((file, i) => (
         <div key={`${file.name}-${i}`}>
-          <Preview file={file} />
+          <Preview file={file} name={file.name} />
           <button onClick={() => setSelected((files) => files.filter((_, index) => index !== i))}>
             เอาภาพ {file.name} ออกก่อนบันทึก
           </button>
@@ -141,24 +188,34 @@ export default function EvidencePanel({
         disabled={busy || session.body.state === 'closed'}
         onSave={(file) => save([file], 'signature')}
       />
-      {files.map((f) => (
-        <p key={f.id}>
-          {f.name} ·{' '}
-          {f.status === 'synced'
-            ? 'อัปโหลดแล้ว — ยังไม่ใช่การตรวจยอด'
-            : f.status === 'error'
-              ? f.error
-              : 'อยู่ในคิวอัปโหลด'}{' '}
-          {f.status === 'synced' && (
-            <a
-              href={`https://drive.google.com/file/d/${encodeURIComponent(f.driveId)}/view`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              เปิดต้นฉบับส่วนตัว
-            </a>
-          )}
+      {current?.recordType === 'evidence' && current.body.signature && (
+        <p>
+          ผู้ลงลายเซ็น: {current.body.signature.signerName} · {current.body.signature.signedAt}
         </p>
+      )}
+      {files.map((f) => (
+        <div key={f.id}>
+          {(f.blob || (originals.owner === owner && originals.files[f.id])) && (
+            <Preview file={f.blob ?? originals.files[f.id]} name={`ภาพที่บันทึก ${f.name}`} />
+          )}
+          <p>
+            {f.name} ·{' '}
+            {f.status === 'synced'
+              ? 'อัปโหลดแล้ว — ยังไม่ใช่การตรวจยอด'
+              : f.status === 'error'
+                ? f.error
+                : 'อยู่ในคิวอัปโหลด'}{' '}
+            {f.status === 'synced' && (
+              <a
+                href={`https://drive.google.com/file/d/${encodeURIComponent(f.driveId)}/view`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                เปิดต้นฉบับส่วนตัว
+              </a>
+            )}
+          </p>
+        </div>
       ))}
     </section>
   );

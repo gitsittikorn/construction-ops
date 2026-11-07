@@ -9,8 +9,11 @@ export default function SignaturePad({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null),
     drawing = useRef(false),
-    marks = useRef(0);
-  const [error, setError] = useState('');
+    marks = useRef(0),
+    lastPoint = useRef<number[]>([0, 0]),
+    lock = useRef(false);
+  const [error, setError] = useState(''),
+    [saving, setSaving] = useState(false);
   const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     return [
@@ -19,6 +22,9 @@ export default function SignaturePad({
     ];
   };
   async function save() {
+    if (disabled || lock.current) return;
+    lock.current = true;
+    setSaving(true);
     setError('');
     try {
       if (marks.current < 2) throw Error('กรุณาลงลายเซ็นก่อนบันทึก');
@@ -31,6 +37,9 @@ export default function SignaturePad({
       await onSave(new File([blob], 'signature.png', { type: 'image/png' }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'บันทึกลายเซ็นไม่สำเร็จ');
+    } finally {
+      lock.current = false;
+      setSaving(false);
     }
   }
   return (
@@ -49,20 +58,23 @@ export default function SignaturePad({
           background: 'white',
         }}
         onPointerDown={(event) => {
-          if (disabled) return;
+          if (disabled || lock.current) return;
           drawing.current = true;
           event.currentTarget.setPointerCapture(event.pointerId);
           const [x, y] = point(event),
             ctx = canvas.current!.getContext('2d')!;
           ctx.beginPath();
           ctx.moveTo(x, y);
+          lastPoint.current = [x, y];
           ctx.lineWidth = 3;
           ctx.strokeStyle = '#102c25';
         }}
         onPointerMove={(event) => {
-          if (!drawing.current || disabled) return;
+          if (!drawing.current || disabled || lock.current) return;
           const [x, y] = point(event),
             ctx = canvas.current!.getContext('2d')!;
+          if (Math.hypot(x - lastPoint.current[0], y - lastPoint.current[1]) < 1) return;
+          lastPoint.current = [x, y];
           ctx.lineTo(x, y);
           ctx.stroke();
           marks.current++;
@@ -73,18 +85,23 @@ export default function SignaturePad({
         onPointerCancel={() => {
           drawing.current = false;
         }}
+        onLostPointerCapture={() => {
+          drawing.current = false;
+        }}
       />
       <button
-        disabled={disabled}
+        disabled={disabled || saving}
         type="button"
         onClick={() => {
           canvas.current!.getContext('2d')!.clearRect(0, 0, 800, 240);
           marks.current = 0;
+          drawing.current = false;
+          setError('');
         }}
       >
         ล้างลายเซ็น / ลงใหม่
       </button>
-      <button disabled={disabled} type="button" onClick={() => void save()}>
+      <button disabled={disabled || saving} type="button" onClick={() => void save()}>
         บันทึกลายเซ็น
       </button>
       {error && <p role="alert">{error}</p>}

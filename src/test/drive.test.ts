@@ -5,6 +5,7 @@ import {
   ensureDriveFolder,
   uploadOriginal,
   downloadOriginal,
+  downloadVerifiedOriginal,
   validateUploadedFile,
   driveScope,
 } from '../drive';
@@ -33,6 +34,27 @@ const remote = {
 };
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
+
+it('downloads only a matching private original and rejects foreign metadata or truncated media', async () => {
+  const fetch = vi.fn();
+  vi.stubGlobal('fetch', fetch);
+  const record = { ...item, status: 'synced' as const };
+  fetch
+    .mockResolvedValueOnce(json(remote))
+    .mockResolvedValueOnce(new Response('abc', { headers: { 'Content-Type': 'image/jpeg' } }));
+  expect((await downloadVerifiedOriginal('test', record)).size).toBe(3);
+  fetch.mockResolvedValueOnce(
+    json({ ...remote, appProperties: { ...remote.appProperties, owner: 'other' } }),
+  );
+  await expect(downloadVerifiedOriginal('test', record)).rejects.toThrow('ไม่ตรง');
+  fetch
+    .mockResolvedValueOnce(json(remote))
+    .mockResolvedValueOnce(new Response('a', { headers: { 'Content-Type': 'image/jpeg' } }));
+  await expect(downloadVerifiedOriginal('test', record)).rejects.toThrow('ไม่ตรง');
+  fetch.mockResolvedValueOnce(json({}, 404));
+  await expect(downloadVerifiedOriginal('test', record)).rejects.toThrow('ไม่พบ');
+  await expect(downloadVerifiedOriginal('test', item)).rejects.toThrow('ยืนยัน');
+});
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();

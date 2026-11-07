@@ -19,6 +19,89 @@ import { reportRows, reportTotals, emptyReportFilter } from '../reports';
 import { prepareSync } from '../syncModel';
 import { validateCloudRecord } from '../cloudValidation';
 import type { DailyRow } from '../workspaceModels';
+import { rowFingerprint, dailyRowVolume } from '../daily';
+import { validateWorkspace } from '../workspaceValidation';
+
+it('preserves cloud trip snapshots, fingerprints and volume through edits and capacity corrections', () => {
+  let data = start(2);
+  let session = dailySessions(data)[0];
+  const row = session.body.rows[0];
+  row.trips = row.transactions!.map(({ id, capacity, recordedAt }) => ({
+    id,
+    capacity,
+    recordedAt,
+  }));
+  delete row.transactions;
+  row.trips[0].capacity = 10;
+  const original = structuredClone(data);
+  const fingerprint = rowFingerprint(session, row);
+  expect(dailyRowVolume(row)).toBe(16);
+  expect(reportTotals(reportRows(data, emptyReportFilter)).volume).toBe(16);
+  expect(() => validateWorkspace(session)).not.toThrow();
+  data = saveDailyRow(
+    data,
+    session.id,
+    session.body.version,
+    { ...row, tripCount: 3, capacity: 8 },
+    'admin',
+  );
+  session = dailySessions(data)[0];
+  expect(session.body.rows[0].trips!.slice(0, 2)).toEqual(row.trips);
+  expect(session.body.rows[0].transactions).toBeUndefined();
+  expect(dailyRowVolume(session.body.rows[0])).toBe(24);
+  data = correctDailyTrip(
+    data,
+    session.id,
+    session.body.version,
+    row.id,
+    row.trips[0].id,
+    12,
+    'admin',
+    'correct capacity',
+  );
+  session = dailySessions(data)[0];
+  expect(dailyRowVolume(session.body.rows[0])).toBe(26);
+  expect(rowFingerprint(session, session.body.rows[0])).not.toBe(fingerprint);
+  expect(session.body.history!.at(-1)!.tripChanges![0].before!.capacity).toBe(10);
+  expect(row).toEqual(dailySessions(original)[0].body.rows[0]);
+  expect(row.trips[0].capacity).toBe(10);
+  const copied = duplicateNextDay(data, session.id, 'admin');
+  expect(dailySessions(copied)[1].body.rows[0].trips).toEqual([]);
+  expect(dailySessions(copied)[1].body.rows[0].transactions).toBeUndefined();
+});
+
+it('rejects corrupt cloud trip arrays and ambiguous formats without mutating originals', () => {
+  const data = start(1),
+    session = dailySessions(data)[0],
+    row = session.body.rows[0];
+  const trip = row.transactions![0];
+  const remote = {
+    ...row,
+    transactions: undefined,
+    trips: [{ id: trip.id, capacity: 6, recordedAt: trip.recordedAt }],
+  };
+  expect(() =>
+    validateDailyTrips({ ...remote, trips: [...remote.trips, ...remote.trips] }),
+  ).toThrow();
+  expect(() =>
+    validateDailyTrips({ ...remote, trips: [{ ...remote.trips[0], capacity: -1 }] }),
+  ).toThrow();
+  expect(() => validateDailyTrips({ ...remote, transactions: [trip] })).toThrow();
+  const before = structuredClone(data);
+  expect(() =>
+    correctDailyTrip(
+      data,
+      session.id,
+      session.body.version - 1,
+      row.id,
+      trip.id,
+      8,
+      'admin',
+      'stale',
+    ),
+  ).toThrow('เปลี่ยน');
+  expect(data).toEqual(before);
+});
 
 function start(count = 0) {
   let data = fixture();

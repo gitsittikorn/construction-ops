@@ -787,6 +787,48 @@ export default function DailyPanel({
               row={rows.find((r) => r.id === evidenceRow)!}
             />
           )}
+          <details>
+            <summary>ตรวจและแก้ไขรายเที่ยว</summary>
+            <p>เที่ยวเก่าที่แปลงจากยอดรวมมีรหัสใหม่ ณ วันที่แปลง โดยคงความจุเดิมไว้</p>
+            {rows.map((row) =>
+              activeDailyTrips(row).map((trip) => (
+                <form
+                  key={trip.id}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const capacity = Number(new FormData(event.currentTarget).get('capacity'));
+                    void mutate((old) =>
+                      correctDailyTrip(
+                        old,
+                        session.id,
+                        session.body.version,
+                        row.id,
+                        trip.id,
+                        capacity,
+                        owner,
+                        reason,
+                      ),
+                    );
+                  }}
+                >
+                  <label>
+                    {name(row.truckId)} · {trip.id}
+                    {trip.id.startsWith('legacy-') ? ' · จากยอดรวมเดิม' : ''}
+                    <input
+                      aria-label={`ความจุเที่ยว ${trip.id}`}
+                      name="capacity"
+                      type="number"
+                      min="0.001"
+                      step="any"
+                      required
+                      defaultValue={trip.capacity}
+                    />
+                  </label>
+                  <button disabled={busy || session.body.state === 'closed'}>แก้ไขรายเที่ยว</button>
+                </form>
+              )),
+            )}
+          </details>
           {!!session.body.closures.length && (
             <details>
               <summary>ประวัติปิดวัน {session.body.closures.length} ครั้ง</summary>

@@ -9,7 +9,7 @@ import {
   generateDriveIds,
   ensureDriveFolder,
   uploadOriginal,
-  downloadOriginal,
+  downloadVerifiedOriginal,
   DriveError,
 } from './drive';
 import {
@@ -27,6 +27,7 @@ import ProjectPicker from './ProjectPicker';
 import DriveConnectionDialog from './DriveConnectionDialog';
 import { ensureEvidenceFolder } from './evidenceFolders';
 import PrivateFileViewer from './PrivateFileViewer';
+import { readCachedOriginal, restoreOriginalForOffline } from './documentCache';
 import { getDriveSession, saveDriveSession, clearDriveSession } from './driveSession';
 import {
   driveBackendConfigured,
@@ -65,6 +66,11 @@ export default function DrivePanel({
       return active.length === 1 ? active[0].id : '';
     });
   const [selectedFiles, setSelectedFiles] = useState<{ name: string; size: number }[]>([]);
+  const [originals, setOriginals] = useState<{ owner: string; files: Record<string, Blob> }>({
+    owner,
+    files: {},
+  });
+  const cached = originals.owner === owner ? originals.files : {};
   const [connectionPrompt, setConnectionPrompt] = useState<'connect' | 'expired' | null>(() =>
     driveConfigured && !driveBackendConfigured && owner !== 'local' && !getDriveSession(owner)
       ? 'connect'
@@ -140,7 +146,18 @@ export default function DrivePanel({
   };
   async function refresh() {
     const result = await listUploads(owner);
-    if (alive.current) setItems(result);
+    const files = await Promise.all(
+      result.map(async (item) => [item.id, await readCachedOriginal(owner, item)] as const),
+    );
+    if (alive.current) {
+      setItems(result);
+      setOriginals({
+        owner,
+        files: Object.fromEntries(
+          files.filter((entry): entry is readonly [string, Blob] => entry[1] !== null),
+        ),
+      });
+    }
   }
   useEffect(() => {
     alive.current = true;
@@ -426,7 +443,9 @@ export default function DrivePanel({
     setBusy(true);
     setError('');
     try {
-      const blob = await downloadOriginal(await token(), item.driveId);
+      const blob = cached[item.id] ?? (await downloadVerifiedOriginal(await token(), item));
+      session();
+      if (!alive.current) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -438,6 +457,27 @@ export default function DrivePanel({
     } finally {
       lock.current = false;
       setBusy(false);
+    }
+  }
+  async function restore(item: UploadRecord) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await restoreOriginalForOffline(owner, item, {
+        active: () => alive.current && getSessionIdentity()?.uid === owner,
+        download: async (record) => downloadVerifiedOriginal(await token(), record),
+      });
+      if (!alive.current) return;
+      await refresh();
+      setNotice('ตรวจและเก็บต้นฉบับไว้ดูออฟไลน์แล้ว ไม่เปลี่ยนสถานะการตรวจยอด');
+    } catch (error) {
+      if (alive.current) reportError(error);
+    } finally {
+      lock.current = false;
+      if (alive.current) setBusy(false);
     }
   }
   return (
@@ -637,53 +677,70 @@ export default function DrivePanel({
       {items.length === 0 ? (
         <p>ยังไม่มีเอกสารในอุปกรณ์นี้</p>
       ) : (
-        items.map((item) => (
-          <article className="upload-row" key={item.id}>
-            <b>{item.name}</b>
-            <small>
-              {projects.find((p) => p.id === item.projectId)?.name ?? item.projectId} ·{' '}
-              {(item.size / 1024 / 1024).toFixed(2)} MB
-            </small>
-            <span className={'badge ' + (item.status === 'synced' ? '' : 'pending')}>
-              {statusLabels[item.status]}
-            </span>
-            {progress[item.id] !== undefined && item.status !== 'synced' && (
-              <progress
-                aria-label={`ความคืบหน้า ${item.name}`}
-                max={100}
-                value={progress[item.id]}
-              />
-            )}{' '}
-            {item.error && <p>{item.error}</p>}
-            {item.status === 'synced' && (
-              <>
-                {item.mimeType.startsWith('image/') && connected && online && (
-                  <PrivateFileViewer
-                    name={item.name}
-                    load={async () => downloadOriginal(await token(), item.driveId)}
-                    onError={reportError}
-                  />
-                )}
-                <a
-                  className="text-button"
-                  href={`https://drive.google.com/file/d/${encodeURIComponent(item.driveId)}/view`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  เปิดไฟล์นี้ใน Google Drive
-                </a>
-                <button
-                  className="text-button"
-                  disabled={!connected || busy || !online}
-                  onClick={() => void download(item)}
-                >
-                  <Download size={14} />
-                  ดาวน์โหลดต้นฉบับ
-                </button>
-              </>
-            )}
-          </article>
-        ))
+        items
+          .filter((item) => item.owner === owner)
+          .map((item) => (
+            <article className="upload-row" key={item.id}>
+              <b>{item.name}</b>
+              <small>
+                {projects.find((p) => p.id === item.projectId)?.name ?? item.projectId} ·{' '}
+                {(item.size / 1024 / 1024).toFixed(2)} MB
+              </small>
+              <span className={'badge ' + (item.status === 'synced' ? '' : 'pending')}>
+                {statusLabels[item.status]}
+              </span>
+              {progress[item.id] !== undefined && item.status !== 'synced' && (
+                <progress
+                  aria-label={`ความคืบหน้า ${item.name}`}
+                  max={100}
+                  value={progress[item.id]}
+                />
+              )}{' '}
+              {item.error && <p>{item.error}</p>}
+              {item.status === 'synced' && (
+                <>
+                  {cached[item.id] && (
+                    <span className="badge">มีต้นฉบับในเครื่อง พร้อมดูออฟไลน์</span>
+                  )}
+                  {!cached[item.id] && (
+                    <button
+                      disabled={!connected || !online || busy}
+                      onClick={() => void restore(item)}
+                    >
+                      เก็บต้นฉบับไว้ดูออฟไลน์
+                    </button>
+                  )}
+                  {item.mimeType.startsWith('image/') &&
+                    (cached[item.id] || (connected && online)) && (
+                      <PrivateFileViewer
+                        key={`${owner}-${item.id}`}
+                        name={item.name}
+                        load={async () =>
+                          cached[item.id] ?? downloadVerifiedOriginal(await token(), item)
+                        }
+                        onError={reportError}
+                      />
+                    )}
+                  <a
+                    className="text-button"
+                    href={`https://drive.google.com/file/d/${encodeURIComponent(item.driveId)}/view`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    เปิดไฟล์นี้ใน Google Drive
+                  </a>
+                  <button
+                    className="text-button"
+                    disabled={busy || (!cached[item.id] && (!connected || !online))}
+                    onClick={() => void download(item)}
+                  >
+                    <Download size={14} />
+                    ดาวน์โหลดต้นฉบับ
+                  </button>
+                </>
+              )}
+            </article>
+          ))
       )}
       <p className="table-note">
         {items.some((item) => item.status !== 'synced') &&

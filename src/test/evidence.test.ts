@@ -12,6 +12,9 @@ import {
 } from '../storage';
 import { listUploads } from '../uploads';
 import { readBlobBytes } from '../files';
+import { verifyDaily, closeDaily, verificationState } from '../daily';
+import { putUpload } from '../uploads';
+import { validateWorkspace } from '../workspaceValidation';
 
 beforeEach(() => vi.stubGlobal('crypto', webcrypto));
 afterEach(() => vi.unstubAllGlobals());
@@ -123,4 +126,41 @@ it('separates upload completion from evidence verification and warns before stor
     if (descriptor) Object.defineProperty(navigator, 'storage', descriptor);
     else delete (navigator as unknown as Record<string, unknown>).storage;
   }
+});
+
+it('records the signer and time, replaces proof safely and invalidates previous confirmation', async () => {
+  const { owner, id } = await setup();
+  for (const category of ['driver-photo', 'signature', 'trip-slip'] as const)
+    await saveEvidence(owner, id, 'row', category, [image()]);
+  let data = await loadData(owner);
+  const evidence = data.workspaces!.find((r) => r.recordType === 'evidence')!;
+  if (evidence.recordType !== 'evidence') throw Error('fixture');
+  expect(evidence.body.signature).toMatchObject({ signerId: 'driver' });
+  expect(Number.isFinite(Date.parse(evidence.body.signature!.signedAt))).toBe(true);
+  expect(() => validateWorkspace(evidence)).not.toThrow();
+  expect(() =>
+    validateWorkspace({
+      ...evidence,
+      body: { ...evidence.body, signature: { ...evidence.body.signature!, signerId: 'wrong' } },
+    }),
+  ).toThrow('ลายเซ็น');
+  for (const file of await listUploads(owner))
+    await putUpload({ ...file, status: 'synced', driveId: `test-${file.id}` });
+  const uploads = await listUploads(owner);
+  await updateData(owner, (data) => {
+    const s = dailySessions(data)[0];
+    return verifyDaily(data, id, s.body.version, owner, uploads);
+  });
+  const confirmed = await loadData(owner);
+  await saveEvidence(owner, id, 'row', 'driver-photo', [image()]);
+  expect((await loadData(owner)).audit).toEqual(confirmed.audit);
+  await saveEvidence(owner, id, 'row', 'driver-photo', [
+    new NodeFile(['replacement'], 'replacement.png', { type: 'image/png' }) as unknown as File,
+  ]);
+  data = await loadData(owner);
+  const session = dailySessions(data)[0];
+  expect(verificationState(session, session.body.rows[0])).toBe('MATCHED');
+  expect(() => closeDaily(data, id, session.body.version, owner, uploads)).toThrow('ยืนยัน');
+  expect(data.audit.some((a) => a.action === 'evidence-replace')).toBe(true);
+  expect(await listUploads(owner)).toHaveLength(4);
 });

@@ -12,6 +12,7 @@ export interface DailyTrip {
 
 export interface DailyRow {
   transactions?: DailyTrip[];
+  trips?: { id: string; capacity: number; recordedAt: string; migrated?: boolean }[];
   id: string;
   truckId: string;
   driverId: string;
@@ -38,6 +39,12 @@ export interface DailyBody {
     at: string;
     by: string;
     changes: { rowId: string; before: DailyRow | null; after: DailyRow | null }[];
+    tripChanges?: {
+      rowId: string;
+      tripId: string;
+      before: NonNullable<DailyRow['trips']>[number] | null;
+      after: NonNullable<DailyRow['trips']>[number] | null;
+    }[];
   }[];
   date: string;
   version: number;
@@ -56,6 +63,7 @@ export interface DailyBody {
 }
 export type EvidenceCategory = 'driver-photo' | 'signature' | 'trip-slip';
 export interface EvidenceBody {
+  signature?: { signerId: string; signerName: string; signedAt: string; uploadId: string };
   sessionId: string;
   rowId: string;
   date: string;

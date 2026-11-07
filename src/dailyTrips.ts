@@ -7,17 +7,26 @@ export function defaultTripCapacity(truck?: Master) {
 }
 
 export function activeDailyTrips(row: DailyRow): DailyTrip[] {
-  return row.transactions?.filter((trip) => !trip.voidedAt) ?? [];
+  return (
+    row.transactions?.filter((trip) => !trip.voidedAt) ??
+    row.trips?.map((trip) => ({
+      ...trip,
+      driverId: row.driverId,
+      sourceId: row.sourceId,
+      soilType: row.soilType,
+    })) ??
+    []
+  );
 }
 
 export function deliveredVolume(row: DailyRow) {
-  return row.transactions
+  return row.transactions || row.trips
     ? activeDailyTrips(row).reduce((total, trip) => total + trip.capacity, 0)
     : row.tripCount * row.capacity;
 }
 
 export function dailyTripSegments(row: DailyRow) {
-  if (!row.transactions || !row.tripCount)
+  if ((!row.transactions && !row.trips) || !row.tripCount)
     return [
       {
         driverId: row.driverId,
@@ -45,6 +54,23 @@ export function dailyTripSegments(row: DailyRow) {
 }
 
 export function validateDailyTrips(row: DailyRow) {
+  if (
+    row.trips &&
+    (!Array.isArray(row.trips) ||
+      row.trips.length !== row.tripCount ||
+      new Set(row.trips.map((trip) => trip.id)).size !== row.trips.length ||
+      row.trips.some(
+        (trip) =>
+          !trip ||
+          typeof trip.id !== 'string' ||
+          !trip.id ||
+          !Number.isFinite(trip.capacity) ||
+          trip.capacity <= 0 ||
+          !Number.isFinite(Date.parse(trip.recordedAt)),
+      ))
+  )
+    throw Error('ข้อมูลรายเที่ยวไม่ถูกต้อง');
+  if (row.transactions && row.trips) throw Error('รูปแบบรายเที่ยวซ้ำกัน');
   if (!row.transactions) return;
   if (!Array.isArray(row.transactions) || row.transactions.length > 5000)
     throw Error('รายการเที่ยวเกินขอบเขต 5,000 รายการต่อรถต่อวัน');
@@ -82,6 +108,16 @@ export function reconcileDailyTrips(
   if (!Number.isSafeInteger(row.tripCount) || row.tripCount < 0 || row.tripCount > 5000)
     throw Error('เที่ยวต้องเป็นจำนวนเต็มตั้งแต่ศูนย์ถึง 5,000');
   const stamp = new Date().toISOString();
+  // Preserve the snapshot format already used by cloud rows until explicitly migrated.
+  if (previous?.trips && !previous.transactions) {
+    const trips = structuredClone(previous.trips).slice(0, row.tripCount);
+    while (trips.length < row.tripCount)
+      trips.push({ id: crypto.randomUUID(), capacity: row.capacity, recordedAt: stamp });
+    const next = { ...row, trips };
+    delete next.transactions;
+    validateDailyTrips(next);
+    return next;
+  }
   const transactions: DailyTrip[] = structuredClone(
     previous?.transactions ??
       Array.from({ length: previous?.tripCount ?? 0 }, (_, index) => ({

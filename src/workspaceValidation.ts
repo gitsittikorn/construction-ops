@@ -58,6 +58,21 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
         tripIds.add(trip.id);
       }
       if (
+        row.trips &&
+        (!Array.isArray(row.trips) ||
+          row.trips.length !== row.tripCount ||
+          new Set(row.trips.map((t) => t.id)).size !== row.trips.length ||
+          row.trips.some(
+            (t) =>
+              typeof t.id !== 'string' ||
+              !t.id ||
+              !Number.isFinite(t.capacity) ||
+              t.capacity <= 0 ||
+              !Number.isFinite(Date.parse(t.recordedAt)),
+          ))
+      )
+        throw Error('ข้อมูลรายเที่ยวไม่ถูกต้อง');
+      if (
         ['id', 'truckId', 'driverId', 'teamId', 'sourceId', 'soilType', 'notes'].some(
           (key) => typeof row[key as keyof typeof row] !== 'string',
         ) ||
@@ -108,6 +123,15 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
       throw Error('Snapshot ไม่ตรงกับวันปิด');
   } else if (r.recordType === 'evidence') {
     const b = r.body;
+    if (
+      b.signature &&
+      (b.signature.signerId !== b.driverId ||
+        typeof b.signature.signerName !== 'string' ||
+        !b.signature.signerName.trim() ||
+        !Number.isFinite(Date.parse(b.signature.signedAt)) ||
+        !b.files.some((f) => f.category === 'signature' && f.uploadId === b.signature!.uploadId))
+    )
+      throw Error('ข้อมูลผู้ลงลายเซ็นไม่ตรงกับหลักฐาน');
     if (
       !/^\d{4}-\d{2}-\d{2}$/.test(b.date) ||
       ['sessionId', 'rowId', 'truckId', 'driverId', 'fingerprint'].some(

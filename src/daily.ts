@@ -26,7 +26,7 @@ export function summarizeDaily(session: DailySession) {
   const group = (key: 'truckId' | 'driverId' | 'sourceId') => {
     const values = new Map<string, { id: string; trips: number; volume: number }>();
     for (const row of session.body.rows) {
-      if (row.transactions && key !== 'truckId') {
+      if ((row.transactions || row.trips) && key !== 'truckId') {
         for (const trip of activeDailyTrips(row)) {
           const id = trip[key],
             previous = values.get(id) ?? { id, trips: 0, volume: 0 };
@@ -45,6 +45,9 @@ export function summarizeDaily(session: DailySession) {
   };
   return { byTruck: group('truckId'), byDriver: group('driverId'), bySource: group('sourceId') };
 }
+export function dailyRowVolume(row: DailyRow) {
+  return deliveredVolume(row);
+}
 export function rowFingerprint(session: DailySession, row: DailyRow) {
   return canonical({
     projectId: session.projectId,
@@ -58,6 +61,7 @@ export function rowFingerprint(session: DailySession, row: DailyRow) {
     capacity: row.capacity,
     notes: row.notes,
     ...(row.transactions ? { transactions: row.transactions } : {}),
+    ...(row.trips ? { trips: row.trips } : {}),
   });
 }
 export function validateDaily(data: Data, session: DailySession) {
@@ -189,6 +193,29 @@ export function updateDaily(
       after: next.body.rows.find((r) => r.id === rowId) ?? null,
     }))
     .filter((change) => canonical(change.before) !== canonical(change.after));
+  const tripChanges = changes.flatMap(({ rowId, before, after }) => {
+    const beforeTrips = new Map(
+      (before?.transactions ?? before?.trips)?.map((trip) => [trip.id, trip]),
+    );
+    const afterTrips = new Map(
+      (after?.transactions ?? after?.trips)?.map((trip) => [trip.id, trip]),
+    );
+    return [...new Set([...beforeTrips.keys(), ...afterTrips.keys()])]
+      .map((tripId) => ({
+        rowId,
+        tripId,
+        before: beforeTrips.get(tripId) ?? null,
+        after: afterTrips.get(tripId) ?? null,
+      }))
+      .filter((change) => canonical(change.before) !== canonical(change.after));
+  });
+  const summary = (row: DailyRow | null) => {
+    if (!row) return null;
+    const value = { ...row };
+    delete value.trips;
+    delete value.transactions;
+    return value;
+  };
   next.body.history = [
     ...(old.body.history ?? []),
     {
@@ -197,7 +224,12 @@ export function updateDaily(
       reason: reason.trim(),
       at: next.updatedAt,
       by: actor,
-      changes: structuredClone(changes),
+      changes: changes.map((change) => ({
+        rowId: change.rowId,
+        before: summary(change.before),
+        after: summary(change.after),
+      })),
+      tripChanges: structuredClone(tripChanges),
     },
   ];
   validateDaily(data, next);
@@ -297,7 +329,7 @@ export function correctDailyTrip(
   version: number,
   rowId: string,
   tripId: string,
-  changes: { capacity: number; driverId: string; sourceId: string; soilType: string },
+  changes: { capacity: number; driverId: string; sourceId: string; soilType: string } | number,
   actor: string,
   reason: string,
 ) {
@@ -305,8 +337,25 @@ export function correctDailyTrip(
   const row = dailySessions(data)
     .find((s) => s.id === id)
     ?.body.rows.find((r) => r.id === rowId);
-  const trip = row?.transactions?.find((t) => t.id === tripId && !t.voidedAt);
+  const trip = row && activeDailyTrips(row).find((t) => t.id === tripId);
   if (!trip) throw Error('ไม่พบเที่ยวที่ยังใช้งาน');
+  if (typeof changes === 'number')
+    changes = {
+      capacity: changes,
+      driverId: trip.driverId,
+      sourceId: trip.sourceId,
+      soilType: trip.soilType,
+    };
+  const correction = changes;
+  if (!Number.isFinite(correction.capacity) || correction.capacity <= 0)
+    throw Error('ข้อมูลรายเที่ยวไม่ถูกต้อง');
+  if (
+    row?.trips &&
+    (correction.driverId !== row.driverId ||
+      correction.sourceId !== row.sourceId ||
+      correction.soilType !== row.soilType)
+  )
+    throw Error('รายการเที่ยวเดิมรองรับการแก้ความจุเท่านั้น');
   for (const [field, kind] of [
     ['driverId', 'driver'],
     ['sourceId', 'source'],
@@ -330,10 +379,10 @@ export function correctDailyTrip(
     actor,
     'daily-correct-trip',
     (s) => {
-      const target = s.body.rows
-        .find((r) => r.id === rowId)!
-        .transactions!.find((t) => t.id === tripId)!;
-      Object.assign(target, changes);
+      const targetRow = s.body.rows.find((r) => r.id === rowId)!;
+      const target = (targetRow.transactions ?? targetRow.trips)!.find((t) => t.id === tripId)!;
+      if (targetRow.transactions) Object.assign(target, correction);
+      else target.capacity = correction.capacity;
     },
     reason,
   );
@@ -399,7 +448,7 @@ export function duplicateNextDay(data: Data, id: string, actor: string, expected
       s.body.rows = rows.map((row) => ({
         ...row,
         id: crypto.randomUUID(),
-        transactions: [],
+        ...(row.trips ? { trips: [] } : { transactions: [] }),
         tripCount: 0,
         reportedTrips: null,
         notes: '',
@@ -443,6 +492,7 @@ export function evidenceFiles(
     files.some(
       (f) =>
         f.record?.status !== 'synced' ||
+        f.record.evidenceId !== evidence.id ||
         !f.record.driveId ||
         f.record.category !== f.category ||
         f.record.projectId !== session.projectId ||
@@ -488,7 +538,10 @@ export function verifyDaily(
     (s) => {
       const rows = s.body.rows.filter((r) => !rowId || r.id === rowId);
       if (!rows.length) throw Error('ไม่มีรายการให้ยืนยัน');
+      if (rows.every((row) => verificationState(s, row) === 'VERIFIED'))
+        throw Error('ยืนยันยอดนี้แล้ว');
       for (const row of rows) {
+        if (verificationState(s, row) === 'VERIFIED') continue;
         if (!row.driverId || row.reportedTrips !== row.tripCount)
           throw Error('ระบุคนขับและตรวจยอดบันทึกกับรายงานให้ตรงกันก่อนยืนยัน');
         const { evidence, fileIds } = evidenceFiles(data, s, row, uploads);
@@ -522,7 +575,15 @@ export function closeDaily(
     (s) => {
       if (!s.body.rows.length || s.body.rows.some((r) => verificationState(s, r) !== 'VERIFIED'))
         throw Error('ต้องยืนยันรายการทุกคันก่อนปิดวัน');
-      for (const row of s.body.rows) evidenceFiles(data, s, row, uploads);
+      for (const row of s.body.rows) {
+        const { evidence, fileIds } = evidenceFiles(data, s, row, uploads);
+        const proof = s.body.verifications[row.id];
+        if (
+          proof.evidenceId !== evidence.id ||
+          canonical([...proof.fileIds].sort()) !== canonical([...fileIds].sort())
+        )
+          throw Error('หลักฐานเปลี่ยนแล้ว กรุณายืนยันใหม่ก่อนปิดวัน');
+      }
       s.body.closures.push({
         at: new Date().toISOString(),
         by: actor,

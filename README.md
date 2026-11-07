@@ -35,7 +35,11 @@ npm run check
 
 ## ขอบเขตและข้อจำกัด
 
-ยังไม่ใช่ระบบ production สมบูรณ์: ยังไม่มี Signature canvas, evidence verification, grid survey, turning points, Excel, การดึงคืนรายการเอกสารจาก cloud หรือการซิงก์ projects/master data การซิงก์เที่ยวรถอัตโนมัติเกิดเมื่อเปิดแอป/กลับมาออนไลน์เท่านั้น; ใช้ปุ่มซิงก์สำหรับรายการใหม่ระหว่างออนไลน์
+มีงานรายวัน รายเที่ยวพร้อมความจุย้อนหลัง รูปหลักฐาน ลายเซ็น ตรวจยอด และปิดวันแล้ว ดูขอบเขตและหลักฐานทดสอบใน [Phase 2 report](docs/PHASE_2_REPORT.md) และ [Phase 3 report](docs/PHASE_3_REPORT.md) การซิงก์อัตโนมัติเกิดเมื่อเปิดแอป/กลับมาออนไลน์; ใช้ปุ่มซิงก์สำหรับรายการใหม่ระหว่างออนไลน์ การบันทึกในเครื่องและ READY ไม่ใช่การยืนยัน Cloud และยังปิดวันไม่ได้จนหลักฐานอัปโหลด/metadata ผ่านและยืนยันยอดครบ
+
+ยังไม่ถือว่าตรวจรับ production: Google/Firebase/Drive/OAuth จริงและ Android hardware ยัง NOT VERIFIED ผล Drive ใน automated tests เป็นตัวจำลอง ส่วน Firestore ใช้ local emulator เท่านั้น Phase 4 ต้องตรวจการกู้คืนไฟล์ต้นฉบับส่วนตัวบนอุปกรณ์ใหม่และบริการจริง
+
+กู้คืนต้นฉบับไว้ดู offline ได้จากหน้า Drive ด้วยปุ่ม **เก็บต้นฉบับไว้ดูออฟไลน์** หลังตรวจข้อมูลอ้างอิง/ชนิด/ขนาดไฟล์แล้ว สำเนานี้แยกจากคิวไฟล์รออัปโหลดและไม่เปลี่ยนผลตรวจยอด ดู [Phase 4 report](docs/PHASE_4_REPORT.md) สำหรับผลทดสอบและขอบเขตที่ยังไม่ยืนยัน
 
 ## Google Drive
 
@@ -86,7 +90,7 @@ E2E ใช้ Edge แบบ headless บน Windows และ Chromium บน�
 ## Roadmap
 
 1. ทดสอบ Emulator rules และเพิ่ม cloud persistence ของ project/master/audit พร้อม restore และ conflict handling
-2. ขยาย Drive document restore, signatures และกล้องถ่ายภาพโดยตรง (คิวอัปโหลดมี Web Locks แล้ว; browser ที่ไม่รองรับต้องใช้หนึ่งแท็บ)
+2. ตรวจรับการกู้คืนไฟล์ต้นฉบับส่วนตัวจาก Drive, OAuth และกล้อง/ลายเซ็นบน Android จริง (คิวอัปโหลดมี Web Locks แล้ว; browser ที่ไม่รองรับต้องใช้หนึ่งแท็บ)
 3. Daily evidence/reconciliation/verification และรายงานยืนยันที่แยกจาก pending
 4. Survey sessions, turning points, grid/slope calculations, assumptions persistence
 5. Excel export, PDF reports, Android E2E และ production security review

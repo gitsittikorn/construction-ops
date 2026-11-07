@@ -6,6 +6,16 @@ test('Thai report print layout renders a multi-page A4 PDF with repeated headers
   await page.goto('/');
   const popupEvent = page.waitForEvent('popup');
   await page.evaluate(async () => {
+    // Observe the native print request without racing it against Playwright's PDF export.
+    const open = window.open.bind(window);
+    window.open = (...args) => {
+      const target = open(...args);
+      if (target)
+        target.print = () => {
+          target.document.documentElement.dataset.printRequested = 'true';
+        };
+      return target;
+    };
     const module = '/src/reports.ts';
     const { printableReport, printDocument } = await import(module);
     const table = [
@@ -31,6 +41,7 @@ test('Thai report print layout renders a multi-page A4 PDF with repeated headers
   await expect(
     popup.getByRole('heading', { name: 'รายงานเที่ยวรถภาษาไทย', exact: true }),
   ).toBeVisible();
+  await expect(popup.locator('html')).toHaveAttribute('data-print-requested', 'true');
   const bytes = await popup.pdf({
     format: 'A4',
     landscape: true,

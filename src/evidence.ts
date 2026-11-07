@@ -1,6 +1,7 @@
 import { loadData, updateDataAndUploads } from './storage';
 import { readBlobBytes } from './files';
-import { commitWorkspace, dailySessions, rowFingerprint } from './daily';
+import { commitWorkspace, dailySessions, rowFingerprint, updateDaily } from './daily';
+import { canonical } from './syncModel';
 import type { EvidenceCategory, EvidenceRecord } from './workspaceModels';
 import type { UploadRecord } from './uploads';
 
@@ -88,6 +89,12 @@ export async function saveEvidence(
       ).values(),
     ];
     const now = new Date().toISOString();
+    if (
+      before &&
+      canonical([...existing].sort((a, b) => a.uploadId.localeCompare(b.uploadId))) ===
+        canonical([...files].sort((a, b) => a.uploadId.localeCompare(b.uploadId)))
+    )
+      return latest;
     const record: EvidenceRecord = {
       id: evidenceId,
       recordType: 'evidence',
@@ -96,6 +103,19 @@ export async function saveEvidence(
       createdAt: before?.createdAt ?? now,
       updatedAt: now,
       body: {
+        ...(before?.body.signature ? { signature: before.body.signature } : {}),
+        ...(category === 'signature'
+          ? {
+              signature: {
+                signerId: currentRow.driverId,
+                signerName:
+                  latest.masters.find((m) => m.id === currentRow.driverId)?.name ??
+                  currentRow.driverId,
+                signedAt: now,
+                uploadId: unique[0].id,
+              },
+            }
+          : {}),
         sessionId,
         rowId,
         date: current.body.date,
@@ -105,7 +125,20 @@ export async function saveEvidence(
         files,
       },
     };
-    return commitWorkspace(latest, record, owner, 'evidence-save');
+    const invalidated = current.body.verifications[rowId]
+      ? updateDaily(
+          latest,
+          current.id,
+          current.body.version,
+          owner,
+          'evidence-replace',
+          (s) => {
+            delete s.body.verifications[rowId];
+          },
+          'เปลี่ยนหลักฐานหลังยืนยัน',
+        )
+      : latest;
+    return commitWorkspace(invalidated, record, owner, 'evidence-save');
   });
 }
 export function evidenceStatus(files: UploadRecord[], verified: boolean) {
