@@ -338,3 +338,33 @@ it('serializes overlapping sync requests and retains partial successes for the n
   await synchronize(owner, transport);
   expect((await loadData(owner)).trips[0].syncStatus).toBe('synced');
 });
+
+it('preserves partial acknowledgements and the durable queue when authentication expires mid-sync, then resumes idempotently', async () => {
+  const owner = crypto.randomUUID();
+  const { transport, remote } = memoryTransport();
+  await persistData(owner, fixture());
+  const push = transport.push;
+  let expired = true;
+  transport.push = vi.fn(async (uid, collection, entry) => {
+    if (collection === 'masters' && expired)
+      throw Object.assign(Error('authentication expired'), { code: 'unauthenticated' });
+    return push(uid, collection, entry);
+  });
+  const status = vi.fn();
+  await expect(synchronize(owner, transport, () => true, status)).rejects.toThrow(
+    'authentication expired',
+  );
+  const interrupted = await loadData(owner);
+  expect(interrupted.sync!.entries['projects/p'].status).toBe('synced');
+  expect(interrupted.sync!.entries['masters/truck'].status).toBe('pending');
+  expect(interrupted.sync!.entries['trips/trip'].status).toBe('pending');
+  expect(interrupted.trips[0].syncStatus).toBe('pending');
+  expect(status).not.toHaveBeenCalledWith('ตรวจสอบกับ Cloud แล้ว ข้อมูลซิงก์ครบ');
+  const operation = interrupted.sync!.entries['masters/truck'].desired.operationId;
+  expired = false;
+  await synchronize(owner, transport);
+  expect(transport.authorize).toHaveBeenCalledTimes(2);
+  expect(remote.size).toBe(3);
+  expect(remote.get('masters/truck')!.operationId).toBe(operation);
+  expect((await loadData(owner)).trips[0].syncStatus).toBe('synced');
+});
