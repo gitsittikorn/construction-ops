@@ -11,6 +11,7 @@ import {
   printableReport,
   printDocument,
   downloadBlob,
+  reportMetadata,
   type ReportType,
 } from './reports';
 
@@ -19,6 +20,7 @@ export default function ReportsPanel({ data }: { data: Data }) {
     [type, setType] = useState<ReportType>('daily'),
     [error, setError] = useState(''),
     [page, setPage] = useState(0);
+  const [includeEvidence, setIncludeEvidence] = useState(false);
   let rows: ReturnType<typeof reportRows> = [],
     problem = '';
   try {
@@ -26,7 +28,7 @@ export default function ReportsPanel({ data }: { data: Data }) {
   } catch (e) {
     problem = (e as Error).message;
   }
-  const table = reportTable(data, rows, type),
+  const table = reportTable(data, rows, type, includeEvidence),
     totals = reportTotals(rows),
     visible = table.slice(1 + page * 100, 1 + (page + 1) * 100);
   const set = (key: keyof typeof filter, value: string) => {
@@ -117,8 +119,20 @@ export default function ReportsPanel({ data }: { data: Data }) {
             <option value="pending">รอตรวจ</option>
           </select>
         </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={includeEvidence}
+            onChange={(event) => setIncludeEvidence(event.target.checked)}
+          />
+          แนบเลขอ้างอิงหลักฐาน
+        </label>
       </div>
       <p>{subtitle}</p>
+      <p>
+        ปริมาตรในรายงานนี้คือดินหลวมที่ส่งตาม snapshot รถ ไม่ใช่ถมแน่นหรือปริมาตรตามแบบ
+        สัปดาห์เริ่มวันจันทร์ถึงอาทิตย์ และรวมเฉพาะวันที่อยู่ในตัวกรอง
+      </p>
       <p>
         เที่ยวเดิมที่ไม่มี snapshot ความจุจะไม่ถูกเดาปริมาตร และไม่ถูกนับเป็นยอดยืนยัน
         ยอดจากวันทำงานและบันทึกรายเที่ยวแสดงที่มาแยกกัน
@@ -135,7 +149,9 @@ export default function ReportsPanel({ data }: { data: Data }) {
           disabled={!!problem}
           onClick={() =>
             downloadBlob(
-              new Blob([reportCsv(table)], { type: 'text/csv;charset=utf-8' }),
+              new Blob([reportCsv(table, reportMetadata(data, type, filter))], {
+                type: 'text/csv;charset=utf-8',
+              }),
               'daily-report.csv',
             )
           }
@@ -145,7 +161,7 @@ export default function ReportsPanel({ data }: { data: Data }) {
         <button
           disabled={!!problem}
           onClick={() =>
-            void reportWorkbook(data, rows, type)
+            void reportWorkbook(data, rows, type, { filter, includeEvidence })
               .then((blob) => downloadBlob(blob, 'daily-report.xlsx'))
               .catch((e) => setError(e.message))
           }
@@ -156,7 +172,15 @@ export default function ReportsPanel({ data }: { data: Data }) {
           disabled={!!problem}
           onClick={() => {
             try {
-              printDocument(printableReport(reportTypes[type], table, subtitle));
+              printDocument(
+                printableReport(
+                  reportTypes[type],
+                  table,
+                  `${subtitle} · ${reportMetadata(data, type, filter)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(' · ')}`,
+                ),
+              );
             } catch (e) {
               setError((e as Error).message);
             }

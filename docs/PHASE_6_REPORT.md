@@ -13,3 +13,13 @@ Missing requirements: explicit weekly/monthly summaries, export filter/generated
 ## Current validated gate — 2026-11-08
 
 รัน `npm run check` ด้วย cloud variables ใน PHASE_4_6_REVIEW.md: exit 0. Format, lint (4 tooling tests), typecheck, frontend 256/256 (40 files), backend 10/10, Firestore rules 7/7, emulator integration 8/8, build, HTTP smoke และ Playwright E2E 42/42 (1.5 minutes) ผ่าน ไม่มี tests failed/skipped/cancelled. ใช้ system Chromium; ไม่มี real Google/Drive/Android acceptance. ไม่ปิด assertion หรือ skip tests เพื่อให้ผ่าน
+
+## Calendar summaries and export context — 2026-11-08
+
+เพิ่ม weekly/monthly reports โดย weekly ใช้วันจันทร์เริ่มสัปดาห์ตาม business date ที่เก็บในรูป YYYY-MM-DD; จัดกลุ่มหลังใช้ date/project/master filters แล้ว จึงไม่ดึงยอดนอกช่วงวันที่กลับเข้ามา ทดสอบ week ที่ข้ามปีและ leap day
+
+CSV แนบ metadata columns; XLSX มีชีต “ข้อมูลรายงาน” เก็บ report type, เวลาสร้าง Asia/Bangkok, filters และ volume assumptions; print/PDF แสดง context ใน subtitle เพิ่ม checkbox แนบ evidence/Drive reference IDs เมื่อมีข้อมูล โดยไม่สร้าง public links หรือเดาเลขอ้างอิงให้ legacy rows ตัวเลขรายงานไม่เปลี่ยนจากการแนบ references
+
+UI และ metadata ระบุ delivered loose volume ตาม saved truck snapshots แยกจาก compacted fill/design quantities ของ survey ไม่เอายอดต่าง material state มารวมเงียบ
+
+Phase 6 isolated gate: npm run check exit 0, frontend 263, backend 10, rules 7, emulator integration 8, E2E 44; lint/typecheck/build/smoke PASS. The earlier missing calendar/export-context items are now implemented and covered. Real Android/Excel printing and Google services remain NOT VERIFIED.

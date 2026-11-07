@@ -171,3 +171,64 @@ it('never compares a filtered subset of historical drivers with the full truck r
   expect(table[1][10]).toBe(20);
   expect(table[1][11]).toContain('ไม่เทียบยอดทั้งคัน');
 });
+
+it('groups calendar weeks from Monday across year boundaries and months without changing filtered totals', async () => {
+  const { reportPeriod, reportMetadata } = await import('../reports');
+  expect(reportPeriod('2027-01-01', 'weekly')).toBe('2026-12-28');
+  expect(reportPeriod('2027-01-03', 'weekly')).toBe('2026-12-28');
+  expect(reportPeriod('2027-01-04', 'weekly')).toBe('2027-01-04');
+  expect(reportPeriod('2028-02-29', 'monthly')).toBe('2028-02');
+  expect(() => reportPeriod('2026-02-30', 'monthly')).toThrow('วันที่');
+  const value = data();
+  const base = reportRows(value, emptyReportFilter).find((row) => row.volume !== null)!;
+  const rows = ['2026-12-31', '2027-01-01', '2027-01-04'].map((date, index) => ({
+    ...base,
+    id: `${index}`,
+    date,
+    trips: 1,
+    volume: 12,
+  }));
+  const weekly = reportTable(value, rows, 'weekly');
+  expect(weekly.slice(1).map((row) => [row[0], row[1], row[4]])).toEqual([
+    ['2026-12-28', 2, 24],
+    ['2027-01-04', 1, 12],
+  ]);
+  const monthly = reportTable(value, rows, 'monthly');
+  expect(monthly.slice(1).map((row) => [row[0], row[1], row[4]])).toEqual([
+    ['2026-12', 1, 12],
+    ['2027-01', 2, 24],
+  ]);
+  const metadata = reportMetadata(
+    value,
+    'weekly',
+    { ...emptyReportFilter, project: 'p', from: '2027-01-01' },
+    '2026-12-31T18:00:00Z',
+  );
+  expect(metadata[1][0]).toContain('Asia/Bangkok');
+  expect(metadata[2][1]).toContain('Site');
+  expect(reportCsv(weekly, metadata)).toContain('ปริมาตรดินหลวม');
+  const workbook = await readBlobBytes(
+    await reportWorkbook(value, rows, 'monthly', {
+      filter: emptyReportFilter,
+      generatedAt: '2026-12-31T18:00:00Z',
+    }),
+  );
+  expect((await readSheet(workbook, 'ข้อมูลรายงาน')).flat()).toContain('สรุปรายเดือน');
+});
+it('exports optional evidence references without inventing them for legacy data or changing numeric totals', async () => {
+  const value = data();
+  const rows = reportRows(value, emptyReportFilter);
+  rows[0].evidenceRefs = ['Evidence: evidence-test', 'Drive: private-id'];
+  const plain = reportTable(value, rows, 'daily');
+  const withEvidence = reportTable(value, rows, 'daily', true);
+  expect(plain[0]).not.toContain('เลขอ้างอิงหลักฐาน');
+  expect(withEvidence[0].at(-1)).toBe('เลขอ้างอิงหลักฐาน');
+  expect(withEvidence[1].at(-1)).toContain('private-id');
+  expect(withEvidence[2].at(-1)).toBe('');
+  expect(withEvidence[1].slice(0, -1)).toEqual(plain[1]);
+  const workbook = await readBlobBytes(
+    await reportWorkbook(value, rows, 'daily', { includeEvidence: true }),
+  );
+  expect((await readSheet(workbook, 'รายงาน'))[1].at(-1)).toContain('evidence-test');
+  expect(reportTable(value, [], 'weekly')).toHaveLength(1);
+});

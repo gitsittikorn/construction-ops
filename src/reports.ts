@@ -1,6 +1,6 @@
 import type { Data } from './models';
 import { csv } from './domain';
-import { dailySessions, verificationState } from './daily';
+import { dailySessions, verificationState, evidenceFor } from './daily';
 import { dailyTripSegments } from './dailyTrips';
 import { validDate } from './daily';
 import type { SheetData } from 'write-excel-file/universal';
@@ -13,6 +13,8 @@ export const reportTypes = {
   source: 'สรุปแหล่งดิน',
   verification: 'ตรวจยอดประจำวัน',
   cumulative: 'ปริมาตรสะสม',
+  weekly: 'สรุปรายสัปดาห์',
+  monthly: 'สรุปรายเดือน',
 } as const;
 export type ReportType = keyof typeof reportTypes;
 export interface ReportFilter {
@@ -36,6 +38,7 @@ export const emptyReportFilter: ReportFilter = {
   verification: '',
 };
 export interface ReportRow {
+  evidenceRefs?: string[];
   reconciliation?: { id: string; trips: number; reported: number | null };
   mixedCapacity?: boolean;
   driverLabel?: string;
@@ -83,6 +86,10 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
       const segments = dailyTripSegments(r);
       return segments.map((segment, index) => ({
         id: `${s.id}:${r.id}:${index}`,
+        evidenceRefs: [
+          ...evidenceFor(data, s, r).map((evidence) => `Evidence: ${evidence.id}`),
+          ...(s.body.verifications[r.id]?.fileIds ?? []).map((id) => `Drive: ${id}`),
+        ],
         reconciliation: {
           id: JSON.stringify([s.id, r.id]),
           trips: r.tripCount,
@@ -134,6 +141,7 @@ export function reportTable(
   data: Data,
   rows: ReportRow[],
   type: ReportType,
+  includeEvidence = false,
 ): (string | number)[][] {
   const name = (id: string) => data.masters.find((m) => m.id === id)?.name ?? id;
   const project = (id: string) => data.projects.find((p) => p.id === id)?.name ?? id;
@@ -179,6 +187,7 @@ export function reportTable(
         'ปริมาตร m³',
         'สถานะ',
         'ที่มา',
+        ...(includeEvidence ? ['เลขอ้างอิงหลักฐาน'] : []),
       ],
       ...rows.map((r) => [
         r.date,
@@ -194,6 +203,7 @@ export function reportTable(
         r.volume ?? 'ไม่ทราบ',
         r.status,
         r.origin,
+        ...(includeEvidence ? [(r.evidenceRefs ?? []).join(' / ')] : []),
       ]),
     ];
   const field =
@@ -208,7 +218,7 @@ export function reportTable(
             : 'date';
   const groups = new Map<string, ReportRow[]>();
   for (const row of rows) {
-    const key = row[field];
+    const key = type === 'weekly' || type === 'monthly' ? reportPeriod(row.date, type) : row[field];
     const group = groups.get(key) ?? [];
     group.push(row);
     groups.set(key, group);
@@ -224,6 +234,7 @@ export function reportTable(
       'ปริมาตรยืนยัน m³',
       'เที่ยวที่ไม่ทราบปริมาตร',
       ...(type === 'cumulative' ? ['ปริมาตรสะสมที่ทราบ m³'] : []),
+      ...(includeEvidence ? ['เลขอ้างอิงหลักฐาน'] : []),
     ],
   ];
   for (const [key, group] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
@@ -238,13 +249,55 @@ export function reportTable(
       t.verifiedVolume,
       t.unknownVolumeTrips,
       ...(type === 'cumulative' ? [cumulative] : []),
+      ...(includeEvidence
+        ? [[...new Set(group.flatMap((row) => row.evidenceRefs ?? []))].join(' / ')]
+        : []),
     ]);
   }
   return result;
 }
-export function reportCsv(table: (string | number)[][]) {
+export function reportPeriod(date: string, period: 'weekly' | 'monthly') {
+  if (!validDate(date)) throw Error('วันที่รายงานไม่ถูกต้อง');
+  if (period === 'monthly') return date.slice(0, 7);
+  const monday = new Date(`${date}T00:00:00Z`);
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  return monday.toISOString().slice(0, 10);
+}
+export function reportMetadata(
+  data: Data,
+  type: ReportType,
+  filter: ReportFilter,
+  generatedAt = new Date().toISOString(),
+): [string, string][] {
+  const display = (value: string) =>
+    data.projects.find((item) => item.id === value)?.name ??
+    data.masters.find((item) => item.id === value)?.name ??
+    value;
+  return [
+    ['รายงาน', reportTypes[type]],
+    [
+      'สร้างเมื่อ (Asia/Bangkok)',
+      new Date(generatedAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+    ],
+    [
+      'ตัวกรอง',
+      Object.entries(filter)
+        .filter(([, value]) => value)
+        .map(([key, value]) => `${key}=${display(value)}`)
+        .join('; ') || 'ทั้งหมด',
+    ],
+    [
+      'หน่วยและขอบเขต',
+      'ปริมาตรดินหลวมที่ส่งตาม snapshot รถ (m³) ไม่ใช่ปริมาตรถมแน่นหรือปริมาตรตามแบบ; สัปดาห์เริ่มวันจันทร์; filter วันที่ใช้ก่อนรวมยอด',
+    ],
+  ];
+}
+export function reportCsv(table: (string | number)[][], metadata: [string, string][] = []) {
+  const exported = metadata.length
+    ? table.map((row, index) => [...row, ...metadata.map((entry) => entry[index === 0 ? 0 : 1])])
+    : table;
   return csv(
-    table.map((r, index) =>
+    exported.map((r, index) =>
       r.map((v, column) =>
         typeof v === 'number'
           ? String(v)
@@ -255,9 +308,14 @@ export function reportCsv(table: (string | number)[][]) {
     ),
   );
 }
-export async function reportWorkbook(data: Data, rows: ReportRow[], type: ReportType) {
+export async function reportWorkbook(
+  data: Data,
+  rows: ReportRow[],
+  type: ReportType,
+  context: { filter?: ReportFilter; generatedAt?: string; includeEvidence?: boolean } = {},
+) {
   const { default: write } = await import('write-excel-file/universal');
-  const table = reportTable(data, rows, type),
+  const table = reportTable(data, rows, type, context.includeEvidence),
     totals = reportTotals(rows);
   const totalRow: (string | number)[] = table[0].map(() => '');
   totalRow[0] = 'รวม';
@@ -306,6 +364,14 @@ export async function reportWorkbook(data: Data, rows: ReportRow[], type: Report
   return write([
     { sheet: 'รายงาน', data: cells(table), columns: table[0].map(() => ({ width: 23 })) },
     { sheet: 'สรุปยอด', data: cells(summary), columns: [{ width: 40 }, { width: 24 }] },
+    {
+      sheet: 'ข้อมูลรายงาน',
+      data: cells([
+        ['รายการ', 'ค่า'],
+        ...reportMetadata(data, type, context.filter ?? emptyReportFilter, context.generatedAt),
+      ]),
+      columns: [{ width: 32 }, { width: 90 }],
+    },
   ]).toBlob();
 }
 export const escapeHtml = (value: unknown) =>

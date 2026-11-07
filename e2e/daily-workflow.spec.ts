@@ -750,3 +750,70 @@ test('P6: mixed capacity reconciliation preserves mismatches in the UI, CSV and 
     page.getByRole('button', { name: 'ส่งออกรายงาน Excel', exact: true }),
   ).toBeDisabled();
 });
+
+test('P6: calendar reports apply date filters before grouping and export Bangkok metadata with optional references', async ({
+  page,
+}) => {
+  await seed(page);
+  await page.evaluate(async () => {
+    const storagePath = '/src/storage.ts',
+      dailyPath = '/src/daily.ts';
+    const storage = await import(storagePath),
+      daily = await import(dailyPath);
+    await storage.updateData('local', (initial: any) => {
+      let data = initial;
+      for (const date of ['2026-12-31', '2027-01-01', '2027-01-04']) {
+        data = daily.createDaily(data, 'p', date, 'local');
+        data = daily.saveDailyRow(
+          data,
+          daily.sessionId('p', date),
+          1,
+          {
+            id: `row-${date}`,
+            truckId: 'truck',
+            driverId: 'driver',
+            sourceId: 'source',
+            teamId: 'team',
+            soilType: '',
+            tripCount: 1,
+            capacity: 12,
+            reportedTrips: null,
+            notes: '',
+          },
+          'local',
+        );
+      }
+      return data;
+    });
+  });
+  await page.reload();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
+    .click();
+  await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('weekly');
+  const rows = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first().locator('td').nth(0)).toHaveText('2026-12-28');
+  await expect(rows.first().locator('td').nth(4)).toHaveText('24');
+  await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2027-01-01');
+  await expect(rows.first().locator('td').nth(4)).toHaveText('12');
+  await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('monthly');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().locator('td').nth(0)).toHaveText('2027-01');
+  await expect(rows.first().locator('td').nth(4)).toHaveText('24');
+  await page.getByLabel('แนบเลขอ้างอิงหลักฐาน', { exact: true }).check();
+  await expect(
+    page.getByRole('columnheader', { name: 'เลขอ้างอิงหลักฐาน', exact: true }),
+  ).toBeVisible();
+  const event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'ส่งออกรายงาน Excel', exact: true }).click();
+  const bytes = await readFile((await (await event).path())!);
+  const { readSheet } = await import('read-excel-file/universal');
+  const metadata = await readSheet(Uint8Array.from(bytes).buffer, 'ข้อมูลรายงาน');
+  expect(metadata.flat()).toContain('สร้างเมื่อ (Asia/Bangkok)');
+  expect(metadata.flat().join(' ')).toContain('from=2027-01-01');
+  expect(metadata.flat().join(' ')).toContain('ปริมาตรดินหลวม');
+  await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2028-01-01');
+  await expect(rows).toHaveCount(0);
+});
