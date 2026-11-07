@@ -21,3 +21,17 @@
 ## Updating an issue
 
 บันทึก expected/actual behavior, safe isolated reproduction, baseline/affected files, severity, regression command, pass/fail counts และ commit hashเมื่อมี แก้ไขอัตโนมัติเฉพาะใน scope ที่ได้รับอนุญาต; ถ้าต้องใช้ credentials/hardware/deployment ให้บันทึก prerequisite จริงโดยไม่ขอ secret ในแชต
+
+## Continuation fixes — 2026-11-08
+
+| ID          | Phase / priority | Actual issue / correction                                                                                                                                                | Evidence / status                                                                                                  |
+| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| BUG-003     | 5 / Medium       | Open-day total reduction / changing an existing reported count could omit a reason. Added reason guard after version validation; +1/initial report stay fast             | FIXED `f1de5ac`; domain no-write/error tests and UI reason retry; final gate retained                              |
+| BUG-004     | 7 / Medium       | Existing SVG Y coordinates grew downwards despite grid coordinates growing positive upward. SVG now maps Y=length−point.y; added explicit design-select accessible label | FIXED `6d2dcc4`; browser coordinate/import roundtrip and linear-contour tests                                      |
+| PERF-001    | 8 / Medium       | Evidence references were rescanned for every daily segment, scaling poorly with history                                                                                  | FIXED `83fb12d`; indexed by session/row/fingerprint, per-row status; exact 5,000-record totals/reference benchmark |
+| UX-001      | 8 / Medium       | Small controls in coarse-pointer layouts could fall below 44 px targets                                                                                                  | FIXED `83fb12d`; 800×1280 rendered target, keyboard and overflow E2E                                               |
+| SEC-DEV-001 | 8 / Moderate     | Current full development dependency tree reports 31 moderate advisories (core/uuid/glob/minimatch chains); runtime frontend/backend 0, high/critical 0                   | OPEN; safe dry-runs assessed; no forced incompatible overrides. Track upstream and repeat before release           |
+
+GAP-P4 isolated implementation closed with owner-scoped inventory and existing auth/upload coverage mapping (5dd6722); GAP-P5 closed with reason/authorization/sync evidence (f1de5ac); GAP-P6 closed with week/month/context/reference exports (3c1612a); GAP-P7 closed with CSV/XLSX imports and bounded 2D interpolation (6d2dcc4). The original gap list above is historical; current remaining work is ROADMAP_PROGRESS.md. GAP-P8/EXT-001 remain open for real-service/hardware/manual acceptance and dev advisory follow-up
+
+Final validation: npm run check exit 0 — frontend 270, backend 10, rules 7, integration 8, E2E 46; formatting/lint/typecheck/build/smoke PASS. Initial test failures were diagnosed and retested, not skipped. No real data deleted, push or deploy performed

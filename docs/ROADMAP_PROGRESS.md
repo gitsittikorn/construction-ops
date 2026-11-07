@@ -1,56 +1,62 @@
 # Roadmap progress — Construction Ops
 
-อัปเดต 2026-11-08 (Asia/Bangkok). ข้อกำหนด: [MASTER_ROADMAP.md](MASTER_ROADMAP.md). ตรวจ Git/source จริงจาก baseline `ad490a87075d178dd7db87a1cf4e79eedbb8bffe` ซึ่งตรง remote main ตอนตรวจ; งาน local รอบนี้ยังไม่ push/deploy
+อัปเดต 2026-11-08 (Asia/Bangkok). Requirements: [MASTER_ROADMAP.md](MASTER_ROADMAP.md). Session baseline `949711e`; original upstream baseline `ad490a8`. ตรวจ Git/source และเดินจาก Phase 1 ตามคำสั่งผู้ใช้ ไม่มี push/deploy หรือ environment draft/publication changes
 
-## สถานะจากหลักฐาน
+## Current phase matrix
 
-COMPLETE ในคอลัมน์ automated gate หมายถึง implementation และ automated acceptance ที่ระบุผ่าน ไม่ใช่ production acceptance ทั้งระบบ คอลัมน์ overall รวมข้อที่ยังขาดตาม Master; ห้ามนับผล mock/emulator เป็นบริการจริง รายงานเก่าใช้เป็นประวัติ ไม่แทนผลรอบใหม่
+COMPLETE หมายถึง implementation + isolated automated gate ตามขอบเขต phase นั้น ไม่ใช่คำรับรอง production ทั้งระบบ ผล mock/emulator/browser simulation ต้องแยกจากบริการและอุปกรณ์จริงเสมอ
 
-| Phase | Overall  | Automated gate / evidence                                                                                                           | Remaining / next action                                                                                                                 |
-| ----- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | COMPLETE | ตรวจ Git, architecture, persistence, security, dependencies/scripts และรายงานเดิมแล้ว; docs/PHASE_0_AUDIT.md                        | ตรวจใหม่เมื่อ scope/source เปลี่ยน                                                                                                      |
-| 1     | PARTIAL  | sync/outbox/conflict/account/rules/clean-profile regression ผ่าน; docs/PHASE_1_REPORT.md                                            | real auth expiry/cloud restore บริการจริงยัง NOT VERIFIED                                                                               |
-| 2     | COMPLETE | baseline implementation commit d13a2fb; daily-workflow + phase2-daily E2E ผ่านในชุดเต็มล่าสุด; docs/PHASE_2_REPORT.md               | regression ต้องคงผ่าน; real service/device acceptance แยก NOT VERIFIED                                                                  |
-| 3     | COMPLETE | baseline implementation commit bd884dc; image/signature/changed totals/offline/verify-close-reopen E2E ผ่าน; docs/PHASE_3_REPORT.md | camera/stylus/Android และ Google จริง NOT VERIFIED                                                                                      |
-| 4     | PARTIAL  | private restore/cache, foreign metadata, interrupted media และ independent profiles ผ่าน; docs/PHASE_4_REPORT.md                    | OAuth/partial failure coverage mapped; read-only missing/mismatch/unmapped inventory ผ่าน; real cloud/device ยัง NOT VERIFIED           |
-| 5     | PARTIAL  | reconcile, proof guards, close/reopen/reclose/audit/snapshots ผ่าน; docs/PHASE_5_REPORT.md                                          | ตรวจ correction-reason policy บน open days, role/sync coverage เทียบ Master และ real service acceptance ก่อนประกาศครบ                   |
-| 6     | PARTIAL  | seven report forms, filters, mixed capacity reconciliation, CSV/XLSX/PDF/offline regression ผ่าน; docs/PHASE_6_REPORT.md            | weekly/monthly summaries, export metadata/optional evidence refs และ loose-vs-compacted/design labels ต้องตรวจ/เติมให้ครบ               |
-| 7     | PARTIAL  | surveying.ts/SurveyPanel.tsx มี BM/TP/grid/slope/cut-fill/history/export และ tests                                                  | ยังไม่ยืนยัน survey CSV/XLSX import และ contour/2D visualization ตาม Master; 3D optional; ยังไม่มี phase acceptance report              |
-| 8     | PARTIAL  | PWA/offline, viewports, quota, PDF, keyboard/data-safety suites มีและผ่าน regression                                                | dependency/security/performance/accessibility/backup audit ต้องทบทวนรอบสุดท้าย; hardware/production smoke plan และ acceptance ยังไม่ครบ |
+| Phase | Status   | Current evidence                                                                                                                                                                | Remaining limitations                                                                                                                         |
+| ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | COMPLETE | Git/source/architecture/data/security/dependency audit and durable roadmap established                                                                                          | Re-audit when source/scope changes                                                                                                            |
+| 1     | PARTIAL  | Offline/outbox/idempotency/conflict/account/clean-profile restore pass; new mid-sync auth expiry preserves acknowledged and pending records                                     | Real application auth expiry/cloud restore NOT VERIFIED; app config/approved test identity not available                                      |
+| 2     | COMPLETE | Stable daily trips, saved capacities, rapid taps, corrections, next-day copy, offline/tablet/timezone tests retained in every full gate                                         | Real service/device claims remain separate                                                                                                    |
+| 3     | COMPLETE | Evidence/signature/blank rejection/replacement/changed totals/offline/closeout regression passes                                                                                | Real Android camera/stylus and OAuth not verified                                                                                             |
+| 4     | PARTIAL  | Read-only owner-scoped inventory, missing/mismatch/unmapped candidates, pending protection, OAuth/queue/retry/cache and independent-profile tests pass                          | Real Google/Drive/second physical device not verified; inventory only sees files granted to this app                                          |
+| 5     | COMPLETE | Correction reasons enforced on open days, normal increments stay fast; owner/context guards, verify/close/reopen/reclose, audit and historical sync/rules pass                  | Production service acceptance remains unverified                                                                                              |
+| 6     | COMPLETE | Daily/week/month and project/truck/driver/source/reconciliation/cumulative reports, filters, CSV/XLSX/PDF/offline, metadata/optional references and loose-volume semantics pass | Real Android/Excel/printing acceptance not verified                                                                                           |
+| 7     | COMPLETE | BM/TP/grid/slope/cut-fill/history, validated CSV/XLSX preview/import/export, Y-up grid and bounded linear contours pass                                                         | Optional 3D deferred; estimates are not field certification, physical inputs require measurement checks                                       |
+| 8     | PARTIAL  | Tablet target/keyboard/overflow tests, 10k trips/5k daily+evidence indexing, PWA/quota/backup-export/cloud-restore/security regression and dependency audit pass                | Physical Android/real cloud, screen-reader/manual accessibility and production acceptance pending; 31 moderate dev dependency findings remain |
 
-เฟส 2 ผ่านแล้ว จึงตรวจเฟส 3 ต่อทันทีด้วย suite เดียวกันและผ่าน ไม่ได้เริ่มทำฟีเจอร์ที่มีอยู่ใหม่ ตอนนี้ prerequisite ถัดไปคือ Phase 4; งานแก้ Phase 5–6 ใน working tree มาจากการตรวจอิสระก่อนรับ Master ไม่ใช่หลักฐานว่า phase gate ถัดไปครบ
+## Current validated gate
 
-## Checkpoint / resume
+From `/workspace/construction-ops`:
 
-- Current phase: Phase 5 correction-reason audit หลัง Phase 1–4 isolated gate ผ่าน
-- Task: เดิน Master ต่อจาก earliest gaps; Phase 1 auth-expiry regression และ Phase 4 read-only inventory audit ผ่านแล้ว
-- Baseline: `ad490a8`; previous phase commits: P2 `d13a2fb`, P3 `bd884dc`, P4 cache `335daa2` ดู `git log` ประกอบ
-- Reviewed changes: AGENTS/docs; daily proof owner/context/folder/duplicate guards; reconciliation report grouping; Playwright executable override; related unit/E2E tests source/test fixes committed locally; ดูรายการ commits ด้านล่างและ `git status` สำหรับงานที่ยังไม่ commit
-- Latest validation: ดู TEST_RESULTS.md และ PHASE_4_6_REVIEW.md; final full check exit 0: frontend 256, backend 10, rules 7, integration 8, E2E 42; lint/typecheck/build/smoke PASS
-- No user files/data/credentials cleared. Generated screenshots overwritten by E2E must be restored only if produced by our tests; preserve pre-existing changes. Run npm run clean after validation
-- Missing external prerequisites: ไม่มี real Firebase/Google/Drive test account/approved test origin หรือ physical Android available; ไม่ขอ secret values ผ่านแชต ไม่แตะ production
-- No usage limit was reported. This is a durable milestone checkpoint, not a claim that platform quota was reached
+```sh
+CI=true XDG_CONFIG_HOME=/workspace/.cache/config \
+npm_config_cache=/workspace/.npm-cache \
+FIREBASE_EMULATORS_PATH=/workspace/.cache/firebase/emulators \
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run check
+```
 
-## Exact next actions
+Final Phase 8 command exit **0**: frontend **270/270** (43 files), backend **10/10**, rules **7/7**, emulator integration **8/8**, Playwright **46/46** (1.7 minutes); lint **4/4** tooling tests, formatting/typecheck/build/HTTP smoke PASS. No tests disabled/skipped/failed in the final run. Earlier P1–4 gate: 260 frontend / 43 E2E; P5: 261 / 43; P6: 263 / 44; P7: 269 / 45. See individual reports and TEST_RESULTS.md for dated evidence
 
-1. Read AGENTS, Master, this progress file, BUG_TRACKER and relevant reports; inspect git status/log/source. Preserve local changes before any edit
-2. Complete Phase 4 read-only audit and isolated tests for OAuth lifecycle, interrupted upload/reference recovery, missing files and orphan inventory. Implement only missing behavior. Run unit + emulator + E2E gate and update PHASE_4_REPORT
-3. Record separately the real-cloud/device acceptance from PHASE_4_6_REVIEW; require secure configuration and a dedicated test account before external integration. Do not deploy or use production to remove a blocker
-4. After prerequisite gate, continue Phase 5 (reason/authorization/sync audit), then Phase 6 (calendar summaries, export metadata/reference and volume semantics), Phase 7 and Phase 8 against the full Master
-5. For each validated completed phase: report, local commit, record hash, continue automatically; if genuinely blocked, save reproduction/prerequisite and checkpoint instead of inventing PASS
+Audit: frontend/backend runtime zero findings. Full dev tree 31 moderate, zero high/critical. Compatible remediation dry-runs did not propose a safe installed core/uuid version update; no forced major override or lockfile changes. See PHASE_8_FINAL_QA_REPORT.md
 
-คำสั่งเริ่ม session ใหม่: “อ่าน AGENTS.md และเอกสารที่เกี่ยวข้อง ตรวจ ROADMAP_PROGRESS.md เทียบ Git/source แล้วทำ phase ที่ค้าง พร้อม E2E แก้บั๊กและอัปเดต progress” เอกสารนี้ต้องอยู่ใน checkout นั้น; local commits ไม่ปรากฏใน clone จาก remote จนมีการ push ที่ผู้ใช้ออกคำสั่งอนุญาต
+## Local commit checkpoints
 
-## Local commits in this checkpoint
+| Commit    | Scope                                                            |
+| --------- | ---------------------------------------------------------------- |
+| `94671ba` | P1 mid-batch auth expiry preserves durable queue and idempotency |
+| `5dd6722` | P4 read-only private Drive document audit and tests              |
+| `f1de5ac` | P5 correction reasons, stale guards and audit regression         |
+| `3c1612a` | P6 calendar summaries, export metadata/reference context         |
+| `6d2dcc4` | P7 validated imports, orientation and bounded contours           |
+| `83fb12d` | P8 tablet target/report scaling/QA and production smoke plan     |
 
-| Commit    | Scope                                                                               |
-| --------- | ----------------------------------------------------------------------------------- |
-| `aa18632` | Phase 5 proof owner/context/folder guards, reclose regression และ report checkpoint |
-| `4ad0958` | Phase 6 mixed capacity reconciliation, export regression และ report checkpoint      |
-| `f7a6266` | Phase 4 independent browser profiles, cloud Chromium override และ evidence report   |
+Earlier work: P2 `d13a2fb`, P3 `bd884dc`, original restore `335daa2`; previous local fixes `aa18632`, `4ad0958`, `f7a6266`; roadmap persistence `949711e`. Final checkpoint documentation commit is discoverable using `git log -1 -- docs/ROADMAP_PROGRESS.md` rather than embedding its own hash
 
-Roadmap/AGENTS/documentation commit ดู `git log -1 -- AGENTS.md docs/MASTER_ROADMAP.md`; ไม่ใส่ self-referential commit hash ในไฟล์เดียวกับที่ต้อง commit ไม่ได้ push commits เหล่านี้ขึ้น remote
+## Resume checkpoint and exact next actions
 
-## Continuation gate — 2026-11-08
+- Current phase/task: Phase 8 release acceptance; source/isolated gates through Phase 7 passed and Phase 8 automated regression passed
+- Preserve current local commits. Inspect `git status`, recent log, AGENTS, Master, Bug Tracker, phase reports and actual source before proceeding. Do not rebuild working features or repeat obsolete fixes
+- Remaining external prerequisites: no public VITE app config, OAuth client/secret/encryption bindings or .env.local files were present. GOOGLE_APPLICATION_CREDENTIALS selector exists but was not treated as authorization for this app/unknown project. Do not print credentials or request their values in chat
+- Configure a dedicated Firebase/Google/Drive test project/account and authorized origins through secure settings, verify precise network destinations and consent, then follow PRODUCTION_SMOKE_PLAN.md and the Phase 4 physical-device checklist. Keep production and real user data intact
+- Run actual real-service expiry/revocation/restore and Android camera/stylus/PWA/printing checks. Record device/browser, exact test outcome and failures. Update PARTIAL/NOT VERIFIED only after those checks actually run
+- Follow upstream compatible development dependency fixes, especially core/uuid/glob/minimatch; runtime audit currently has no findings. Do not force incompatible upgrades or disable verification/tests just to remove audit output
+- Backup JSON export is verified, but arbitrary local JSON re-import/merge is not an implemented UI. Never clear local storage expecting automatic restoration from that file. Cloud restore and pending-byte retention are independently tested; a local re-import workflow needs a separate safe design
+- Before new phase acceptance run affected checks/full gate, then update reports/bugs and commit locally. Any push/deploy remains unauthorized until explicitly requested
+- Final cleanup: run npm run clean and restore only generated screenshots changed by our E2E; never remove user files/data. Snapshot processes are not assumed to survive a new task
+- No usage limit was reported. This checkpoint records completed independent work and external acceptance prerequisites, not a fabricated quota event
 
-Phase 1 auth expiry mid-batch retains queue/idempotency; Phase 2–3 full regression retained; Phase 4 read-only inventory audit now implemented. Full gate exit 0: frontend 260, backend 10, rules 7, integration 8, E2E 43. Next: Phase 5 open-day correction reasons, then Phase 6 calendar reports/export metadata, Phase 7 import/visualization and Phase 8 audit. Real cloud/device acceptance stays NOT VERIFIED, not a reason to invent credentials or claim production readiness.
+แชตใหม่ที่ใช้ checkout นี้อ่านเอกสารได้ทันที; clone ใหม่จาก GitHub จะยังไม่เห็น local commits จนมีคำอนุญาตให้ push

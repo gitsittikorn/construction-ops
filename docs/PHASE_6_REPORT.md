@@ -1,6 +1,6 @@
 # Phase 6 — reports and export checkpoint
 
-2026-11-08 (Asia/Bangkok). Status: PARTIAL against full Master.
+2026-11-08 (Asia/Bangkok). Current status: COMPLETE for implementation and isolated automated acceptance. Real-device/service acceptance remains NOT VERIFIED. Earlier gap notes below are historical.
 
 Existing source reports.ts/ReportsPanel.tsx มีรายงาน daily/project/truck/driver/source/verification/cumulative, combined filters, known/verified totals, Thai UTF-8 CSV, typed XLSX และ print-friendly A4 PDF; survey exports แยกใน surveying.ts/SurveyPanel.tsx
 
@@ -8,7 +8,7 @@ Existing source reports.ts/ReportsPanel.tsx มีรายงาน daily/proje
 
 เพิ่ม unit tests และ E2E ที่อ่านค่าจริงจาก UI/CSV/XLSX พร้อม invalid range ปิด export; retained existing Thai multipage PDF/offline production PWA export regression ผล full suite ก่อน final source edits: 42 E2E ผ่าน ดู final run ใน TEST_RESULTS.md
 
-Missing requirements: explicit weekly/monthly summaries, export filter/generated metadata และ optional evidence references, consistent loose delivered vs compacted/design volume labels; real Android/Excel/PDF acceptance ยัง NOT VERIFIED ห้ามประกาศ COMPLETE จากการมีเจ็ด report forms เพียงอย่างเดียว
+Initial missing requirements (resolved by the continuation below): explicit weekly/monthly summaries, export filter/generated metadata และ optional evidence references, consistent loose delivered vs compacted/design volume labels; real Android/Excel/PDF acceptance ยัง NOT VERIFIED ห้ามประกาศ COMPLETE จากการมีเจ็ด report forms เพียงอย่างเดียว
 
 ## Current validated gate — 2026-11-08
 

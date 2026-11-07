@@ -1,5 +1,7 @@
 # Feature checklist — V4.0
 
+Current checkpoint 2026-11-08: implementation/isolated gates through Phase 7 and Phase 8 automated QA passed; final frontend 270, E2E 46. Current status, remaining real-service/device acceptance, commits and next actions are in docs/ROADMAP_PROGRESS.md. Older sections below are historical.
+
 สถานะปัจจุบันตาม Master Roadmap อยู่ใน [docs/ROADMAP_PROGRESS.md](docs/ROADMAP_PROGRESS.md) และ [docs/BUG_TRACKER.md](docs/BUG_TRACKER.md) (2026-11-08) ข้อความด้านล่างเป็น checkpoint/history เดิม ไม่ใช้แทน current phase acceptance.
 
 อัปเดต Phase 4 วันที่ 2026-11-07: private original restore/offline cache ผ่าน isolated automated gate แล้ว (291 tests รวม E2E 34) แต่ real OAuth/Drive/Android ยัง NOT VERIFIED จึงคงสถานะ PARTIAL ดู docs/PHASE_4_REPORT.md

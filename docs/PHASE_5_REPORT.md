@@ -1,6 +1,6 @@
 # Phase 5 — daily reconciliation checkpoint
 
-2026-11-08 (Asia/Bangkok). Status: PARTIAL against full Master; existing isolated behavior and current fixes tested, not a production acceptance claim.
+2026-11-08 (Asia/Bangkok). Current status: COMPLETE for implementation and isolated automated acceptance; real-service/device acceptance remains NOT VERIFIED. Earlier gap notes below are historical.
 
 มี expected/reported vs recorded, status PENDING/MATCHED/MISMATCHED/VERIFIED/REOPENED, manual verification, audit, reason-required reopen และ immutable closure history ใน daily.ts/DailyPanel.tsx อยู่แล้ว
 
@@ -21,3 +21,5 @@
 ตรวจ version ก่อน correction reason เพื่อไม่ให้ข้อความใหม่บัง stale-edit conflict; invalid negative/noninteger input ยังผ่านไปยัง validation เดิมและไม่เขียนข้อมูล ทดสอบปฏิเสธ missing reason โดย data ไม่เปลี่ยน, increment สำเร็จ, correction พร้อมเหตุผลสำเร็จ และ E2E form retry หลังระบุเหตุผล โดยไม่เปลี่ยน assertion เดิมให้ข้ามกรณีผิด
 
 Phase 5 gate: npm run check exit 0 (cloud command), frontend 261, backend 10, rules 7, emulator integration 8, E2E 43; format/lint/typecheck/build/smoke PASS. Authorization/sync evidence includes actual Firestore rules rejecting unauthorized reopening and restoring the immutable closure/verification audit on an independent fake device in src/emulator-test/cloudSync.test.ts. Real services/devices remain NOT VERIFIED.
+
+Open-day reason and role/sync coverage gaps listed in the initial review are resolved by the continuation above. Current status is tracked in ROADMAP_PROGRESS.md; production acceptance is still separate.
