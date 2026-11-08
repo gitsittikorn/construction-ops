@@ -14,7 +14,9 @@ export class DriveBackendError extends Error {
             ? 'กรุณาเข้าสู่ระบบ Firebase ใหม่'
             : code === 'forbidden'
               ? 'บัญชีนี้ยังไม่มีสิทธิ์ใช้งาน backend'
-              : 'ติดต่อ backend ไม่สำเร็จ กรุณาลองใหม่ ไฟล์ยังอยู่ในเครื่อง',
+              : code === 'rate_limited'
+                ? 'เรียกใช้งานบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+                : 'ติดต่อ backend ไม่สำเร็จ กรุณาลองใหม่ ไฟล์ยังอยู่ในเครื่อง',
     );
   }
 }
@@ -28,6 +30,7 @@ async function call(path: string, body?: object, method = 'POST'): Promise<unkno
   )
     throw new DriveBackendError('invalid_backend_url');
   const idToken = await getFirebaseIdToken(user.uid);
+  if (getSessionIdentity()?.uid !== user.uid) throw new DriveBackendError('unauthorized');
   let response: Response;
   try {
     response = await fetch(`${base}/api/drive/${path}`, {
@@ -53,7 +56,13 @@ async function call(path: string, body?: object, method = 'POST'): Promise<unkno
     throw new DriveBackendError('service_unavailable');
   }
   if (!response.ok) {
-    const allowed = ['reconnect_required', 'unauthorized', 'forbidden', 'account_mismatch'];
+    const allowed = [
+      'reconnect_required',
+      'unauthorized',
+      'forbidden',
+      'account_mismatch',
+      'rate_limited',
+    ];
     throw new DriveBackendError(
       typeof data.error === 'string' && allowed.includes(data.error)
         ? data.error

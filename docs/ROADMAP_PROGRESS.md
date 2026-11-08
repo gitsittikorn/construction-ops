@@ -29,7 +29,7 @@ FIREBASE_EMULATORS_PATH=/workspace/.cache/firebase/emulators \
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run check
 ```
 
-Final Phase 8 command exit **0**: frontend **270/270** (43 files), backend **10/10**, rules **7/7**, emulator integration **8/8**, Playwright **46/46** (1.7 minutes); lint **4/4** tooling tests, formatting/typecheck/build/HTTP smoke PASS. No tests disabled/skipped/failed in the final run. Earlier P1–4 gate: 260 frontend / 43 E2E; P5: 261 / 43; P6: 263 / 44; P7: 269 / 45. See individual reports and TEST_RESULTS.md for dated evidence
+Final Phase 8 command exit **0**: frontend **275/275** (44 files), backend **11/11**, rules **7/7**, emulator integration **8/8**, Playwright **46/46** (1.6 minutes); lint **4/4** tooling tests, formatting/typecheck/build/HTTP smoke PASS. No tests disabled/skipped/failed in the final run. Earlier P1–4 gate: 260 frontend / 43 E2E; P5: 261 / 43; P6: 263 / 44; P7: 269 / 45. See individual reports and TEST_RESULTS.md for dated evidence
 
 Audit: frontend/backend runtime zero findings. Full dev tree 31 moderate, zero high/critical. Compatible remediation dry-runs did not propose a safe installed core/uuid version update; no forced major override or lockfile changes. See PHASE_8_FINAL_QA_REPORT.md
 
@@ -60,3 +60,7 @@ Earlier work: P2 `d13a2fb`, P3 `bd884dc`, original restore `335daa2`; previous l
 - No usage limit was reported. This checkpoint records completed independent work and external acceptance prerequisites, not a fabricated quota event
 
 แชตใหม่ที่ใช้ checkout นี้อ่านเอกสารได้ทันที; clone ใหม่จาก GitHub จะยังไม่เห็น local commits จนมีคำอนุญาตให้ push
+
+## Latest security checkpoint
+
+Follow-up review after `1591e17`: pre-fetch UID guard, XLSX structural/expanded-resource preflight, per-process authenticated request budgets, correct 413 response and truthful token-storage docs. Full gate 275 frontend / 11 backend / 7 rules / 8 integration / 46 E2E PASS; source/scan/completeness details in SECURITY_REVIEW.md. Current phase statuses and external acceptance remain unchanged; this is not a vulnerability-free certification. No push/deploy; use git log for the new local review commit.

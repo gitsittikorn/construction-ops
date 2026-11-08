@@ -1,3 +1,4 @@
+import { validateWorkbookArchive } from './workbookSafety';
 import type { SurveyBody } from './workspaceModels';
 import { calculateSurvey, surveyTable } from './surveying';
 import { readBlobBytes } from './files';
@@ -84,6 +85,7 @@ export async function readSurveyImport(file: File, body: SurveyBody) {
   if (file.name.toLowerCase().endsWith('.csv'))
     rows = parseSurveyCsv(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   else if (file.name.toLowerCase().endsWith('.xlsx')) {
+    validateWorkbookArchive(bytes);
     const { readSheet } = await import('read-excel-file/universal');
     rows = await readSheet(new Uint8Array(bytes).slice().buffer, 'กริด');
   } else throw Error('รองรับไฟล์ .csv หรือ .xlsx เท่านั้น');

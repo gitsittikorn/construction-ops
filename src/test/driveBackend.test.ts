@@ -125,3 +125,21 @@ it('deletes the backend connection using the same authenticated transport', asyn
     expect.objectContaining({ method: 'DELETE', body: undefined }),
   );
 });
+
+it('never sends a backend mutation for the previous user if the account changes while awaiting an ID token', async () => {
+  const fetch = vi.fn();
+  vi.stubGlobal('fetch', fetch);
+  mocks.idToken.mockImplementationOnce(async () => {
+    mocks.uid = 'other-owner';
+    return 'previous-owner-id-token';
+  });
+  const { disconnectDriveBackend } = await import('../driveBackend');
+  await expect(disconnectDriveBackend()).rejects.toMatchObject({ code: 'unauthorized' });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it('shows a safe retry message when the backend throttles requests', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ error: 'rate_limited' }, 429)));
+  const { restoreDriveConnection } = await import('../driveBackend');
+  await expect(restoreDriveConnection()).rejects.toMatchObject({ code: 'rate_limited' });
+});

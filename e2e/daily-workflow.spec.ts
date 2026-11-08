@@ -878,6 +878,26 @@ test('P7: survey import previews safely, rejects stale/invalid data, persists ex
   const event = page.waitForEvent('download');
   await page.getByRole('button', { name: 'ส่งออกสำรวจ Excel', exact: true }).click();
   const bytes = await readFile((await (await event).path())!);
+  // A tiny archive can declare enormous XML output; reject it before decompression.
+  const oversizedArchive = Buffer.from(bytes);
+  let directory = -1;
+  for (let at = oversizedArchive.length - 22; at >= 0; at--) {
+    if (oversizedArchive.readUInt32LE(at) === 0x06054b50) {
+      directory = oversizedArchive.readUInt32LE(at + 16);
+      break;
+    }
+  }
+  expect(directory).toBeGreaterThanOrEqual(0);
+  oversizedArchive.writeUInt32LE(1024 * 1024 * 1024, directory + 24);
+  await input.setInputFiles({
+    name: 'oversized-expansion.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: oversizedArchive,
+  });
+  await expect(page.getByRole('alert')).toContainText('หลังแตกไฟล์');
+  await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
+  await expect(page.getByRole('region', { name: 'ตัวอย่างนำเข้าจุดสำรวจ' })).toHaveCount(0);
+
   await page.getByLabel('ระดับเดิม G0-0', { exact: true }).fill('0');
   await input.setInputFiles({
     name: 'roundtrip.xlsx',

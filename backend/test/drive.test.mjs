@@ -197,6 +197,9 @@ test(
       403,
     );
     assert.equal((await post('exchange', {})).status, 400);
+    const oversized = await post('exchange', { code: 'sensitive-placeholder'.repeat(1024) });
+    assert.equal(oversized.status, 413);
+    assert.deepEqual(await oversized.json(), { error: 'payload_too_large' });
     assert.equal(s.calls.exchange, 0);
     const response = await post('exchange', { code: 'test' });
     assert.equal(response.status, 200);
@@ -216,3 +219,54 @@ test(
     assert.equal((await post('session')).status, 409);
   },
 );
+
+test('authenticated request budgets are bounded per owner, expire, and stop provider calls with Retry-After', async (t) => {
+  let timestamp = 1000,
+    calls = 0;
+  const app = createApp({
+    allowedOrigins: ['https://app.example.com'],
+    verifyUser: async (uid) => ({ ...user, uid, enabled: true }),
+    service: {
+      session: async () => {
+        calls++;
+        return { token: 'synthetic-access', expiresAt: 999999 };
+      },
+    },
+    now: () => timestamp,
+    requestBudget: { limit: 2, windowMs: 10000, capacity: 2 },
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(
+    () =>
+      new Promise((resolve) => {
+        server.closeAllConnections();
+        server.close(resolve);
+      }),
+  );
+  const post = (owner) =>
+    fetch(`http://127.0.0.1:${server.address().port}/api/drive/session`, {
+      method: 'POST',
+      headers: {
+        Origin: 'https://app.example.com',
+        Authorization: `Bearer ${owner}`,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(5000),
+    });
+  assert.equal((await post('owner-a')).status, 200);
+  assert.equal((await post('owner-a')).status, 200);
+  const limited = await post('owner-a');
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get('retry-after'), '10');
+  assert.deepEqual(await limited.json(), { error: 'rate_limited' });
+  assert.equal(calls, 2);
+  assert.equal((await post('owner-b')).status, 200);
+  assert.equal((await post('owner-c')).status, 429);
+  timestamp += 10000;
+  assert.equal((await post('owner-a')).status, 200);
+  assert.equal((await post('owner-c')).status, 200);
+  assert.equal(calls, 5);
+});

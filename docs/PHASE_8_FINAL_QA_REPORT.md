@@ -36,3 +36,7 @@ Physical Android camera/stylus/install/printing, real Google/Firebase/Drive/OAut
 Cloud `npm run check` exit 0: frontend 270/270 (43 files), backend 10/10, rules 7/7, emulator integration 8/8, Playwright 46/46 (1.7 minutes); format, lint (4 tooling tests), typecheck, build and HTTP smoke PASS. No disabled/skipped/failed tests. Previous phase gates and production-build offline regression are included
 
 Safe dependency remediation was also assessed with `npm audit fix --dry-run --ignore-scripts` and a targeted `npm update @opentelemetry/core --dry-run`: installed core is 1.30.1 and uuid is 9.0.1. The targeted plan makes no compatible version change; the general plan adds 13 missing optional native-tool packages but reports no package version changes. No plan was applied; the actual installed audit remains 31 moderate development findings. Upgrading core to the fixed major line or forcing uuid across majors requires upstream compatibility review rather than a blind override. Both lockfiles remain unchanged
+
+## Follow-up security review
+
+See SECURITY_REVIEW.md: fixed pre-fetch owner-switch race, added shared XLSX ZIP resource preflight and per-process authenticated request budgets, corrected oversized body response and token-storage documentation. Final full gate frontend 275/backend 11/rules 7/integration 8/E2E 46 PASS. Remaining staging CSP/edge controls and real acceptance are explicitly open; full SAST/DAST or live penetration tests were not performed

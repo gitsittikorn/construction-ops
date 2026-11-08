@@ -2,7 +2,20 @@ import express from 'express';
 import cors from 'cors';
 import { ApiError } from './driveService.mjs';
 
-export function createApp({ service, verifyUser, allowedOrigins }) {
+export function createApp({
+  service,
+  verifyUser,
+  allowedOrigins,
+  now = Date.now,
+  requestBudget = { limit: 60, windowMs: 60000, capacity: 1000 },
+}) {
+  if (
+    ![requestBudget.limit, requestBudget.windowMs, requestBudget.capacity].every(
+      (value) => Number.isSafeInteger(value) && value > 0,
+    )
+  )
+    throw Error('Invalid request budget');
+  const budgets = new Map();
   const app = express();
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
@@ -36,6 +49,30 @@ export function createApp({ service, verifyUser, allowedOrigins }) {
     }
     if (!user?.uid || !user.email || !user.email_verified) throw new ApiError(401, 'unauthorized');
     if (!user.enabled) throw new ApiError(403, 'forbidden');
+    const timestamp = now();
+    for (const [uid, budget] of budgets) if (budget.resetAt <= timestamp) budgets.delete(uid);
+    const budget = budgets.get(user.uid);
+    if (
+      (budget && budget.count >= requestBudget.limit) ||
+      (!budget && budgets.size >= requestBudget.capacity)
+    ) {
+      res.set(
+        'Retry-After',
+        String(
+          Math.max(
+            1,
+            Math.ceil(((budget?.resetAt ?? timestamp + requestBudget.windowMs) - timestamp) / 1000),
+          ),
+        ),
+      );
+      throw new ApiError(429, 'rate_limited');
+    }
+    budgets.set(
+      user.uid,
+      budget
+        ? { ...budget, count: budget.count + 1 }
+        : { count: 1, resetAt: timestamp + requestBudget.windowMs },
+    );
     res.locals.user = user;
     next();
   });
@@ -56,10 +93,12 @@ export function createApp({ service, verifyUser, allowedOrigins }) {
     const safe =
       error instanceof ApiError
         ? error
-        : new ApiError(
-            error?.type === 'entity.parse.failed' ? 400 : 503,
-            error?.type === 'entity.parse.failed' ? 'invalid_request' : 'service_unavailable',
-          );
+        : error?.type === 'entity.too.large'
+          ? new ApiError(413, 'payload_too_large')
+          : new ApiError(
+              error?.type === 'entity.parse.failed' ? 400 : 503,
+              error?.type === 'entity.parse.failed' ? 'invalid_request' : 'service_unavailable',
+            );
     res.status(safe.status).json({ error: safe.code });
   });
   return app;

@@ -35,3 +35,17 @@
 GAP-P4 isolated implementation closed with owner-scoped inventory and existing auth/upload coverage mapping (5dd6722); GAP-P5 closed with reason/authorization/sync evidence (f1de5ac); GAP-P6 closed with week/month/context/reference exports (3c1612a); GAP-P7 closed with CSV/XLSX imports and bounded 2D interpolation (6d2dcc4). The original gap list above is historical; current remaining work is ROADMAP_PROGRESS.md. GAP-P8/EXT-001 remain open for real-service/hardware/manual acceptance and dev advisory follow-up
 
 Final validation: npm run check exit 0 — frontend 270, backend 10, rules 7, integration 8, E2E 46; formatting/lint/typecheck/build/smoke PASS. Initial test failures were diagnosed and retested, not skipped. No real data deleted, push or deploy performed
+
+## Focused security review — 2026-11-08
+
+See SECURITY_REVIEW.md for reproduction, fixes, scan scope and residual risks. No vulnerability-free certification is claimed.
+
+| ID      | Priority  | Finding                                                                             | Action / evidence                                                                                                                                                 |
+| ------- | --------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-001 | Medium    | Account could change while ID token was awaited before sending a backend action     | Pre-fetch UID guard; mutation regression asserts zero requests                                                                                                    |
+| SEC-002 | Medium    | XLSX compressed-size limit did not bound ZIP expanded resource declarations         | Shared archive preflight for truck/survey import; structural/budget tests and browser data-preservation regression                                                |
+| SEC-003 | Hardening | Authenticated requests could repeatedly invoke provider operations without a budget | Bounded per-process per-UID 60/minute budget, 429/Retry-After; owner/capacity/expiry/provider-call tests. Edge/distributed controls remain outside this mechanism |
+| BUG-006 | Low       | Oversized JSON body mapped to 503 instead of 413                                    | Safe payload_too_large response; HTTP regression                                                                                                                  |
+| DOC-001 | Low       | README memory-only token description contradicted sessionStorage implementation     | Document actual tab-scoped access-token behavior and XSS boundary                                                                                                 |
+
+Remaining: SEC-DEV-001 (31 moderate development findings; runtime 0), staging CSP/frame-policy compatibility, edge/distributed throttling, hostile-file fuzzing/worker isolation and real-service/device acceptance. No real production attack or cleanup of user records was performed

@@ -1,3 +1,4 @@
+import { validateWorkbookArchive } from './workbookSafety';
 import type { SheetData } from 'write-excel-file/universal';
 import type { Master } from './models';
 import { truckHeaders, parseTruckRows } from './truckImport';
@@ -92,6 +93,7 @@ export async function createTruckWorkbook(
 }
 export async function readTruckWorkbook(input: ArrayBuffer) {
   if (input.byteLength > 5 * 1024 * 1024) throw Error('ไฟล์ต้องมีขนาดไม่เกิน 5 MB');
+  validateWorkbookArchive(input);
   try {
     const { readSheet } = await import('read-excel-file/universal');
     return parseTruckRows(await readSheet(input, 'Trucks'));

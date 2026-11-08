@@ -140,3 +140,7 @@ Render ระบุ Free สำหรับทดลอง/งานส่วน
 [Google code model](https://developers.google.com/identity/oauth2/web/guides/use-code-model),
 [Refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration),
 [Render Free](https://render.com/docs/free)
+
+## Request limits
+
+Backend JSON bodies are limited to 8 KiB and oversized bodies return 413. Authenticated Drive API calls share a per-UID budget of 60 requests/minute/process with a bounded 1,000-owner window map; excess requests return 429 and Retry-After before provider calls. This is not a distributed/IP/WAF limiter, and does not replace deployment-level protection against unauthenticated request floods. No new secret/env setting is required for the default budget.
