@@ -115,7 +115,7 @@ export async function loadMigrationBackup(owner: string): Promise<Data | undefin
   }
 }
 const changeEvent = 'construction-data-changed';
-function notifyDataChanged(owner: string) {
+export function notifyDataChanged(owner: string) {
   window.dispatchEvent(new CustomEvent(changeEvent, { detail: owner }));
   if (typeof window.BroadcastChannel === 'function') {
     const channel = new BroadcastChannel(changeEvent);

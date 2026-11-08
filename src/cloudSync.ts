@@ -211,12 +211,14 @@ export async function synchronize(
       status('กำลังส่งข้อมูลที่รอซิงก์');
       for (const collection of collections) {
         const state = (await loadData(owner)).sync!;
-        for (const [key, entry] of Object.entries(state.entries).filter(
-          ([key, entry]) =>
-            key.startsWith(`${collection}/`) &&
-            entry.status === 'pending' &&
-            (force || !entry.retryAt || entry.retryAt <= Date.now()),
-        )) {
+        for (const [key, entry] of Object.entries(state.entries)
+          .filter(
+            ([key, entry]) =>
+              key.startsWith(`${collection}/`) &&
+              entry.status === 'pending' &&
+              (force || !entry.retryAt || entry.retryAt <= Date.now()),
+          )
+          .sort(([, a], [, b]) => dependencyPriority(a) - dependencyPriority(b))) {
           assertActive();
           try {
             const remote = await transport.push(owner, collection, entry);
@@ -270,4 +272,17 @@ export async function synchronize(
       },
     );
   return task();
+}
+
+// Evidence and expense reversals reference other workspaces. JSON restore may
+// reorder arrays, so do not let a dependent block its own prerequisite forever.
+function dependencyPriority(entry: SyncEntry) {
+  const payload = entry.desired.payload;
+  return 'recordType' in payload &&
+    (payload.recordType === 'evidence' ||
+      (payload.recordType === 'finance' &&
+        payload.body.kind === 'expense' &&
+        payload.body.entry.reversesId))
+    ? 1
+    : 0;
 }

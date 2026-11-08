@@ -980,3 +980,66 @@ test('desktop report columns scroll within their table without widening the whol
     .boundingBox();
   expect(lastColumn!.x + lastColumn!.width).toBeLessThanOrEqual(1441);
 });
+
+test('preferred project persists without replacing an existing daily draft; duplicate reviews preserve trips', async ({
+  page,
+}) => {
+  await seed(page);
+  await page.evaluate(async () => {
+    const path = '/src/storage.ts';
+    await (
+      await import(path)
+    ).updateData('local', (data: any) => ({
+      ...data,
+      projects: [...data.projects, { ...data.projects[0], id: 'p2', name: 'Preferred site' }],
+      trips: ['duplicate-a', 'duplicate-b'].map((id) => ({
+        id,
+        createdAt: '2026-11-06T00:00:00Z',
+        updatedAt: '2026-11-06T00:00:00Z',
+        projectId: 'p',
+        date: '2026-11-06',
+        time: '10:00',
+        truckId: 'truck',
+        driverId: 'driver',
+        sourceId: 'source',
+        soilType: '',
+        notes: '',
+        revision: 1,
+        syncStatus: 'pending',
+      })),
+    }));
+  });
+  await page.reload();
+  const nav = page.getByRole('navigation');
+  await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
+  await page.getByLabel('เลือกโครงการเริ่มต้น', { exact: true }).selectOption('p2');
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const path = '/src/projectPreference.ts';
+        return (await import(path)).loadProjectPreference('local');
+      }),
+    )
+    .toBe('p2');
+  await page.reload();
+  await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+  await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p2');
+  await page.getByLabel('โครงการทำงาน', { exact: true }).selectOption('p');
+  await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
+  const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' });
+  await expect(duplicates).toContainText('พบ 1 กลุ่ม');
+  await duplicates.getByLabel('เหตุผลตรวจเที่ยวซ้ำ').fill('ตรวจตั๋วแล้ว คนละเที่ยว');
+  await duplicates.getByRole('button', { name: 'บันทึกผลตรวจเที่ยวซ้ำ', exact: true }).click();
+  await expect(duplicates.getByRole('status')).toContainText('ยืนยันว่าเป็นคนละเที่ยว');
+  await page.reload();
+  await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+  await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p');
+  await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
+  await expect(duplicates.getByRole('status')).toContainText('ตรวจตั๋วแล้ว คนละเที่ยว');
+  expect(
+    await page.evaluate(async () => {
+      const path = '/src/storage.ts';
+      return (await (await import(path)).loadData('local')).trips.length;
+    }),
+  ).toBe(2);
+});

@@ -1,5 +1,6 @@
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import App from '../App';
+import type { CloudBatch } from '../cloudSync';
 import { emptyData } from '../models';
 import { loadData, persistData, updateData } from '../storage';
 import { firestoreTransport } from '../cloudFirestore';
@@ -120,4 +121,26 @@ it('P1-13/18 hides the previous account on sign-out and restores only the return
   await screen.findByText('Site', { exact: true });
   expect(screen.queryByText('Second account site', { exact: true })).not.toBeInTheDocument();
   expect((await loadData('second-owner')).projects[0].name).toBe('Second account site');
+});
+
+it('stops in-flight synchronization after unmount without pushing pending data or updating the removed workspace', async () => {
+  await persistData('test-owner', fixture());
+  let finish: ((value: CloudBatch) => void) | undefined;
+  vi.mocked(firestoreTransport.push).mockClear();
+  vi.mocked(firestoreTransport.pull).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = render(<App />);
+  await waitFor(() => expect(firestoreTransport.pull).toHaveBeenCalled());
+  view.unmount();
+  await act(async () => {
+    finish!({ records: [], cursors: {} });
+  });
+  expect(firestoreTransport.push).not.toHaveBeenCalled();
+  const stored = await loadData('test-owner');
+  expect(stored.trips[0].syncStatus).toBe('pending');
+  expect(stored.sync!.entries['trips/trip'].status).toBe('pending');
 });

@@ -48,11 +48,13 @@ const statusLabels = {
 };
 export default function DrivePanel({
   owner,
+  defaultProject = '',
   projects,
   trips,
   online,
 }: {
   owner: string;
+  defaultProject?: string;
   projects: Project[];
   trips: Trip[];
   online: boolean;
@@ -66,7 +68,10 @@ export default function DrivePanel({
     [progress, setProgress] = useState<Record<string, number>>({}),
     [project, setProject] = useState(() => {
       const active = projects.filter((p) => p.status === 'active');
-      return active.length === 1 ? active[0].id : '';
+      return (
+        active.find((project) => project.id === defaultProject)?.id ??
+        (active.length === 1 ? active[0].id : '')
+      );
     });
   const [selectedFiles, setSelectedFiles] = useState<{ name: string; size: number }[]>([]);
   const [originals, setOriginals] = useState<{ owner: string; files: Record<string, Blob> }>({

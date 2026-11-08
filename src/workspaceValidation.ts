@@ -2,12 +2,13 @@ import type { WorkspaceRecord } from './workspaceModels';
 import { calculateSurvey } from './surveying';
 import { canonical } from './syncModel';
 import { validateDailyTrips } from './dailyTrips';
+import { validateFinance } from './financeValidation';
 
 export function validateWorkspace(value: unknown): asserts value is WorkspaceRecord {
   const r = value as WorkspaceRecord;
   if (
     !r ||
-    !['daily', 'evidence', 'survey'].includes(r.recordType) ||
+    !['daily', 'evidence', 'survey', 'finance'].includes(r.recordType) ||
     typeof r.name !== 'string' ||
     typeof r.projectId !== 'string' ||
     !r.projectId ||
@@ -147,6 +148,8 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
       new Set(b.files.map((f) => f.uploadId)).size !== b.files.length
     )
       throw Error('รูปแบบหลักฐานไม่ถูกต้อง');
+  } else if (r.recordType === 'finance') {
+    validateFinance(r);
   } else {
     const b = r.body;
     if (

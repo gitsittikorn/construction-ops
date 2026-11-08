@@ -1522,3 +1522,10 @@ main.login-screen {
   min-height: 18px;
   flex: 0 0 auto;
 }
+
+.finance-panel fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}

@@ -4,16 +4,36 @@ import { readBlobBytes } from './files';
 
 export async function exportLocalBackup(owner: string): Promise<Blob> {
   const db = await openLocalDatabase();
-  let state, migrationBackup, v4Backup, settings, truckSheet, dailyUi, uploads: UploadRecord[];
+  let state,
+    migrationBackup,
+    v4Backup,
+    settings,
+    truckSheet,
+    dailyUi,
+    projectPreference,
+    duplicateReviews,
+    uploads: UploadRecord[];
   try {
     const tx = db.transaction(['state', 'uploads', 'driveSettings'], 'readonly');
-    [state, migrationBackup, v4Backup, settings, truckSheet, dailyUi, uploads] = await Promise.all([
+    [
+      state,
+      migrationBackup,
+      v4Backup,
+      settings,
+      truckSheet,
+      dailyUi,
+      projectPreference,
+      duplicateReviews,
+      uploads,
+    ] = await Promise.all([
       tx.objectStore('state').get(owner),
       tx.objectStore('state').get(['phase1-backup', owner]),
       tx.objectStore('state').get(['v4-backup', owner]),
       tx.objectStore('driveSettings').get(owner),
       tx.objectStore('driveSettings').get(`truck-sheet:${owner}`),
       tx.objectStore('driveSettings').get(['daily-ui', owner]),
+      tx.objectStore('driveSettings').get(['project-default', owner]),
+      tx.objectStore('driveSettings').get(['duplicate-reviews', owner]),
       tx
         .objectStore('uploads')
         .getAll()
@@ -49,6 +69,8 @@ export async function exportLocalBackup(owner: string): Promise<Blob> {
         driveSettings: settings ?? null,
         truckSheet: truckSheet ?? null,
         dailyUi: dailyUi ?? null,
+        projectPreference: projectPreference ?? null,
+        duplicateReviews: duplicateReviews ?? [],
         uploads: files,
       }),
     ],

@@ -196,3 +196,77 @@ test('concurrent transactions preserve the losing version for the caller to reso
   )
     throw Error('Expected one winner and one conflict');
 });
+
+test('finance events enforce money types, scoped parties and immutable originals with exactly one matching reversal', async () => {
+  const db = env.authenticatedContext('admin').firestore();
+  await assertSucceeds(
+    setDoc(
+      doc(db, 'users', 'admin', 'projects', 'finance-project'),
+      envelope(project('finance-project')),
+    ),
+  );
+  await assertSucceeds(
+    setDoc(
+      doc(db, 'users', 'admin', 'masters', 'finance-truck'),
+      envelope(master('finance-truck')),
+    ),
+  );
+  const event = (id, kind, entry) => ({
+    id,
+    recordType: 'finance',
+    projectId: 'finance-project',
+    name: 'Finance',
+    createdAt: '2026-11-06T00:00:00Z',
+    updatedAt: '2026-11-06T00:00:00Z',
+    body: {
+      kind,
+      entry: { id, at: '2026-11-06T00:00:00Z', by: 'admin', reason: 'receipt', ...entry },
+    },
+  });
+  const save = (payload, revision = 1) =>
+    setDoc(doc(db, 'users', 'admin', 'workspaces', payload.id), envelope(payload, revision));
+  const rate = (id, extra = {}) =>
+    event(id, 'rate', {
+      side: 'truck',
+      partyId: 'finance-truck',
+      effectiveFrom: '2026-11-06',
+      unit: 'trip',
+      satang: 1000,
+      revision: 1,
+      ...extra,
+    });
+  await assertFails(save(rate('invalid-money', { satang: 0.1 })));
+  await assertFails(save(rate('invalid-negative', { satang: -1 })));
+  await assertFails(save(rate('invalid-party', { partyId: 'missing' })));
+  await assertFails(save(rate('invalid-actor', { by: 'other' })));
+  await assertSucceeds(save(rate('valid-rate')));
+  await assertFails(save(rate('valid-rate', { satang: 2000 }), 2));
+  await assertFails(deleteDoc(doc(db, 'users', 'admin', 'workspaces', 'valid-rate')));
+  const expense = event('expense', 'expense', {
+    date: '2026-11-06',
+    category: 'fuel',
+    truckId: 'finance-truck',
+    satang: 1000,
+    reversesId: '',
+  });
+  await assertSucceeds(save(expense));
+  const reversal = event('reversal-expense', 'expense', {
+    date: '2026-11-06',
+    category: 'fuel',
+    truckId: 'finance-truck',
+    satang: 1000,
+    reversesId: 'expense',
+  });
+  await assertFails(
+    save({
+      ...reversal,
+      body: { ...reversal.body, entry: { ...reversal.body.entry, satang: 999 } },
+    }),
+  );
+  await assertFails(save({ ...reversal, projectId: 'p' }));
+  await assertSucceeds(save(reversal));
+  await assertFails(save(reversal, 2));
+  await assertFails(
+    save(event('second-reversal', 'expense', { ...reversal.body.entry, id: 'second-reversal' })),
+  );
+});

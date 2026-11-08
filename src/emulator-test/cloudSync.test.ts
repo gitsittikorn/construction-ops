@@ -403,3 +403,72 @@ it('migrates a legacy cloud trip only after its baseline matches and retains its
   expect(migrated?.revision).toBe(2);
   expect(migrated?.payload.notes).toBe('legacy updated');
 });
+
+it('finance: multiple offline events sync idempotently in dependency order and restore on a clean device', async () => {
+  const {
+    addFinanceRate,
+    addProjectExpense,
+    reverseProjectExpense,
+    financeVersion,
+    financeRecords,
+    financeSummary,
+  } = await import('../finance');
+  const owner = session.owner,
+    data = fixture();
+  data.trips[0].capacityPerTrip = 12;
+  data.trips[0].driverId = 'driver';
+  data.masters.push({ ...truck, id: 'driver', kind: 'driver' });
+  let next = data;
+  for (const [side, satang] of [
+    ['revenue', 10000],
+    ['truck', 5000],
+    ['driver', 0],
+  ] as const)
+    next = addFinanceRate(
+      next,
+      'p',
+      financeVersion(next, 'p'),
+      { side, satang, partyId: '', unit: 'trip', effectiveFrom: '2026-11-01', reason: 'agreed' },
+      owner,
+    );
+  next = addProjectExpense(
+    next,
+    'p',
+    financeVersion(next, 'p'),
+    { date: '2026-11-06', category: 'fuel', truckId: 'truck', satang: 1000, reason: 'receipt' },
+    owner,
+  );
+  const expense = financeRecords(next, 'p').at(-1)!;
+  next = reverseProjectExpense(
+    next,
+    'p',
+    financeVersion(next, 'p'),
+    expense.id,
+    'wrong receipt',
+    owner,
+  );
+  // Imported array order is arbitrary: the reversal must wait for the original.
+  next.workspaces!.reverse();
+  await persistData(owner, next);
+  await synchronize(owner, firestoreTransport);
+  expect(
+    Object.values((await loadData(owner)).sync!.entries).every(
+      (entry) => entry.status === 'synced',
+    ),
+  ).toBe(true);
+  await synchronize(owner, firestoreTransport);
+  const remote = await getDocs(collection(session.db!, 'users', owner, 'workspaces'));
+  expect(remote.size).toBe(5);
+  const originalDatabase = indexedDB;
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  try {
+    await synchronize(owner, firestoreTransport);
+    const restored = await loadData(owner);
+    expect(financeRecords(restored, 'p')).toHaveLength(5);
+    expect(financeSummary(restored, 'p').expenseTotal).toBe(0);
+    expect(financeSummary(restored, 'p').netKnown).toBe(5000);
+    expect(financeSummary(restored, 'p').verified.revenue).toBe(0);
+  } finally {
+    vi.stubGlobal('indexedDB', originalDatabase);
+  }
+});

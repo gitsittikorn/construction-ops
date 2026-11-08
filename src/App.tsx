@@ -1,3 +1,4 @@
+import { useProjectPreference } from './useProjectPreference';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   LayoutDashboard,
@@ -45,9 +46,12 @@ import { lazy, Suspense } from 'react';
 const DailyPanel = lazy(() => import('./DailyPanel'));
 const ReportsPanel = lazy(() => import('./ReportsPanel'));
 const SurveyPanel = lazy(() => import('./SurveyPanel'));
+const FinancePanel = lazy(() => import('./FinancePanel'));
 import { companyName, companyLogo } from './branding';
 import LoginPage from './LoginPage';
 import DrivePanel from './DrivePanel';
+import DuplicateReviewPanel from './DuplicateReviewPanel';
+import BackupRestorePanel from './BackupRestorePanel';
 import ProjectPicker from './ProjectPicker';
 import SoilTypePicker from './SoilTypePicker';
 import ProjectCoordinates from './ProjectCoordinates';
@@ -64,6 +68,7 @@ const pages = [
   ['reports', 'รายงาน', BarChart3],
   ['businessReports', 'รายงานธุรกิจ', BarChart3],
   ['survey', 'สำรวจและคำนวณ', Calculator],
+  ['finance', 'การเงินโครงการ', BarChart3],
   ['settings', 'การตั้งค่า', Settings],
 ] as const;
 const statusText = {
@@ -108,6 +113,7 @@ export default function App() {
     [confirmDelete, setConfirmDelete] = useState(false),
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
+  const projectPreference = useProjectPreference(owner, data.projects);
   const [tripProject, setTripProject] = useState('');
   const [tripSoilType, setTripSoilType] = useState('');
   const [masterTagFilter, setMasterTagFilter] = useState('');
@@ -116,11 +122,19 @@ export default function App() {
     writeLock = useRef(false),
     syncLock = useRef(false),
     account = useRef(owner),
-    loadEpoch = useRef(0);
+    loadEpoch = useRef(0),
+    alive = useRef(false);
   current.current = data;
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   useEffect(
     () =>
       observeAuth((user) => {
+        if (!alive.current) return;
         const nextOwner = user?.uid ?? '';
         if (nextOwner) clearDriveSessionsExcept(nextOwner);
         else clearDriveSessions();
@@ -150,7 +164,9 @@ export default function App() {
               setReady(true);
             }
           })
-          .catch((e) => setError(message(e)));
+          .catch((e) => {
+            if (active) setError(message(e));
+          });
     };
     reload();
     const unsubscribe = subscribeDataChanges(owner, reload);
@@ -173,7 +189,8 @@ export default function App() {
     writeLock.current = true;
     try {
       const next = await updateData(owner, (old) => {
-        if (account.current !== owner) throw Error('บัญชีเปลี่ยนแล้ว กรุณาเปิดรายการใหม่');
+        if (!alive.current || account.current !== owner)
+          throw Error('บัญชีเปลี่ยนแล้ว กรุณาเปิดรายการใหม่');
         if (editing && modal) {
           const records =
             modal === 'project' ? old.projects : modal === 'master' ? old.masters : old.trips;
@@ -183,7 +200,7 @@ export default function App() {
         }
         return make(old);
       });
-      if (account.current !== owner) return;
+      if (!alive.current || account.current !== owner) return;
       loadEpoch.current++;
       current.current = next;
       setData(next);
@@ -192,7 +209,7 @@ export default function App() {
     }
   }
   async function sync(force = true) {
-    if (syncLock.current || !ready || !configured || !online || !owner) return;
+    if (!alive.current || syncLock.current || !ready || !configured || !online || !owner) return;
     syncLock.current = true;
     setBusy(true);
     setCloudError('');
@@ -206,10 +223,10 @@ export default function App() {
           authorize: async (uid) => {
             try {
               await firestoreTransport.authorize(uid);
-              if (account.current === uid) setCloudAccess('allowed');
+              if (alive.current && account.current === uid) setCloudAccess('allowed');
             } catch (e) {
               const code = e && typeof e === 'object' && 'code' in e ? String(e.code) : '';
-              if (account.current === uid)
+              if (alive.current && account.current === uid)
                 setCloudAccess(
                   !['permission-denied', 'unauthenticated'].includes(code) &&
                     current.current.sync?.adminVerifiedAt
@@ -220,14 +237,14 @@ export default function App() {
             }
           },
         },
-        () => account.current === owner && navigator.onLine,
+        () => alive.current && account.current === owner && navigator.onLine,
         (status) => {
-          if (account.current === owner) setCloudStatus(status);
+          if (alive.current && account.current === owner) setCloudStatus(status);
         },
         force,
       );
     } catch (e) {
-      if (account.current === owner) {
+      if (alive.current && account.current === owner) {
         const code = e && typeof e === 'object' && 'code' in e ? String(e.code) : '';
         if (['permission-denied', 'unauthenticated'].includes(code)) {
           setCloudAccess('denied');
@@ -238,7 +255,7 @@ export default function App() {
       }
     } finally {
       syncLock.current = false;
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
   useEffect(() => {
@@ -258,7 +275,7 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [localOperations, owner, online, ready]);
   async function resolve(key: string, choice: 'local' | 'remote') {
-    if (syncLock.current || !owner || !online) return;
+    if (!alive.current || syncLock.current || !owner || !online) return;
     syncLock.current = true;
     setBusy(true);
     try {
@@ -268,13 +285,13 @@ export default function App() {
         key,
         choice,
         firestoreTransport,
-        () => account.current === owner,
+        () => alive.current && account.current === owner,
       );
     } catch (e) {
-      if (account.current === owner) setError(message(e));
+      if (alive.current && account.current === owner) setError(message(e));
     } finally {
       syncLock.current = false;
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
   function message(e: unknown) {
@@ -284,7 +301,11 @@ export default function App() {
     setConfirmDelete(false);
     if (type === 'trip') setTripSoilType(record && 'soilType' in record ? record.soilType : '');
     if (type === 'trip')
-      setTripProject(record && 'projectId' in record ? record.projectId : (active[0]?.id ?? ''));
+      setTripProject(
+        record && 'projectId' in record
+          ? record.projectId
+          : projectPreference.id || active[0]?.id || '',
+      );
     setEditing(record);
     setModal(type);
     setError('');
@@ -364,7 +385,7 @@ export default function App() {
         };
         await change((old) => saveTrip(old, record, owner));
       }
-      if (account.current !== owner) return;
+      if (!alive.current || account.current !== owner) return;
       setModal(null);
       setNotice('บันทึกในเครื่องเรียบร้อย');
     } catch (e) {
@@ -376,7 +397,7 @@ export default function App() {
     try {
       const uploads = await listUploads(owner);
       await change((old) => deleteRecord(old, modal, editing.id, owner, uploads));
-      if (account.current !== owner) return;
+      if (!alive.current || account.current !== owner) return;
       setModal(null);
       setConfirmDelete(false);
       setNotice('ลบออกจากรายการใช้งานแล้ว โดยเก็บข้อมูลและประวัติไว้');
@@ -745,11 +766,12 @@ export default function App() {
                   </div>
                 </>
               )}
-              {page === 'daily' && (
+              {page === 'daily' && projectPreference.ready && (
                 <Suspense fallback={<p>กำลังเปิดงานรายวัน…</p>}>
                   <DailyPanel
                     key={owner}
                     owner={owner}
+                    defaultProject={projectPreference.id}
                     data={data}
                     onChange={change}
                     online={online}
@@ -761,9 +783,26 @@ export default function App() {
                   <ReportsPanel data={data} />
                 </Suspense>
               )}
-              {page === 'survey' && (
+              {page === 'finance' && projectPreference.ready && (
+                <Suspense fallback={<p>กำลังเปิดการเงิน…</p>}>
+                  <FinancePanel
+                    key={owner}
+                    owner={owner}
+                    data={data}
+                    defaultProject={projectPreference.id}
+                    onChange={change}
+                  />
+                </Suspense>
+              )}
+              {page === 'survey' && projectPreference.ready && (
                 <Suspense fallback={<p>กำลังเปิดงานสำรวจ…</p>}>
-                  <SurveyPanel data={data} owner={owner} onChange={change} />
+                  <SurveyPanel
+                    key={owner}
+                    data={data}
+                    owner={owner}
+                    defaultProject={projectPreference.id}
+                    onChange={change}
+                  />
                 </Suspense>
               )}
               {page === 'projects' && (
@@ -1057,15 +1096,16 @@ export default function App() {
                     </p>
                     <p>Google Drive: จัดการการเชื่อมต่อและคิวเอกสารด้านล่าง</p>
                     <p>
-                      โครงการและข้อมูลพื้นฐานเก็บใน IndexedDB เท่านั้น
-                      รุ่นนี้ซิงก์เฉพาะเที่ยวรถเมื่อเข้าสู่ระบบแล้ว
+                      เก็บข้อมูลในอุปกรณ์เพื่อทำงานออฟไลน์ และซิงก์โครงการ ข้อมูลพื้นฐาน เที่ยวรถ
+                      และงานที่เกี่ยวข้องเมื่อเชื่อมต่อและได้รับสิทธิ์
                     </p>
                     <p>
-                      กำหนดค่าในไฟล์ .env.local ตาม .env.example และเผยแพร่ Firestore Rules
-                      ก่อนใช้งานระบบคลาวด์
+                      หากยังไม่ได้เชื่อมบริการ
+                      กรุณาติดต่อผู้ดูแลเพื่อตั้งค่าบัญชีและสิทธิ์ใช้งานคลาวด์
                     </p>
                     <p>
-                      ข้อมูลในเครื่องอาจสูญหายเมื่อผู้ใช้ล้างข้อมูลเว็บไซต์ ควรส่งออก CSV สม่ำเสมอ
+                      ข้อมูลในเครื่องอาจสูญหายเมื่อผู้ใช้ล้างข้อมูลเว็บไซต์ ควรดาวน์โหลดข้อมูลสำรอง
+                      JSON พร้อมไฟล์แนบสม่ำเสมอ
                     </p>
                     <button
                       className="secondary"
@@ -1077,13 +1117,50 @@ export default function App() {
                       <Download size={16} /> เปิดรายงานเพื่อส่งออกข้อมูล
                     </button>
                   </section>
-                  <DrivePanel
-                    key={owner}
+                  <section className="panel padded" aria-label="โครงการเริ่มต้น">
+                    <h2>โครงการเริ่มต้น</h2>
+                    <p>ใช้เริ่มกรอกงานใหม่ในบัญชีและ browser นี้ ไม่เปลี่ยนงานหรือแบบร่างเดิม</p>
+                    <label>
+                      เลือกโครงการเริ่มต้น
+                      <select
+                        aria-label="เลือกโครงการเริ่มต้น"
+                        value={projectPreference.id}
+                        disabled={!projectPreference.ready || projectPreference.saving}
+                        onChange={(event) => void projectPreference.save(event.target.value)}
+                      >
+                        <option value="">ไม่กำหนด</option>
+                        {data.projects
+                          .filter((project) => project.status === 'active')
+                          .map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    {projectPreference.saving && <p role="status">กำลังบันทึกการตั้งค่า…</p>}
+                    {projectPreference.error && <p role="alert">{projectPreference.error}</p>}
+                  </section>
+                  <BackupRestorePanel key={`restore:${owner}`} owner={owner} />
+                  <DuplicateReviewPanel
+                    key={`duplicates:${owner}`}
                     owner={owner}
-                    projects={data.projects}
-                    trips={data.trips}
-                    online={online}
+                    data={data}
+                    onOpen={(id) => {
+                      const trip = data.trips.find((trip) => trip.id === id);
+                      if (trip) open('trip', trip);
+                    }}
                   />
+                  {projectPreference.ready && (
+                    <DrivePanel
+                      defaultProject={projectPreference.id}
+                      key={owner}
+                      owner={owner}
+                      projects={data.projects}
+                      trips={data.trips}
+                      online={online}
+                    />
+                  )}
                   <section className="panel padded audit-panel">
                     <h2>ประวัติการเปลี่ยนแปลง</h2>
                     <p>{data.audit.length} เหตุการณ์ในเครื่อง</p>

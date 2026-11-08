@@ -35,14 +35,16 @@ const initial: SurveyBody = {
 export default function SurveyPanel({
   data,
   owner,
+  defaultProject = '',
   onChange,
 }: {
   data: Data;
   owner: string;
+  defaultProject?: string;
   onChange: (change: (data: Data) => Data) => Promise<void>;
 }) {
   const [body, setBody] = useState<SurveyBody>(structuredClone(initial)),
-    [project, setProject] = useState(data.projects[0]?.id ?? ''),
+    [project, setProject] = useState(defaultProject || data.projects[0]?.id || ''),
     [name, setName] = useState('สำรวจระดับและกริด'),
     [saved, setSaved] = useState<SurveyRecord | null>(null),
     [id, setId] = useState<string>(() => crypto.randomUUID()),

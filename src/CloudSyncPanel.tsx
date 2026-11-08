@@ -160,9 +160,17 @@ export default function CloudSyncPanel({
           <Version record={entry.desired} data={data} />
           <h3>ฉบับ Cloud</h3>
           <Version record={entry.conflict?.remote ?? null} data={data} />
-          <button disabled={busy || !online} onClick={() => void onResolve(key, 'local')}>
-            เก็บฉบับในเครื่องแล้วส่งใหม่
-          </button>
+          {'recordType' in entry.desired.payload &&
+          entry.desired.payload.recordType === 'finance' ? (
+            <p>
+              ประวัติการเงินเดิมแก้ทับไม่ได้ กรุณาตรวจทั้งสองฉบับแล้วเลือกฉบับ Cloud
+              หากต้องแก้ยอดให้เพิ่มเรตฉบับใหม่หรือรายการกลับพร้อมเหตุผล
+            </p>
+          ) : (
+            <button disabled={busy || !online} onClick={() => void onResolve(key, 'local')}>
+              เก็บฉบับในเครื่องแล้วส่งใหม่
+            </button>
+          )}
           <button
             disabled={busy || !online || !entry.conflict?.remote}
             onClick={() => void onResolve(key, 'remote')}

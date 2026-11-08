@@ -197,6 +197,41 @@ export function integrityIssues(data: Data): string[] {
   const workspaceRecords = [...(data.workspaces ?? []), ...(data.deletedWorkspaces ?? [])];
   for (const record of workspaceRecords) {
     if (!projects.has(record.projectId)) issues.push(`งาน ${record.name}: ไม่พบโครงการ`);
+    if (record.recordType === 'finance') {
+      const body = record.body;
+      if (
+        body.kind === 'rate' &&
+        body.entry.partyId &&
+        !masters.some(
+          (master) => master.id === body.entry.partyId && master.kind === body.entry.side,
+        )
+      )
+        issues.push(`เรตราคา ${record.id}: ไม่พบรถหรือคนขับ`);
+      if (body.kind === 'expense') {
+        const expense = body.entry;
+        if (
+          expense.truckId &&
+          !masters.some((master) => master.id === expense.truckId && master.kind === 'truck')
+        )
+          issues.push(`ค่าใช้จ่าย ${record.id}: ไม่พบรถ`);
+        if (
+          expense.reversesId &&
+          !workspaceRecords.some(
+            (old) =>
+              old.recordType === 'finance' &&
+              old.projectId === record.projectId &&
+              old.body.kind === 'expense' &&
+              old.id === expense.reversesId &&
+              !old.body.entry.reversesId &&
+              old.body.entry.satang === expense.satang &&
+              old.body.entry.date === expense.date &&
+              old.body.entry.category === expense.category &&
+              old.body.entry.truckId === expense.truckId,
+          )
+        )
+          issues.push(`ค่าใช้จ่าย ${record.id}: ไม่พบฉบับก่อนกลับรายการที่ตรงกัน`);
+      }
+    }
     if (record.recordType === 'daily')
       for (const proof of Object.values(record.body.verifications))
         if (

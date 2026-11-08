@@ -104,4 +104,5 @@ type Workspace<T extends string, B> = Base & {
 export type DailySession = Workspace<'daily', DailyBody>;
 export type EvidenceRecord = Workspace<'evidence', EvidenceBody>;
 export type SurveyRecord = Workspace<'survey', SurveyBody>;
-export type WorkspaceRecord = DailySession | EvidenceRecord | SurveyRecord;
+export type WorkspaceRecord =
+  DailySession | EvidenceRecord | SurveyRecord | import('./financeModels').FinanceRecord;

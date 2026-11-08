@@ -29,16 +29,21 @@ import { verificationLabels } from './workspaceLabels';
 
 export default function DailyPanel({
   owner,
+  defaultProject = '',
   data,
   onChange,
   online,
 }: {
   owner: string;
+  defaultProject?: string;
   data: Data;
   onChange: (change: (data: Data) => Data) => Promise<void>;
   online: boolean;
 }) {
-  const ui = useDailyUi(owner, data.projects.find((p) => p.status === 'active')?.id ?? '');
+  const ui = useDailyUi(
+    owner,
+    defaultProject || data.projects.find((p) => p.status === 'active')?.id || '',
+  );
   const { project, date, reason } = ui.state;
   const setProject = (value: string) => ui.update((s) => ({ ...s, project: value }));
   const setDate = (value: string) => ui.update((s) => ({ ...s, date: value }));
