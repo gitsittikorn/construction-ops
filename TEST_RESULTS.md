@@ -23,3 +23,5 @@ Runtime frontend/backend audit zero findings; development tree 31 moderate, 0 hi
 ## Focused security/completeness review — 2026-11-08
 
 Final cloud `npm run check` exit 0: frontend 275/275 (44 files), backend 11/11, rules 7/7, integration 8/8, E2E 46/46 (1.6 minutes), lint tooling 4/4, formatting/typecheck/build/smoke PASS. Additional targeted P7 import browser test passed. No tests disabled/skipped. See SECURITY_REVIEW.md for scan methods, actual findings/fixes and remaining limits. Fresh audit: runtime frontend/backend 0; dev 31 moderate, no high/critical. Pattern scan across 200 tracked/new files (193 text): 0 selected-format matches, not a general vulnerability-free guarantee
+
+Desktop-first final validation 2026-11-08: cloud npm run check exit 0; frontend 275, backend 11, rules 7, emulator integration 8, E2E 47 (1.7 minutes), format/lint/typecheck/build/smoke PASS. Gallery: 10 actual desktop screens at 1440×1000 with synthetic local data, no page errors, no cloud verification or production upload. Android hardware remains deferred/NOT VERIFIED

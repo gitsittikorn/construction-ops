@@ -11,6 +11,10 @@
 
 ผลตรวจ Phase 1 ล่าสุด (2026-11-06): ดู [Phase 1 audit and E2E report](docs/PHASE_1_E2E_REPORT.md) สำหรับ coverage, บั๊กที่แก้ และข้อจำกัด ข้อความขอบเขต/roadmap ด้านล่างบางส่วนเป็นบันทึกรุ่นเก่า: ปัจจุบันมี project/master sync, durable outbox, conflict handling และ cloud restore แล้ว การผ่าน Emulator ไม่ใช่การยืนยันบริการจริงหรือความพร้อม production
 
+## ดูฟีเจอร์บน Desktop web ก่อน
+
+เป้าหมายรอบนี้คือดูและใช้งานฟีเจอร์บนเว็บเดสก์ท็อปก่อน การตรวจ Android เลื่อนไปภายหลัง ดู [คู่มือ Desktop Review](docs/DESKTOP_REVIEW.md) สำหรับลำดับทดลองฟีเจอร์และความต่างระหว่าง local mode กับบริการ Firebase/Drive จริง
+
 ## เริ่มใช้งาน
 
 Node.js 22.12 ขึ้นไป (เครื่อง Windows ที่จำกัด PowerShell scripts ให้ใช้ `npm.cmd`)

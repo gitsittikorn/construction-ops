@@ -49,3 +49,11 @@ See SECURITY_REVIEW.md for reproduction, fixes, scan scope and residual risks. N
 | DOC-001 | Low       | README memory-only token description contradicted sessionStorage implementation     | Document actual tab-scoped access-token behavior and XSS boundary                                                                                                 |
 
 Remaining: SEC-DEV-001 (31 moderate development findings; runtime 0), staging CSP/frame-policy compatibility, edge/distributed throttling, hostile-file fuzzing/worker isolation and real-service/device acceptance. No real production attack or cleanup of user records was performed
+
+## Desktop-first review — 2026-11-08
+
+UX-002 (Medium): at 1440px the business report table could widen the entire document because table-scroll overflow styling existed only in a max-width 1100px media query. Added a global inner-scroll container and flex min-width guard; the final evidence column remains reachable by scrolling inside the table. Desktop regression checks document width and rightmost column access. Checkbox filters also use a compact horizontal desktop layout while retaining the touch label target
+
+The user explicitly deferred physical Android acceptance and prioritizes desktop web feature review; this changes delivery priority, not Android test outcomes. Isolated review captured 10 synthetic-data screens at 1440×1000 without page errors or document overflow. Lazy modules are awaited before captures. No real Firebase/Drive confirmation or production deployment was fabricated
+
+UX-002 FIXED: final full gate exit 0, 47 E2E passed including desktop inner-scroll regression; source remains compatible with existing touch/tablet regression.

@@ -1501,3 +1501,24 @@ main.login-screen {
     gap: 8px;
   }
 }
+
+/* Wide desktop tables must scroll inside the content area, not widen the page. */
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.workspace {
+  min-width: 0;
+}
+.operations-filters label:has(> input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.operations-filters input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 auto;
+}

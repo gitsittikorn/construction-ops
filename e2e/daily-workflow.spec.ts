@@ -951,3 +951,32 @@ test('P8: coarse-pointer tablet targets remain usable and report controls work b
     await context.close();
   }
 });
+
+test('desktop report columns scroll within their table without widening the whole page', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await seed(page);
+  await createRow(page);
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
+    .click();
+  const panel = page.locator('section[aria-label="รายงานธุรกิจ"]');
+  await panel.getByLabel('แนบเลขอ้างอิงหลักฐาน', { exact: true }).check();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+    true,
+  );
+  const scroll = panel.locator('.table-scroll');
+  const scrolled = await scroll.evaluate((element) => {
+    const wide = element.scrollWidth > element.clientWidth;
+    element.scrollLeft = element.scrollWidth;
+    return { wide, left: element.scrollLeft };
+  });
+  expect(scrolled.wide).toBe(true);
+  expect(scrolled.left).toBeGreaterThan(0);
+  const lastColumn = await panel
+    .getByRole('columnheader', { name: 'เลขอ้างอิงหลักฐาน', exact: true })
+    .boundingBox();
+  expect(lastColumn!.x + lastColumn!.width).toBeLessThanOrEqual(1441);
+});

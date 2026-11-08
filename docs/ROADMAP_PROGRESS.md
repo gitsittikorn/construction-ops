@@ -1,5 +1,9 @@
 # Roadmap progress — Construction Ops
 
+## Current delivery priority — Desktop web first
+
+ผู้ใช้กำหนดให้รีวิวฟีเจอร์บนเว็บ/เดสก์ท็อปก่อน และเลื่อน physical Android acceptance ออกไป ไม่ต้องรอ Android เพื่อเปิดดู desktop features. คงสถานะ hardware เป็น deferred/NOT VERIFIED โดยไม่อ้างว่า PASS. Real Firebase/Drive integration เป็นงานแยกที่ยังจำเป็นสำหรับ login/sync/upload/restore จริงบน desktop. ดู DESKTOP_REVIEW.md สำหรับ workflow, local mode และข้อจำกัดการเผยแพร่เว็บ ไม่ได้ deploy จากการ push GitHub โดยอัตโนมัติ
+
 อัปเดต 2026-11-08 (Asia/Bangkok). Requirements: [MASTER_ROADMAP.md](MASTER_ROADMAP.md). Session baseline `949711e`; original upstream baseline `ad490a8`. ตรวจ Git/source และเดินจาก Phase 1 ตามคำสั่งผู้ใช้ ไม่มี push/deploy หรือ environment draft/publication changes
 
 ## Current phase matrix
@@ -64,3 +68,5 @@ Earlier work: P2 `d13a2fb`, P3 `bd884dc`, original restore `335daa2`; previous l
 ## Latest security checkpoint
 
 Follow-up review after `1591e17`: pre-fetch UID guard, XLSX structural/expanded-resource preflight, per-process authenticated request budgets, correct 413 response and truthful token-storage docs. Full gate 275 frontend / 11 backend / 7 rules / 8 integration / 46 E2E PASS; source/scan/completeness details in SECURITY_REVIEW.md. Current phase statuses and external acceptance remain unchanged; this is not a vulnerability-free certification. No push/deploy; use git log for the new local review commit.
+
+Desktop-first final validation 2026-11-08: cloud npm run check exit 0; frontend 275, backend 11, rules 7, emulator integration 8, E2E 47 (1.7 minutes), format/lint/typecheck/build/smoke PASS. Gallery: 10 actual desktop screens at 1440×1000 with synthetic local data, no page errors, no cloud verification or production upload. Android hardware remains deferred/NOT VERIFIED

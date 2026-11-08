@@ -11,6 +11,8 @@
 
 ## Persistent roadmap and session workflow
 
+- Current delivery priority (2026-11-08): desktop web usability and feature review first. The user explicitly deferred physical Android/tablet acceptance. Keep responsive support and record those checks as deferred/NOT VERIFIED; do not use Android acceptance as a blocker for desktop review. Firebase/Google/Drive integration is a separate desktop requirement, not an Android-only concern. Local-only demonstrations must retain pending/unverified status and must not fabricate cloud acknowledgements. Hosting deployment remains separate from source pushes and requires explicit authorization.
+
 - At the start of every session read this file, `README.md`, `QA.md`, `docs/MASTER_ROADMAP.md`, `docs/ROADMAP_PROGRESS.md`, `docs/BUG_TRACKER.md`, and the relevant phase reports. Inspect `git status`, recent history, actual source and package scripts before choosing work. Preserve existing changes and distinguish them from your own.
 - Treat `docs/MASTER_ROADMAP.md` as the persistent Phase 0–8 requirements. Check progress against code and current test evidence; never infer completion from old messages or a checklist alone. Do not rebuild working features. Latest explicit user instructions take precedence, including requests to pause.
 - Resume the earliest incomplete prerequisite. Validate Phase 2, then proceed immediately to Phase 3 when its gate passes, and continue sequentially through the remaining roadmap without routine confirmation. Fix critical/high defects before dependent work. Never skip or disable tests to advance a phase.
