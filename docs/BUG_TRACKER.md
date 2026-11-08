@@ -57,3 +57,14 @@ UX-002 (Medium): at 1440px the business report table could widen the entire docu
 The user explicitly deferred physical Android acceptance and prioritizes desktop web feature review; this changes delivery priority, not Android test outcomes. Isolated review captured 10 synthetic-data screens at 1440×1000 without page errors or document overflow. Lazy modules are awaited before captures. No real Firebase/Drive confirmation or production deployment was fabricated
 
 UX-002 FIXED: final full gate exit 0, 47 E2E passed including desktop inner-scroll regression; source remains compatible with existing touch/tablet regression.
+
+## Approved extension regression — 2026-11-08
+
+- BUG-007 (Medium / Phase 1): asynchronous App sync could finish after unmount and call React setters after its environment was removed. Reproduced as an unhandled rejection in the full suite. Mounted-session guards now stop subsequent sync work and UI updates; deferred-pull/unmount regression asserts pending trips remain and no push occurs
+- BUG-008 (Medium / extension restore): shuffled workspace arrays could push evidence/reversal before its prerequisite and repeatedly stop before reaching the prerequisite. Dependency-priority ordering now pushes daily/original expense first. Emulator regression reverses a multiple-event array, syncs twice and restores an independent device without duplicate reversal
+- UX-003 (Low / extension review): duplicate-decision select's wrapping label included option text, preventing an unambiguous exact accessible label. Explicit select label fixed; desktop/tablet/mobile human-review E2E passes
+- DOC-002 (Low / settings): UI still described trips-only cloud sync and omitted JSON backup from advice. Corrected current data categories and backup guidance; removed environment-file instructions from the product flow
+
+Full validated counts and boundaries are recorded in EXTENSIONS_REPORT.md. All initial failures were addressed; tests were not disabled.
+
+BUG-007, BUG-008, UX-003 and DOC-002 FIXED in `246a174`: full gate exit 0, frontend 294/backend 11/rules 8/integration 9/E2E 55. No unhandled late-update rejection remains in the final run.

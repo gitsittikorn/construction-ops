@@ -136,3 +136,7 @@ Vite dev server มีตัวตรวจสถานะอัปโหลด�
 - เทมเพลตเริ่มต้นใช้ชีตที่ผู้ใช้ระบุ ID `1_DHAvNEMXyeVbFhc9Am13o8b_gu4AhOSCQljTUq6jzA` โดยลิงก์ที่เคยบันทึกของแต่ละบัญชียังคงมีลำดับก่อนค่าเริ่มต้น
 - กด **สร้างหัวคอลัมน์ในชีต** เพื่อสร้างแท็บ `Trucks` หัวคอลัมน์ 9 ช่อง ตรึงแถวหัวตาราง และตั้งคอลัมน์ข้อความเพื่อรักษาเลขศูนย์ด้านหน้า โดยขอ scope `https://www.googleapis.com/auth/spreadsheets` สำหรับการเตรียมนี้ เพิ่ม scope นี้ใน OAuth consent screen ด้วย ชื่อไฟล์และตำแหน่งโฟลเดอร์เดิมคงไว้
 - ปุ่มเตรียมไม่ลบชีตเดิม ไม่เขียนข้อมูลรถ และจะปฏิเสธหัวตารางที่มีข้อมูลเดิมไม่ตรงรูปแบบ การเตรียมสำเร็จต้องได้รับคำตอบสำเร็จจาก Google จริงก่อนแจ้งสถานะ
+
+## Approved extensions
+
+See [the nine-item scope](docs/APPROVED_EXTENSIONS.md) and [implementation, usage and validation](docs/EXTENSIONS_REPORT.md) for project finance estimates, JSON restore, duplicate review and preferred projects. Real-service/physical-device acceptance remains separate; shared-account role design awaits clarification.

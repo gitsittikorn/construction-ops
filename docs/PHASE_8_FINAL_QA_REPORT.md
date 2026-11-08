@@ -29,7 +29,7 @@ Lockfile SHA-256 at audit:
 
 ## Remaining limits
 
-Physical Android camera/stylus/install/printing, real Google/Firebase/Drive/OAuth expiry/revocation and cross-device acceptance require dedicated configured accounts and devices. Browser tests/emulator do not close those gates. Accessibility checks cover labels/focus/keyboard/touch workflows; no full screen-reader or certified contrast audit is claimed. Backup JSON export is verified; local arbitrary JSON import/merge is not implemented, and users must not clear storage expecting an automatic local-file restore. Production readiness is conditional on this acceptance and explicit rollout authorization
+Physical Android camera/stylus/install/printing, real Google/Firebase/Drive/OAuth expiry/revocation and cross-device acceptance require dedicated configured accounts and devices. Browser tests/emulator do not close those gates. Accessibility checks cover labels/focus/keyboard/touch workflows; no full screen-reader or certified contrast audit is claimed. Backup JSON export was verified at the original Phase 8 gate. Same-account missing-only JSON import/merge is now implemented in the approved extensions; see EXTENSIONS_REPORT.md for validation, atomic rollback, limits and verification reset behavior. Users must still preserve originals and avoid clearing site data. Production readiness is conditional on this acceptance and explicit rollout authorization
 
 ## Validated final gate
 
@@ -40,3 +40,7 @@ Safe dependency remediation was also assessed with `npm audit fix --dry-run --ig
 ## Follow-up security review
 
 See SECURITY_REVIEW.md: fixed pre-fetch owner-switch race, added shared XLSX ZIP resource preflight and per-process authenticated request budgets, corrected oversized body response and token-storage documentation. Final full gate frontend 275/backend 11/rules 7/integration 8/E2E 46 PASS. Remaining staging CSP/edge controls and real acceptance are explicitly open; full SAST/DAST or live penetration tests were not performed
+
+## Approved extension follow-up — 2026-11-08
+
+Source `246a174`: same-account JSON preview/atomic missing-only restore, duplicate review, preferred projects and immutable financial estimates/reversals are implemented. Full gate exit 0: frontend 294, backend 11, rules 8, integration 9, browser E2E 55. New browser workflows cover 1440×1000, 800×1280 and 390×844 layouts, quota/retry, offline reload and reviewed corrections. See EXTENSIONS_REPORT.md for boundaries. Production Google/Drive and physical Android remain NOT VERIFIED; role-sharing scope awaits the user’s answer.

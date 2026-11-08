@@ -6,6 +6,10 @@
 
 อัปเดต 2026-11-08 (Asia/Bangkok). Requirements: [MASTER_ROADMAP.md](MASTER_ROADMAP.md). Session baseline `949711e`; original upstream baseline `ad490a8`. ตรวจ Git/source และเดินจาก Phase 1 ตามคำสั่งผู้ใช้ ไม่มี push/deploy หรือ environment draft/publication changes
 
+## Approved additions after the original roadmap
+
+ผู้ใช้อนุมัติข้อเสนอเพิ่มเติม 9 ข้อแล้ว ดู [APPROVED_EXTENSIONS.md](APPROVED_EXTENSIONS.md) และ [EXTENSIONS_REPORT.md](EXTENSIONS_REPORT.md). ข้อ 1–3 และ 5–9 มี implementation และผ่าน full regression gate ใน commit `246a174` (frontend 294, backend 11, rules 8, integration 9, E2E 55). ข้อ 4 รอคำตอบเรื่องหลายบัญชีใช้ข้อมูลบริษัทเดียวกันหรือแยกข้อมูล ก่อนเปลี่ยนสิทธิ์ฝั่ง Firestore/backend. Baseline ของงานเพิ่มเติมคือ `cebef1c`; ห้ามตีความ Android ที่เลื่อนออกไปว่า PASS
+
 ## Current phase matrix
 
 COMPLETE หมายถึง implementation + isolated automated gate ตามขอบเขต phase นั้น ไม่ใช่คำรับรอง production ทั้งระบบ ผล mock/emulator/browser simulation ต้องแยกจากบริการและอุปกรณ์จริงเสมอ
@@ -33,26 +37,27 @@ FIREBASE_EMULATORS_PATH=/workspace/.cache/firebase/emulators \
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run check
 ```
 
-Final Phase 8 command exit **0**: frontend **275/275** (44 files), backend **11/11**, rules **7/7**, emulator integration **8/8**, Playwright **46/46** (1.6 minutes); lint **4/4** tooling tests, formatting/typecheck/build/HTTP smoke PASS. No tests disabled/skipped/failed in the final run. Earlier P1–4 gate: 260 frontend / 43 E2E; P5: 261 / 43; P6: 263 / 44; P7: 269 / 45. See individual reports and TEST_RESULTS.md for dated evidence
+Latest approved-extension command on `246a174` exit **0**: frontend **294/294** (48 files), backend **11/11**, rules **8/8**, emulator integration **9/9**, Playwright **55/55** (2.0 minutes); lint tooling **4/4**, formatting/typecheck/build/HTTP smoke PASS. No skipped tests, failures or unhandled rejections in the final gate. Lint retains 56 warnings. Earlier desktop checkpoint: frontend 275 / E2E 47; earlier original phase gates remain dated in the phase reports. See EXTENSIONS_REPORT.md for actual scope and limitations. Original real-service and physical-device acceptance remains open.
 
 Audit: frontend/backend runtime zero findings. Full dev tree 31 moderate, zero high/critical. Compatible remediation dry-runs did not propose a safe installed core/uuid version update; no forced major override or lockfile changes. See PHASE_8_FINAL_QA_REPORT.md
 
 ## Local commit checkpoints
 
-| Commit    | Scope                                                            |
-| --------- | ---------------------------------------------------------------- |
-| `94671ba` | P1 mid-batch auth expiry preserves durable queue and idempotency |
-| `5dd6722` | P4 read-only private Drive document audit and tests              |
-| `f1de5ac` | P5 correction reasons, stale guards and audit regression         |
-| `3c1612a` | P6 calendar summaries, export metadata/reference context         |
-| `6d2dcc4` | P7 validated imports, orientation and bounded contours           |
-| `83fb12d` | P8 tablet target/report scaling/QA and production smoke plan     |
+| Commit    | Scope                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------ |
+| `246a174` | Approved extensions: immutable finance, safe JSON merge, duplicate review, preferred project and sync cancellation |
+| `94671ba` | P1 mid-batch auth expiry preserves durable queue and idempotency                                                   |
+| `5dd6722` | P4 read-only private Drive document audit and tests                                                                |
+| `f1de5ac` | P5 correction reasons, stale guards and audit regression                                                           |
+| `3c1612a` | P6 calendar summaries, export metadata/reference context                                                           |
+| `6d2dcc4` | P7 validated imports, orientation and bounded contours                                                             |
+| `83fb12d` | P8 tablet target/report scaling/QA and production smoke plan                                                       |
 
 Earlier work: P2 `d13a2fb`, P3 `bd884dc`, original restore `335daa2`; previous local fixes `aa18632`, `4ad0958`, `f7a6266`; roadmap persistence `949711e`. Final checkpoint documentation commit is discoverable using `git log -1 -- docs/ROADMAP_PROGRESS.md` rather than embedding its own hash
 
 ## Resume checkpoint and exact next actions
 
-- Current phase/task: Phase 8 release acceptance; source/isolated gates through Phase 7 passed and Phase 8 automated regression passed
+- Current phase/task: approved extensions milestone `246a174` validated; item 4 awaits shared-company versus separate-account clarification. Phase 8 real-service/release acceptance remains open; source/isolated gates through Phase 7 and current automated regression passed
 - Preserve current local commits. Inspect `git status`, recent log, AGENTS, Master, Bug Tracker, phase reports and actual source before proceeding. Do not rebuild working features or repeat obsolete fixes
 - Remaining external prerequisites: no public VITE app config, OAuth client/secret/encryption bindings or .env.local files were present. GOOGLE_APPLICATION_CREDENTIALS selector exists but was not treated as authorization for this app/unknown project. Do not print credentials or request their values in chat
 - Configure a dedicated Firebase/Google/Drive test project/account and authorized origins through secure settings, verify precise network destinations and consent, then follow PRODUCTION_SMOKE_PLAN.md and the Phase 4 physical-device checklist. Keep production and real user data intact
@@ -70,3 +75,7 @@ Earlier work: P2 `d13a2fb`, P3 `bd884dc`, original restore `335daa2`; previous l
 Follow-up review after `1591e17`: pre-fetch UID guard, XLSX structural/expanded-resource preflight, per-process authenticated request budgets, correct 413 response and truthful token-storage docs. Full gate 275 frontend / 11 backend / 7 rules / 8 integration / 46 E2E PASS; source/scan/completeness details in SECURITY_REVIEW.md. Current phase statuses and external acceptance remain unchanged; this is not a vulnerability-free certification. No push/deploy; use git log for the new local review commit.
 
 Desktop-first final validation 2026-11-08: cloud npm run check exit 0; frontend 275, backend 11, rules 7, emulator integration 8, E2E 47 (1.7 minutes), format/lint/typecheck/build/smoke PASS. Gallery: 10 actual desktop screens at 1440×1000 with synthetic local data, no page errors, no cloud verification or production upload. Android hardware remains deferred/NOT VERIFIED
+
+## Latest extension handoff
+
+Source `246a174`, baseline `cebef1c`. Complete full gate exit 0; see EXTENSIONS_REPORT.md for commands/counts. Run clean completed and tracked generated screenshots restored; only intentional source/documentation changes are committed. No new push/deploy or environment publication. Next: incorporate the pending shared-account answer and implement roles with actual Firestore/backend enforcement, preserving existing namespaces and data. Do not repeat the validated independent features or assume the original Master’s real-service acceptance is complete.
