@@ -167,7 +167,7 @@ export default function SurveyPanel({
       const next = record();
       await onChange((data) => saveSurvey(data, next, owner, saved ?? undefined));
       setSaved(structuredClone(next));
-      setNotice('บันทึกประวัติสำรวจในเครื่องแล้ว รอซิงก์ตามสถานะด้านบน');
+      setNotice('บันทึกประวัติสำรวจในเครื่องแล้ว ตรวจสถานะได้ที่เมนูซิงก์และสำรองข้อมูล');
       setError('');
     } catch (e) {
       setError((e as Error).message);

@@ -1,5 +1,13 @@
 # Bug tracker
 
+## UX-005 — sync details occupy every page (2026-11-09)
+
+Phase 1/8, Medium usability. Reproduction: after an authorized cloud restore fails (for example, trip references are missing), open overview, projects or daily work. `App` rendered the full sync panel before every page title, including the long restore error, pending/conflict counts and backup controls. Expected: details in a dedicated menu, with a compact persistent indicator for problems.
+
+Fix: a dedicated **ซิงก์และสำรองข้อมูล** menu owns the panel; a red dot with an accessible status/description indicates cloud errors, queued entry errors, conflicts and integrity issues. Ordinary pending/offline/local state does not imply an error or cloud acknowledgement. Sync timers remain at App scope. Resolve failures use the sync error channel. Navigation does not mutate stored data. Sidebar labels wrap and the desktop sidebar scrolls when space is limited.
+
+Regression: `App.syncNavigation.test.tsx` tests successful navigation, pending preservation and queue/conflict/integrity errors; `App.auth.test.tsx` tests persistent restore failure and successful retry. `sync-navigation.spec.ts` exercises desktop/tablet/mobile browser layouts; existing offline/backup E2E now opens the dedicated menu. **FIXED**: final `npm.cmd run check` exit **0**, frontend **319**, backend **15**, Rules **10**, integration **10**, E2E **61**, editor tooling **4**, 59 lint warnings/zero errors. Initial type-selector and deferred-test timing failures were corrected without skipping assertions. Details: [SYNC_NAVIGATION_REPORT.md](SYNC_NAVIGATION_REPORT.md). Real Firebase/Drive restore errors remain separate acceptance work; this UI change does not repair or suppress missing cloud references.
+
 อัปเดต 2026-11-09 (Asia/Bangkok). เก็บข้อบกพร่องแยกจากงานตาม roadmap และข้อจำกัดบริการจริง ห้ามปิด test หรือเดา PASS เพื่อปิดรายการ
 
 | ID      | Phase / priority | Reproduction / impact                                                                                                                               | Fix / regression                                                                                                                                                                      | Status                                                        |

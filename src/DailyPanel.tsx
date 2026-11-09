@@ -84,7 +84,7 @@ export default function DailyPanel({
     setNotice('');
     try {
       await action();
-      setNotice('บันทึกในเครื่องแล้ว สถานะ Cloud แสดงแยกด้านบน');
+      setNotice('บันทึกในเครื่องแล้ว ตรวจสถานะ Cloud ได้ที่เมนูซิงก์และสำรองข้อมูล');
     } catch (e) {
       setError(connectionMessage(e));
     } finally {
@@ -364,7 +364,7 @@ export default function DailyPanel({
             {data.sync?.entries[`workspaces/${session.id}`]?.status === 'synced'
               ? 'ซิงก์วันทำงานกับ Cloud แล้ว'
               : data.sync?.entries[`workspaces/${session.id}`]?.status === 'conflict'
-                ? 'วันทำงานขัดแย้ง — ตรวจสอบทั้งสองฉบับในส่วนซิงก์ด้านบน'
+                ? 'วันทำงานขัดแย้ง — ตรวจสอบทั้งสองฉบับที่เมนูซิงก์และสำรองข้อมูล'
                 : 'วันทำงานบันทึกในเครื่อง — รอซิงก์ Cloud'}
           </p>
           <p>

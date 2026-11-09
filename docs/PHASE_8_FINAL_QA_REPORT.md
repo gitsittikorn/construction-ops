@@ -58,3 +58,11 @@ Source `ba6ad8c`, initially clean baseline `cbef922`. Final cloud `npm run check
 Actual Semgrep/Gitleaks scan versions, rule pin, reproductions and residual findings are in [SECURITY_SCAN_2026-11-09.md](SECURITY_SCAN_2026-11-09.md). Fresh audit: frontend/backend runtime **0**, full development **23 moderate**, **0 high/critical** on unchanged lockfiles; earlier 31 is historical. Semgrep retains four reviewed escaped-HTML warnings and one parser limitation; secret scans found zero matches within scope. No assertion of complete penetration testing or vulnerability-free production.
 
 `npm run clean` completed; restored only the two regenerated Phase 2 screenshots. No user data, unknown files, pending originals, credentials or lockfiles deleted. The user authorized source commit/push to GitHub for this task, including pending shared-company commits. No hosting/Rules/index/backend deployment or environment publication. Original production-service/device/manual limits remain open.
+
+## Dedicated sync navigation — 2026-11-09
+
+UX-005: move the large security/sync panel to **ซิงก์และสำรองข้อมูล** and retain a red, accessibly labeled menu indicator for problems. Keep business pages free of the panel while automatic sync continues in App. Desktop sidebar supports wrapping/scrolling; narrow layouts retain horizontal navigation. Daily/survey guidance now points to the menu.
+
+Windows final `npm.cmd run check` exit **0**: frontend **319/319** (54 files), backend **15/15**, Rules **10/10**, emulator integration **10/10**, E2E **61/61** (3.4 minutes), lint tooling **4/4**. Format/lint/typecheck/build/smoke PASS; 59 lint warnings, zero errors. No skipped/disabled tests. New desktop/tablet/mobile viewport cases verify red-dot styling, navigation, pending/error preservation and no horizontal document overflow. Existing offline backup and original-byte assertions remain enabled. Initial type-selector/deferred-callback test failures were diagnosed and corrected; see [SYNC_NAVIGATION_REPORT.md](SYNC_NAVIGATION_REPORT.md) for the command and evidence boundaries.
+
+This task does not complete original Phase 1/4/8 real-service/manual acceptance. Real Firebase/Google/Drive recovery is NOT VERIFIED here; physical Android/tablet remains deferred/NOT VERIFIED. No new security scan, dependency upgrade, credential/rule change or deployment.

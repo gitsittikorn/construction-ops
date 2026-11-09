@@ -90,6 +90,7 @@ small {
   padding: 35px 22px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
   z-index: 10;
 }
 .brand {
@@ -149,6 +150,22 @@ nav button.selected {
   background: #eaf1e9;
   color: #234c3c;
   font-weight: 700;
+}
+.nav-label {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+nav button > svg {
+  flex-shrink: 0;
+}
+.nav-error-dot {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: #c62828;
 }
 nav button.selected:before {
   content: '';
@@ -1113,6 +1130,7 @@ main.login-screen {
 @media (max-width: 760px) {
   .sidebar {
     position: sticky;
+    overflow: visible;
     top: 0;
     width: 100%;
     height: auto;
@@ -1147,10 +1165,14 @@ main.login-screen {
     gap: 4px;
   }
   .sidebar nav button {
+    flex-shrink: 0;
     padding: 8px 12px;
     font-size: 10px;
     gap: 5px;
     min-height: 42px;
+  }
+  .sidebar .nav-label {
+    white-space: nowrap;
   }
   .sidebar nav button svg {
     width: 15px;

@@ -47,7 +47,8 @@ Backend server จริงยังไม่ต้องเปิดสำห�
 6. ตรวจยอด: เปรียบเทียบยอดตรง/ต่าง ลองยืนยันเมื่อหลักฐานยังไม่ครบ แอปต้องอธิบายและคงข้อมูลเดิม ห้ามใช้ DevTools เปลี่ยน status เป็น synced เพื่อให้ดูเหมือนเชื่อม Cloud สำเร็จ
 7. รายงานธุรกิจ: เลือก daily/week/month/project/truck/driver/source/verification/cumulative รวม filters; ลอง CSV/XLSX พร้อม metadata/references และ print/PDF
 8. สำรวจ: กำหนด BM/datum/ขนาด/ระยะกริด ดู slope/cut-fill และ estimated contours; export CSV/XLSX, ทดลอง import preview/cancel/confirm, บันทึกและโหลด history
-9. การตั้งค่า/Drive: ดูสถานะ pending/การเชื่อมต่อ/backup export. การอัปโหลด/restore/audit จริงต้องตั้งค่าบริการเพิ่มเติม ไม่ใช่งานที่ต้องรอ Android
+9. ซิงก์และสำรองข้อมูล: ดูสถานะ pending/ข้อผิดพลาด/ข้อมูลขัดแย้ง ซิงก์และกู้คืนจาก Cloud หรือดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ จุดแดงที่เมนูบอกว่ามีปัญหาต้องตรวจสอบ โดยรายละเอียดอยู่ในหน้านี้
+10. การตั้งค่า/Drive: จัดการการเชื่อมต่อ Drive/ไฟล์แนบและนำเข้าข้อมูลสำรอง การอัปโหลด/restore/audit จริงต้องตั้งค่าบริการเพิ่มเติม ไม่ใช่งานที่ต้องรอ Android
 
 ## Current review evidence
 

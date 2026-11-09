@@ -88,6 +88,10 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   const restarted = await context.newPage();
   await restarted.goto('http://127.0.0.1:5175');
   await expect(restarted.getByText('P1 offline site', { exact: true })).toBeVisible();
+  await restarted
+    .getByRole('navigation')
+    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
+    .click();
   await expect(restarted.getByText('รอซิงก์ 3 รายการ · ขัดแย้ง 0 รายการ')).toBeVisible();
   const event = restarted.waitForEvent('download');
   await restarted.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' }).click();
@@ -121,6 +125,10 @@ test('offline edits survive reload and a browser backup includes pending data an
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Offline site');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Offline site', exact: true })).toBeVisible();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
+    .click();
   await expect(page.getByText('รอซิงก์ 1 รายการ · ขัดแย้ง 0 รายการ')).toBeVisible();
   await context.setOffline(false);
   await page.evaluate(async () => {
@@ -147,6 +155,10 @@ test('offline edits survive reload and a browser backup includes pending data an
   });
   await page.reload();
   await expect(page.getByText('Offline site', { exact: true })).toBeVisible();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
+    .click();
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' }).click();
   const download = await downloadEvent;

@@ -38,7 +38,7 @@ import {
 import { loadData, updateData, subscribeDataChanges } from './storage';
 import { configured, observeAuth, login, logout } from './firebase';
 import { synchronize, resolveConflict } from './cloudSync';
-import { canonical, payloadOf } from './syncModel';
+import { canonical, integrityIssues, payloadOf } from './syncModel';
 import { deleteRecord } from './deletion';
 import { listUploads } from './uploads';
 import CloudSyncPanel from './CloudSyncPanel';
@@ -72,6 +72,7 @@ const pages = [
   ['businessReports', 'รายงานธุรกิจ', BarChart3],
   ['survey', 'สำรวจและคำนวณ', Calculator],
   ['finance', 'การเงินโครงการ', BarChart3],
+  ['sync', 'ซิงก์และสำรองข้อมูล', RefreshCw],
   ['settings', 'การตั้งค่า', Settings],
 ] as const;
 const statusText = {
@@ -290,6 +291,12 @@ export default function App({
   const localOperations = Object.values(data.sync?.entries ?? {})
     .map((entry) => entry.desired.operationId)
     .join('|');
+  const syncNeedsAttention =
+    !!cloudError ||
+    Object.values(data.sync?.entries ?? {}).some(
+      (entry) => entry.status === 'conflict' || !!entry.error,
+    ) ||
+    integrityIssues(data).length > 0;
   useEffect(() => {
     if (!configured || !online || !ready) return;
     const timer = window.setTimeout(() => void sync(false), 500);
@@ -309,7 +316,7 @@ export default function App({
         () => alive.current && account.current === owner,
       );
     } catch (e) {
-      if (alive.current && account.current === owner) setError(message(e));
+      if (alive.current && account.current === owner) setCloudError(message(e));
     } finally {
       syncLock.current = false;
       if (alive.current) setBusy(false);
@@ -536,6 +543,10 @@ export default function App({
               <button
                 key={id}
                 aria-label={title}
+                aria-current={page === id ? 'page' : undefined}
+                aria-describedby={
+                  id === 'sync' && syncNeedsAttention ? 'sync-attention' : undefined
+                }
                 className={page === id ? 'selected' : ''}
                 onClick={() => {
                   setPage(id);
@@ -543,8 +554,17 @@ export default function App({
                 }}
               >
                 <Icon size={19} />
-                {title}
+                <span className="nav-label">{title}</span>
                 {id === 'trips' && pending > 0 && <span className="nav-count">{pending}</span>}
+                {id === 'sync' && syncNeedsAttention && (
+                  <span
+                    id="sync-attention"
+                    className="nav-error-dot"
+                    role="status"
+                    aria-label="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
+                    title="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
+                  />
+                )}
               </button>
             ))}
         </nav>
@@ -601,32 +621,25 @@ export default function App({
           </div>
         </header>
         <main>
-          {ready && (
-            <CloudSyncPanel
-              owner={owner}
-              data={data}
-              configured={configured}
-              online={online}
-              busy={busy}
-              status={cloudStatus}
-              failure={cloudError}
-              onSync={sync}
-              onResolve={resolve}
-            />
-          )}
           <div className="page-title">
             <div>
               <span className="eyebrow">CONSTRUCTION WORKSPACE</span>
               <h1>
-                {page === 'overview' ? 'ภาพรวมการทำงาน' : pages.find((p) => p[0] === page)?.[1]}
+                {page === 'overview'
+                  ? 'ภาพรวมการทำงาน'
+                  : page === 'sync'
+                    ? 'ความปลอดภัยและซิงก์ข้อมูล'
+                    : pages.find((p) => p[0] === page)?.[1]}
               </h1>
               <p>
                 {page === 'overview'
                   ? 'ทุกความคืบหน้าหน้างาน ในพื้นที่เดียว'
-                  : 'จัดการข้อมูลอย่างเป็นระบบ พร้อมสำหรับการทำงานหน้างาน'}
+                  : page === 'sync'
+                    ? 'ตรวจสถานะซิงก์ แก้ไขข้อมูลขัดแย้ง และดาวน์โหลดข้อมูลสำรอง'
+                    : 'จัดการข้อมูลอย่างเป็นระบบ พร้อมสำหรับการทำงานหน้างาน'}
               </p>
             </div>
-            {!['daily', 'businessReports', 'survey', 'finance'].includes(page) &&
+            {!['daily', 'businessReports', 'survey', 'finance', 'sync'].includes(page) &&
               (canManage || !['projects', 'masters'].includes(page)) && (
                 <button
                   className="primary"
@@ -675,6 +688,19 @@ export default function App({
             <p>กำลังเปิดข้อมูลในเครื่อง…</p>
           ) : (
             <>
+              {page === 'sync' && (
+                <CloudSyncPanel
+                  owner={owner}
+                  data={data}
+                  configured={configured}
+                  online={online}
+                  busy={busy}
+                  status={cloudStatus}
+                  failure={cloudError}
+                  onSync={sync}
+                  onResolve={resolve}
+                />
+              )}
               {page === 'overview' && (
                 <>
                   <section className="hero">

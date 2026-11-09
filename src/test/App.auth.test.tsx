@@ -121,6 +121,8 @@ it('P1-13/18 hides the previous account on sign-out and restores only the return
   await screen.findByText('Site', { exact: true });
   expect(screen.queryByText('Second account site', { exact: true })).not.toBeInTheDocument();
   expect((await loadData('second-owner')).projects[0].name).toBe('Second account site');
+  await userEvent.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  await screen.findByText('ตรวจสอบกับ Cloud แล้ว ข้อมูลซิงก์ครบ');
 });
 
 it('stops in-flight synchronization after unmount without pushing pending data or updating the removed workspace', async () => {
@@ -134,7 +136,7 @@ it('stops in-flight synchronization after unmount without pushing pending data o
       }),
   );
   const view = render(<App />);
-  await waitFor(() => expect(firestoreTransport.pull).toHaveBeenCalled());
+  await waitFor(() => expect(finish).toBeTypeOf('function'));
   view.unmount();
   await act(async () => {
     finish!({ records: [], cursors: {} });
@@ -143,4 +145,30 @@ it('stops in-flight synchronization after unmount without pushing pending data o
   const stored = await loadData('test-owner');
   expect(stored.trips[0].syncStatus).toBe('pending');
   expect(stored.sync!.entries['trips/trip'].status).toBe('pending');
+});
+
+it('keeps a restore failure in the sync menu across navigation and clears the indicator after a successful retry', async () => {
+  await persistData('test-owner', fixture());
+  const failure = 'กู้คืนไม่สำเร็จ: เที่ยวรถ orphan: ไม่พบโครงการ missing';
+  vi.mocked(firestoreTransport.pull).mockRejectedValue(new Error(failure));
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole('status', { name: 'มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ' });
+  expect(screen.queryByText(failure)).not.toBeInTheDocument();
+  expect((await loadData('test-owner')).trips[0].syncStatus).toBe('pending');
+  await user.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  expect(screen.getByText(failure)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'โครงการ' }));
+  expect(screen.queryByText(failure)).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  expect(screen.getByText(failure)).toBeInTheDocument();
+  vi.mocked(firestoreTransport.pull).mockResolvedValue({ records: [], cursors: {} });
+  await user.click(screen.getByRole('button', { name: 'ซิงก์และกู้คืนจาก Cloud' }));
+  await waitFor(async () =>
+    expect((await loadData('test-owner')).trips[0].syncStatus).toBe('synced'),
+  );
+  expect(
+    screen.queryByRole('status', { name: 'มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ' }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText(failure)).not.toBeInTheDocument();
 });

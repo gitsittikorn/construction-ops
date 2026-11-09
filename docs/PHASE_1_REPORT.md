@@ -15,3 +15,9 @@ Source: storage.ts, syncModel.ts, cloudSync.ts, cloudFirestore.ts, cloudValidati
 Real authentication/production restore ยัง NOT VERIFIED เพราะ environment ไม่มี configured secret/runtime bindings สำหรับบริการจริง ไม่ได้ขอหรือสร้าง credentials ปลอม การผ่าน isolated gate ใช้เดินงาน implementation ที่ไม่พึ่ง production ต่อได้ โดยไม่ปิด acceptance บริการจริง
 
 Gate 2026-11-08: cloud npm run check exit 0, frontend 260, backend 10, rules 7, emulator integration 8, E2E 43 ผ่าน; format/lint/typecheck/build/HTTP smoke PASS. ไม่มี real-service/device tests.
+
+## Dedicated sync menu — 2026-11-09
+
+User-requested UX-005 fix: sync/backup/conflict details now belong to **ซิงก์และสำรองข้อมูล**, with a red menu indicator for failures/conflicts/integrity issues. App-level automatic sync and account/data guards remain active across navigation. Ordinary pending data stays unverified. Retry, failure persistence and unchanged stored state have automated coverage; production-offline backups still include pending records and original attachment bytes.
+
+Windows `npm.cmd run check` exit **0**: frontend **319**, backend **15**, Rules **10**, emulator integration **10**, E2E **61** (3.4 minutes), lint tooling **4**; format/lint/typecheck/build/smoke PASS, 59 lint warnings/zero errors. Initial failed attempts and full command are in [SYNC_NAVIGATION_REPORT.md](SYNC_NAVIGATION_REPORT.md). Actual Firebase/Google/Drive restore was not exercised; Phase 1 overall remains PARTIAL. Physical Android remains deferred/NOT VERIFIED.
