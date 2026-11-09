@@ -25,4 +25,4 @@
 
 ## Approved extension checkpoint
 
-- Read `docs/APPROVED_EXTENSIONS.md` and `docs/EXTENSIONS_REPORT.md` when continuing the nine user-approved additions. Item 4 needs the user’s shared-company versus separate-account answer; preserve existing UID isolation until clarified. Items 1–3 and 5–9 have implementations and evidence in the extension report; compare with current Git and the final gate before claiming completion. Physical Android remains deferred.
+- Read `docs/APPROVED_EXTENSIONS.md` and `docs/EXTENSIONS_REPORT.md` when continuing the nine user-approved additions. Item 4 scope was answered: multiple Google accounts share company data. Read `docs/COMPANY_ACCESS.md` for the implementation checkpoint and permission matrix; preserve existing namespaces and enforce membership in Firestore/backend. All nine additions have implementation and isolated acceptance evidence (latest source `7fae411`; full gate frontend 310/backend 14/rules 9/integration 10/E2E 58). Compare with current Git/source before further work; do not repeat completed features. Original roadmap real-service/manual acceptance remains open. Physical Android remains deferred.

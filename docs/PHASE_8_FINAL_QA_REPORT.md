@@ -43,4 +43,10 @@ See SECURITY_REVIEW.md: fixed pre-fetch owner-switch race, added shared XLSX ZIP
 
 ## Approved extension follow-up — 2026-11-08
 
-Source `246a174`: same-account JSON preview/atomic missing-only restore, duplicate review, preferred projects and immutable financial estimates/reversals are implemented. Full gate exit 0: frontend 294, backend 11, rules 8, integration 9, browser E2E 55. New browser workflows cover 1440×1000, 800×1280 and 390×844 layouts, quota/retry, offline reload and reviewed corrections. See EXTENSIONS_REPORT.md for boundaries. Production Google/Drive and physical Android remain NOT VERIFIED; role-sharing scope awaits the user’s answer.
+Source `246a174`: same-account JSON preview/atomic missing-only restore, duplicate review, preferred projects and immutable financial estimates/reversals are implemented. Full gate exit 0: frontend 294, backend 11, rules 8, integration 9, browser E2E 55. New browser workflows cover 1440×1000, 800×1280 and 390×844 layouts, quota/retry, offline reload and reviewed corrections. See EXTENSIONS_REPORT.md for boundaries. Production Google/Drive and physical Android remain NOT VERIFIED; the user subsequently confirmed shared-company roles; new implementation and validation are tracked in COMPANY_ACCESS.md.
+
+## Shared company final gate — 2026-11-09
+
+Source `7fae411`, full `npm run check` exit 0: frontend 310/310 (53 files), backend 14/14, Rules 9/9, emulator integration 10/10, browser E2E 58/58 (2.2 minutes). Formatting, lint/tooling (4 tests), typecheck, production build and HTTP smoke PASS; 59 lint warnings, zero errors. No skipped tests or unhandled rejections remain.
+
+Company roles, member disable/downgrade, actor auditing, finance restrictions, per-user backend credentials, additive IndexedDB 3 isolation and original-byte retention are now covered. Details, setup steps and offline membership limitations: COMPANY_ACCESS.md. All nine approved extensions have implementation and isolated acceptance; original production-service/device/manual limits remain NOT VERIFIED or deferred. No push, deploy or environment publication; safe generated-artifact cleanup completed.

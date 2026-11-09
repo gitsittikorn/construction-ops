@@ -27,7 +27,7 @@ Preferred-project and duplicate-review settings are account/browser scoped. A du
 
 - Automatic JSON restore supports at most 150 MiB, 100,000 entities and 100,000 audit entries; attachment original limit remains 100 MiB each. Larger exports remain usable as retained originals but are rejected for this automatic restore. No file is truncated or deleted
 - Tombstones in the backup are not replayed as remote deletes. An active imported record that needs an unavailable deleted dependency blocks the merge with a relationship error; no partial restore is claimed
-- Same-account restore only; no local-to-Google/cross-account ownership migration. Upload ID collisions with another namespace reject without exposing that namespace
+- Same-account restore only; no local-to-Google/cross-account ownership migration. Legacy upload ID collisions with another namespace reject without exposing that namespace; shared-member files use separate compound owner/ID keys
 - Financial rules must be released with the updated web client through the separately authorized deployment process. Until then old production rules can keep new finance records pending. This work does not deploy rules, backend or hosting
 - Google/Firebase/Drive production acceptance and physical Android camera/stylus/install/printing remain NOT VERIFIED. Simulated mobile/tablet layouts are implemented/tested independently
 - Existing dependency audit findings and manual/security acceptance in SECURITY_REVIEW.md remain open. No dependency changes, new credentials or production data resets
@@ -55,6 +55,12 @@ No source push, hosting/backend/rules deploy or environment publication was perf
 
 ## Resume checkpoint
 
-Item 4 remains pending the asynchronous question: should owner/manager/operator accounts share one company dataset or keep isolated datasets? Current `users/{uid}` and backend encrypted Drive credentials are bound to each UID. Implement membership, rules/backend enforcement, account transitions and abuse tests together once the answer arrives. Do not implement only hidden buttons or expose old user namespaces.
+The user answered the question: multiple Google accounts share one company dataset. Item 4 implementation continues in COMPANY_ACCESS.md; the earlier 246a174 gate above predates company access. Current `users/{uid}` and backend encrypted Drive credentials are bound to each UID. Membership, Rules/backend enforcement, account transitions and abuse tests are committed in `7fae411` and the new full gate passed on 2026-11-09. See COMPANY_ACCESS.md for the matrix, workflow and current results. Do not implement only hidden buttons or expose old user namespaces.
 
 Preserve completed extensions and compare Git/source/tests with these documents. Read AGENTS, Master, progress and bug tracker. Finish any failed gate before new scope; do not repeat the earlier implementation. Inspect `git log -1 -- docs/EXTENSIONS_REPORT.md` for the documentation checkpoint. No usage-limit event has been reported.
+
+## Shared-company continuation
+
+The user confirmed shared company data. COMPANY_ACCESS.md now records membership enforcement, owner/manager/operator behavior, original namespace preservation, additive IndexedDB 3 upload partitioning, real-actor auditing and the new rollout/index requirements. Shared-backup financial provenance is shown in Preview and retained in the local restore audit. Complete company gate exit 0 on 2026-11-09: frontend 310, backend 14, Rules 9, integration 10 and browser E2E 58. These supersede the preceding 246a174 gate for current verification; real-service/hardware acceptance is unchanged.
+
+Current handoff: all nine approved implementations are validated; source `7fae411` extends `246a174`. Company profiles/membership live alongside the preserved original data namespaces. The working tree was cleaned of known generated test artifacts, and no new push/deploy or environment publication was performed. Use COMPANY_ACCESS.md and ROADMAP_PROGRESS.md for exact next acceptance steps.

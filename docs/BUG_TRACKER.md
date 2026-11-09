@@ -68,3 +68,12 @@ UX-002 FIXED: final full gate exit 0, 47 E2E passed including desktop inner-scro
 Full validated counts and boundaries are recorded in EXTENSIONS_REPORT.md. All initial failures were addressed; tests were not disabled.
 
 BUG-007, BUG-008, UX-003 and DOC-002 FIXED in `246a174`: full gate exit 0, frontend 294/backend 11/rules 8/integration 9/E2E 55. No unhandled late-update rejection remains in the final run.
+
+## Shared company follow-up — 2026-11-08
+
+- BUG-010 (Medium / roles): operator transaction read-before-create was denied for a missing workspace because the financial read guard accessed a null resource. Separate missing-document get permission from filtered list permission; regression covers get+create and direct financial read denial
+- BUG-011 (Medium / roles): concurrent membership downgrade and company-name snapshot could reapply a captured old role. Watchers now carry the latest role, stop after revocation/unsubscribe and ignore cached authority changes; interleaved callbacks and stale-listener tests pass
+- DATA-001 (High prevention / roles): reusing a cloud upload ID in two member caches must never overwrite pending originals. Added a compound-key upload store without removing the legacy store; same-ID byte fidelity and additive upgrade tests pass
+- UX-004 (Low / roles): mobile hid the sidebar role display. Shared workspaces now show company and role in a wrapping header; three viewport role-UI simulations pass
+
+BUG-010, BUG-011, DATA-001 and UX-004 are fixed in `7fae411`. Full company gate exit 0 on 2026-11-09: frontend 310/backend 14/Rules 9/integration 10/E2E 58. Company-access checks include direct forbidden requests and immutable original-byte preservation. Existing production and hardware limits remain open; see COMPANY_ACCESS.md.

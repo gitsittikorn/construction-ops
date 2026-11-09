@@ -139,4 +139,6 @@ Vite dev server มีตัวตรวจสถานะอัปโหลด�
 
 ## Approved extensions
 
-See [the nine-item scope](docs/APPROVED_EXTENSIONS.md) and [implementation, usage and validation](docs/EXTENSIONS_REPORT.md) for project finance estimates, JSON restore, duplicate review and preferred projects. Real-service/physical-device acceptance remains separate; shared-account role design awaits clarification.
+See [the nine-item scope](docs/APPROVED_EXTENSIONS.md) and [implementation, usage and validation](docs/EXTENSIONS_REPORT.md) for project finance estimates, JSON restore, duplicate review and preferred projects. Real-service/physical-device acceptance remains separate; shared company roles and rollout requirements are documented in [Company Access](docs/COMPANY_ACCESS.md).
+
+Latest validated source `7fae411` (2026-11-09): shared company membership is implemented; frontend 310, backend 14, Rules 9, integration 10 and browser E2E 58 passed. See [Company Access](docs/COMPANY_ACCESS.md) for owner/member setup and coordinated client/backend/Rules/index release prerequisites. This milestone has not been pushed or deployed.
