@@ -8,9 +8,10 @@ import {
   emptyReportFilter,
 } from '../reports';
 import { fixture, truck, project } from './syncFixtures';
-import { createDaily, dailySessions, saveDailyRow } from '../daily';
+import { createDaily, dailySessions, rowFingerprint, saveDailyRow } from '../daily';
 import { readBlobBytes } from '../files';
 import { readSheet } from 'read-excel-file/universal';
+import type { EvidenceRecord } from '../workspaceModels';
 
 function data() {
   let value = createDaily(fixture(), project.id, '2026-11-06', 'admin');
@@ -231,4 +232,57 @@ it('exports optional evidence references without inventing them for legacy data 
   );
   expect((await readSheet(workbook, 'รายงาน'))[1].at(-1)).toContain('evidence-test');
   expect(reportTable(value, [], 'weekly')).toHaveLength(1);
+});
+
+it('exports only the selected proof or the current reopened generation and excludes stale Drive references', () => {
+  const value = data();
+  const session = dailySessions(value)[0];
+  const row = session.body.rows[0];
+  const fingerprint = rowFingerprint(session, row);
+  const old: EvidenceRecord = {
+    id: 'old-proof',
+    recordType: 'evidence',
+    projectId: session.projectId,
+    name: 'proof',
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    body: {
+      sessionId: session.id,
+      rowId: row.id,
+      date: session.body.date,
+      truckId: row.truckId,
+      driverId: row.driverId,
+      fingerprint,
+      files: [],
+    },
+  };
+  value.workspaces!.push(old, {
+    ...old,
+    id: 'new-proof',
+    body: { ...old.body, closureGeneration: 1 },
+  });
+  session.body.closures.push({
+    at: session.updatedAt,
+    by: 'admin',
+    rows: [row],
+    verifications: {},
+    trips: 5,
+    volume: 60,
+  });
+  session.body.state = 'reopened';
+  const refs = () =>
+    reportRows(value, emptyReportFilter).find((r) => r.id.startsWith(`${session.id}:`))!
+      .evidenceRefs;
+  expect(refs()).toEqual(['Evidence: new-proof']);
+  session.body.verifications[row.id] = {
+    fingerprint,
+    evidenceId: old.id,
+    fileIds: ['sealed-drive'],
+    by: 'admin',
+    at: session.updatedAt,
+  };
+  expect(refs()).toEqual(['Evidence: old-proof', 'Drive: sealed-drive']);
+  session.body.verifications[row.id].fingerprint = 'obsolete';
+  expect(refs()).toEqual(['Evidence: new-proof']);
+  expect(reportTotals(reportRows(value, emptyReportFilter)).volume).toBe(60);
 });

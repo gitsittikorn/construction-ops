@@ -169,3 +169,102 @@ it('records the signer and time, replaces proof safely and invalidates previous 
   expect(data.audit.some((a) => a.action === 'evidence-replace')).toBe(true);
   expect(await listUploads(owner)).toHaveLength(4);
 });
+
+it('starts a fresh proof after reopen while keeping all sealed evidence and original bytes unchanged', async () => {
+  const { reopenDaily, evidenceFor } = await import('../daily');
+  const { owner, id } = await setup();
+  for (const category of ['driver-photo', 'signature', 'trip-slip'] as const)
+    await saveEvidence(owner, id, 'row', category, [image()]);
+  for (const file of await listUploads(owner))
+    await putUpload({ ...file, status: 'synced', driveId: `drive-${file.id}`, folderId: 'folder' });
+  const uploads = await listUploads(owner);
+  await updateData(owner, (data) => {
+    const day = dailySessions(data)[0];
+    return verifyDaily(data, id, day.body.version, owner, uploads);
+  });
+  await updateData(owner, (data) => {
+    const day = dailySessions(data)[0];
+    return closeDaily(data, id, day.body.version, owner, uploads);
+  });
+  const closed = await loadData(owner),
+    oldDay = dailySessions(closed)[0],
+    old = evidenceFor(closed, oldDay, oldDay.body.rows[0]).at(-1)!;
+  await updateData(owner, (data) => {
+    const day = dailySessions(data)[0];
+    return reopenDaily(data, id, day.body.version, owner, 'fresh review');
+  });
+  let latest = await loadData(owner),
+    day = dailySessions(latest)[0];
+  expect(evidenceFor(latest, day, day.body.rows[0])).toEqual([]);
+  await saveEvidence(owner, id, 'row', 'driver-photo', [image()]);
+  latest = await loadData(owner);
+  day = dailySessions(latest)[0];
+  const fresh = evidenceFor(latest, day, day.body.rows[0]).at(-1)!;
+  expect(fresh.id).not.toBe(old.id);
+  expect(fresh).toMatchObject({ body: { closureGeneration: 1 } });
+  expect(latest.workspaces!.find((record) => record.id === old.id)).toEqual(old);
+  expect(day.body.closures).toEqual(oldDay.body.closures);
+  expect(await listUploads(owner)).toHaveLength(4);
+  for (const file of uploads)
+    expect(
+      new TextDecoder().decode(
+        await readBlobBytes(
+          (await listUploads(owner)).find((item) => item.id === file.id)!.blob ?? file.blob!,
+        ),
+      ),
+    ).toBe('original photo bytes');
+});
+it('combines proof categories from different company members instead of creating disconnected evidence records', async () => {
+  const { cacheOwner } = await import('../workspaceIdentity');
+  const { owner: company, id } = await setup();
+  const first = cacheOwner({ companyId: company, actorUid: 'first-member', role: 'operator' }),
+    second = cacheOwner({ companyId: company, actorUid: 'second-member', role: 'operator' });
+  await persistData(first, await loadData(company));
+  await saveEvidence(first, id, 'row', 'driver-photo', [image()]);
+  const before = await loadData(first),
+    original = before.workspaces!.find((record) => record.recordType === 'evidence')!;
+  await persistData(second, before);
+  await saveEvidence(second, id, 'row', 'signature', [image()]);
+  const evidence = (await loadData(second)).workspaces!.filter(
+    (record) => record.recordType === 'evidence',
+  );
+  expect(evidence).toHaveLength(1);
+  expect(evidence[0].id).toBe(original.id);
+  if (evidence[0].recordType !== 'evidence') throw Error('fixture');
+  expect(evidence[0].body.files.map((file) => file.category).sort()).toEqual([
+    'driver-photo',
+    'signature',
+  ]);
+  expect(await listUploads(first)).toHaveLength(1);
+  expect(await listUploads(second)).toHaveLength(1);
+});
+it('rejects invalid proof generations and protects already verified proof from operator replacements', async () => {
+  const { cacheOwner } = await import('../workspaceIdentity');
+  const { owner: company, id } = await setup();
+  const owner = cacheOwner({ companyId: company, actorUid: 'operator', role: 'operator' });
+  await persistData(owner, await loadData(company));
+  await saveEvidence(owner, id, 'row', 'driver-photo', [image()]);
+  const data = await loadData(owner),
+    evidence = data.workspaces!.find((record) => record.recordType === 'evidence')!;
+  if (evidence.recordType !== 'evidence') throw Error('fixture');
+  for (const generation of [-1, 0.5, '1', 101])
+    expect(() =>
+      validateWorkspace({ ...evidence, body: { ...evidence.body, closureGeneration: generation } }),
+    ).toThrow('รุ่นหลักฐาน');
+  const day = dailySessions(data)[0];
+  day.body.verifications.row = {
+    fingerprint: evidence.body.fingerprint,
+    evidenceId: evidence.id,
+    fileIds: ['file'],
+    by: 'manager',
+    at: new Date().toISOString(),
+  };
+  await persistData(owner, data);
+  await expect(
+    saveEvidence(owner, id, 'row', 'driver-photo', [
+      new NodeFile(['replacement'], 'new.png', { type: 'image/png' }) as unknown as File,
+    ]),
+  ).rejects.toThrow('ผู้จัดการ');
+  expect(await loadData(owner)).toEqual(data);
+  expect(await listUploads(owner)).toHaveLength(1);
+});

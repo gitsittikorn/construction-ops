@@ -1,6 +1,7 @@
 import { loadData, updateDataAndUploads } from './storage';
 import { readBlobBytes } from './files';
-import { commitWorkspace, dailySessions, rowFingerprint, updateDaily } from './daily';
+import { commitWorkspace, dailySessions, evidenceFor, rowFingerprint, updateDaily } from './daily';
+import { companyId, managesBusiness } from './workspaceIdentity';
 import { canonical } from './syncModel';
 import type { EvidenceCategory, EvidenceRecord } from './workspaceModels';
 import type { UploadRecord } from './uploads';
@@ -31,7 +32,12 @@ export async function saveEvidence(
   if (!session || !row || !row.driverId || session.body.state === 'closed')
     throw Error('เลือกวันทำงานที่เปิดอยู่และระบุคนขับก่อนเก็บหลักฐาน');
   const fingerprint = rowFingerprint(session, row),
-    evidenceId = `evidence-${await sha256(`${owner}:${sessionId}:${rowId}:${fingerprint}`)}`;
+    closureGeneration = session.body.closures.length,
+    existing = evidenceFor(data, session, row).at(-1),
+    context = `${companyId(owner)}:${sessionId}:${rowId}:${fingerprint}`,
+    evidenceId =
+      existing?.id ??
+      `evidence-${await sha256(closureGeneration ? `${context}:closure:${closureGeneration}` : context)}`;
   const records: UploadRecord[] = await Promise.all(
     files.map(async (file) => ({
       id: `upload-${await sha256(`${evidenceId}:${category}:${await sha256(file)}`)}`,
@@ -73,6 +79,7 @@ export async function saveEvidence(
       !current ||
       !currentRow ||
       current.body.state === 'closed' ||
+      current.body.closures.length !== closureGeneration ||
       rowFingerprint(current, currentRow) !== fingerprint
     )
       throw Error('ยอดหรือข้อมูลคนขับเปลี่ยนแล้ว กรุณาบันทึกหลักฐานใหม่');
@@ -95,6 +102,8 @@ export async function saveEvidence(
         canonical([...files].sort((a, b) => a.uploadId.localeCompare(b.uploadId)))
     )
       return latest;
+    if (current.body.verifications[rowId] && !managesBusiness(owner))
+      throw Error('ผู้จัดการต้องยกเลิกการยืนยันก่อนเปลี่ยนหลักฐาน ข้อมูลเดิมยังอยู่');
     const record: EvidenceRecord = {
       id: evidenceId,
       recordType: 'evidence',
@@ -103,6 +112,7 @@ export async function saveEvidence(
       createdAt: before?.createdAt ?? now,
       updatedAt: now,
       body: {
+        closureGeneration,
         ...(before?.body.signature ? { signature: before.body.signature } : {}),
         ...(category === 'signature'
           ? {

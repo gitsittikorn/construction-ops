@@ -328,3 +328,23 @@ test('shared company authorization never selects company-owner credentials for a
   assert.equal((await post()).status, 403);
   assert.equal(s.records.size, 2);
 });
+
+test('credential vault rejects truncated authentication tags and unsupported nonce lengths', () => {
+  const { vault, credentials } = setup(),
+    record = vault.seal(user.uid, credentials);
+  for (const length of [0, 4, 8, 12, 13, 14, 15])
+    assert.throws(
+      () =>
+        vault.open(user.uid, {
+          ...record,
+          tag: Buffer.from(record.tag, 'base64').subarray(0, length).toString('base64'),
+        }),
+      /credential format/,
+    );
+  for (const length of [0, 8, 16])
+    assert.throws(
+      () => vault.open(user.uid, { ...record, iv: randomBytes(length).toString('base64') }),
+      /credential format/,
+    );
+  assert.deepEqual(vault.open(user.uid, record), credentials);
+});

@@ -66,12 +66,15 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
   )
     throw Error('ช่วงวันที่รายงานไม่ถูกต้อง');
   const evidenceIndex = new Map<string, string[]>();
+  const proofIndex = new Map<string, string>();
   for (const record of data.workspaces ?? []) {
     if (record.recordType !== 'evidence') continue;
-    const key = JSON.stringify([record.body.sessionId, record.body.rowId, record.body.fingerprint]);
+    const context = [record.body.sessionId, record.body.rowId, record.body.fingerprint];
+    const key = JSON.stringify([...context, record.body.closureGeneration ?? 0]);
     const entries = evidenceIndex.get(key) ?? [];
     entries.push(`Evidence: ${record.id}`);
     evidenceIndex.set(key, entries);
+    proofIndex.set(JSON.stringify([...context, record.id]), `Evidence: ${record.id}`);
   }
   const legacy: ReportRow[] = data.trips.map((t) => ({
     id: t.id,
@@ -93,11 +96,19 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
     s.body.rows.flatMap((r) => {
       const segments = dailyTripSegments(r);
       const state = verificationState(s, r);
+      const fingerprint = rowFingerprint(s, r);
+      const proof = s.body.verifications[r.id];
+      const currentProof = proof?.fingerprint === fingerprint ? proof : undefined;
+      const context = [s.id, r.id, fingerprint];
+      const proofRef =
+        currentProof && proofIndex.get(JSON.stringify([...context, currentProof.evidenceId]));
       const evidenceRefs = [
-        ...(evidenceIndex.size
-          ? (evidenceIndex.get(JSON.stringify([s.id, r.id, rowFingerprint(s, r)])) ?? [])
-          : []),
-        ...(s.body.verifications[r.id]?.fileIds ?? []).map((id) => `Drive: ${id}`),
+        ...(currentProof
+          ? proofRef
+            ? [proofRef]
+            : []
+          : (evidenceIndex.get(JSON.stringify([...context, s.body.closures.length])) ?? [])),
+        ...(currentProof?.fileIds ?? []).map((id) => `Drive: ${id}`),
       ];
       return segments.map((segment, index) => ({
         id: `${s.id}:${r.id}:${index}`,

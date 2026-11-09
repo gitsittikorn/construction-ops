@@ -308,7 +308,44 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     36,
   );
   expect(stored.audit.some((a: any) => a.action === 'daily-reopen')).toBe(true);
-  // Reopening requires an explicit new verification, then preserves both closure snapshots.
+  // Reopening starts a new proof generation. Historical evidence stays immutable.
+  await expect(page.getByText(/^สถานะหลักฐาน: INCOMPLETE /)).toBeVisible();
+  await page.getByLabel('ประเภทภาพหลักฐาน', { exact: true }).selectOption('driver-photo');
+  await page
+    .getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true })
+    .setInputFiles({ name: 'driver-reopened.png', mimeType: 'image/png', buffer: png });
+  await page.getByRole('button', { name: 'บันทึกภาพต้นฉบับ', exact: true }).click();
+  await expect(
+    page.getByText('driver-reopened.png · อยู่ในคิวอัปโหลด', { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel('ประเภทภาพหลักฐาน', { exact: true }).selectOption('trip-slip');
+  await page
+    .getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true })
+    .setInputFiles({ name: 'slip-reopened.png', mimeType: 'image/png', buffer: png });
+  await page.getByRole('button', { name: 'บันทึกภาพต้นฉบับ', exact: true }).click();
+  await expect(
+    page.getByText('slip-reopened.png · อยู่ในคิวอัปโหลด', { exact: true }),
+  ).toBeVisible();
+  await canvas.scrollIntoViewIfNeeded();
+  const freshBounds = (await canvas.boundingBox())!;
+  await page.mouse.move(freshBounds.x + 30, freshBounds.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(freshBounds.x + 130, freshBounds.y + 65, { steps: 6 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true }).click();
+  await expect(page.getByText(/^สถานะหลักฐาน: READY /)).toBeVisible();
+  await page.evaluate(async () => {
+    const path = '/src/uploads.ts',
+      module = await import(path);
+    for (const record of await module.listUploads('local'))
+      await module.putUpload({
+        ...record,
+        status: 'synced',
+        driveId: `test-${record.id}`,
+        folderId: 'test-private-folder',
+      });
+  });
+  // A new explicit verification preserves both closure snapshots.
   await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).click();
   await expect(page.locator('section[aria-label="งานรายวัน"]').getByRole('alert')).toContainText(
     'ยืนยัน',

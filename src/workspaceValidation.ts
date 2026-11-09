@@ -125,6 +125,13 @@ export function validateWorkspace(value: unknown): asserts value is WorkspaceRec
   } else if (r.recordType === 'evidence') {
     const b = r.body;
     if (
+      b.closureGeneration !== undefined &&
+      (!Number.isSafeInteger(b.closureGeneration) ||
+        b.closureGeneration < 0 ||
+        b.closureGeneration > 100)
+    )
+      throw Error('รุ่นหลักฐานหลังปิดวันไม่ถูกต้อง');
+    if (
       b.signature &&
       (b.signature.signerId !== b.driverId ||
         typeof b.signature.signerName !== 'string' ||

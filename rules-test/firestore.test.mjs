@@ -416,3 +416,165 @@ test('shared company roles protect finance, membership, sealed days and actual a
   );
   await assertFails(getDoc(doc(worker, 'users', 'admin', 'projects', 'p')));
 });
+
+test('evidence cannot be reparented out of a sealed day or rewritten after a later closeout generation', async () => {
+  const root = env.authenticatedContext('other').firestore(),
+    worker = env.authenticatedContext('proof-worker').firestore(),
+    at = '2026-11-09T00:00:00Z';
+  await setDoc(doc(root, 'companies', 'other'), {
+    ownerUid: 'other',
+    name: 'Proof company',
+    createdAt: at,
+    updatedAt: at,
+  });
+  await setDoc(doc(root, 'companies', 'other', 'members', 'proof-worker'), {
+    uid: 'proof-worker',
+    name: 'Worker',
+    role: 'operator',
+    enabled: true,
+    updatedAt: at,
+  });
+  await setDoc(
+    doc(root, 'users', 'other', 'projects', 'proof-project'),
+    envelope(project('proof-project')),
+  );
+  const day = (date) => ({
+    id: `daily-proof-project-${date}`,
+    createdAt: at,
+    updatedAt: at,
+    recordType: 'daily',
+    projectId: 'proof-project',
+    name: date,
+    body: {
+      date,
+      version: 1,
+      state: 'open',
+      rows: [],
+      verifications: {},
+      closures: [],
+      reason: '',
+    },
+  });
+  const originalDay = day('2026-11-09'),
+    otherDay = day('2026-11-10');
+  const ref = (db, id) => doc(db, 'users', 'other', 'workspaces', id);
+  await setDoc(ref(root, originalDay.id), envelope(originalDay));
+  await setDoc(ref(root, otherDay.id), envelope(otherDay));
+  const evidence = {
+    id: 'proof-original',
+    createdAt: at,
+    updatedAt: at,
+    recordType: 'evidence',
+    projectId: 'proof-project',
+    name: 'Original signature',
+    body: {
+      sessionId: originalDay.id,
+      rowId: 'row',
+      date: originalDay.body.date,
+      truckId: 'truck',
+      driverId: 'driver',
+      fingerprint: 'signed-totals',
+      files: [{ uploadId: 'original-file', category: 'signature', name: 'signature.png' }],
+    },
+  };
+  await assertSucceeds(setDoc(ref(worker, evidence.id), envelope(evidence)));
+  const proof = {
+    fingerprint: evidence.body.fingerprint,
+    evidenceId: evidence.id,
+    fileIds: ['original-drive'],
+    by: 'other',
+    at,
+  };
+  const closed = {
+    ...originalDay,
+    body: {
+      ...originalDay.body,
+      version: 2,
+      state: 'closed',
+      verifications: { row: proof },
+      closures: [{ rows: [], verifications: { row: proof }, by: 'other', at, trips: 0, volume: 0 }],
+    },
+  };
+  await setDoc(ref(root, closed.id), envelope(closed, 2));
+  const reparented = {
+    ...evidence,
+    body: { ...evidence.body, sessionId: otherDay.id, date: otherDay.body.date },
+  };
+  await assertFails(setDoc(ref(worker, evidence.id), envelope(reparented, 2)));
+  await assertFails(
+    setDoc(ref(root, evidence.id), envelope({ ...evidence, name: 'rewritten closed proof' }, 2)),
+  );
+  const reopened = {
+    ...closed,
+    body: {
+      ...closed.body,
+      version: 3,
+      state: 'reopened',
+      verifications: {},
+      reason: 'Supervisor reopened',
+    },
+  };
+  await setDoc(ref(root, reopened.id), envelope(reopened, 3));
+  await assertFails(
+    setDoc(
+      ref(worker, evidence.id),
+      envelope({ ...evidence, name: 'overwrite historical proof' }, 2),
+    ),
+  );
+  const fresh = {
+    ...evidence,
+    id: 'proof-current',
+    body: { ...evidence.body, closureGeneration: 1 },
+  };
+  await assertSucceeds(setDoc(ref(worker, fresh.id), envelope(fresh)));
+  const verified = {
+    ...reopened,
+    body: {
+      ...reopened.body,
+      version: 4,
+      verifications: { row: { ...proof, evidenceId: fresh.id } },
+    },
+  };
+  await setDoc(ref(root, verified.id), envelope(verified, 4));
+  await assertFails(
+    setDoc(ref(worker, fresh.id), envelope({ ...fresh, name: 'replace without invalidation' }, 2)),
+  );
+  const cleared = { ...verified, body: { ...verified.body, version: 5, verifications: {} } };
+  await setDoc(ref(root, cleared.id), envelope(cleared, 5));
+  await assertSucceeds(
+    setDoc(
+      ref(worker, fresh.id),
+      envelope({ ...fresh, name: 'allowed after explicit invalidation' }, 2),
+    ),
+  );
+  // A clean-profile restore can create a missing historical proof named by a closure,
+  // but cannot use an operator grant to manufacture historical evidence.
+  const restoredProof = { ...proof, evidenceId: 'proof-restored' },
+    historicalDay = day('2026-11-11');
+  const historical = {
+    ...historicalDay,
+    body: {
+      ...historicalDay.body,
+      state: 'closed',
+      verifications: { row: restoredProof },
+      closures: [
+        { rows: [], verifications: { row: restoredProof }, by: 'other', at, trips: 0, volume: 0 },
+      ],
+    },
+  };
+  await setDoc(ref(root, historical.id), envelope(historical));
+  const restored = {
+    ...evidence,
+    id: restoredProof.evidenceId,
+    body: { ...evidence.body, sessionId: historical.id, date: historical.body.date },
+  };
+  await assertFails(setDoc(ref(worker, restored.id), envelope(restored)));
+  await assertSucceeds(setDoc(ref(root, restored.id), envelope(restored)));
+  const unused = {
+    ...restored,
+    id: 'proof-historical-alternative',
+    body: { ...restored.body, fingerprint: 'previously replaced totals' },
+  };
+  await assertFails(setDoc(ref(worker, unused.id), envelope(unused)));
+  await assertSucceeds(setDoc(ref(root, unused.id), envelope(unused)));
+});

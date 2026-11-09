@@ -63,6 +63,7 @@ export interface DailyBody {
 }
 export type EvidenceCategory = 'driver-photo' | 'signature' | 'trip-slip';
 export interface EvidenceBody {
+  closureGeneration?: number;
   signature?: { signerId: string; signerName: string; signedAt: string; uploadId: string };
   sessionId: string;
   rowId: string;

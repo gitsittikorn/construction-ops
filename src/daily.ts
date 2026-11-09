@@ -471,12 +471,17 @@ export function duplicateNextDay(data: Data, id: string, actor: string, expected
   );
 }
 export function evidenceFor(data: Data, session: DailySession, row: DailyRow) {
+  const fingerprint = rowFingerprint(session, row),
+    proof = session.body.verifications[row.id];
   return (data.workspaces ?? []).filter(
     (r) =>
       r.recordType === 'evidence' &&
       r.body.sessionId === session.id &&
       r.body.rowId === row.id &&
-      r.body.fingerprint === rowFingerprint(session, row),
+      r.body.fingerprint === fingerprint &&
+      (proof?.fingerprint === fingerprint
+        ? r.id === proof.evidenceId
+        : (r.body.closureGeneration ?? 0) === session.body.closures.length),
   );
 }
 export function evidenceFiles(

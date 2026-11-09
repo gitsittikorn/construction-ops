@@ -7,7 +7,7 @@ export function createTokenVault(encodedKey) {
   return {
     seal(uid, credentials) {
       const iv = randomBytes(12);
-      const cipher = createCipheriv('aes-256-gcm', key, iv);
+      const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
       cipher.setAAD(Buffer.from(uid));
       const data = Buffer.concat([
         cipher.update(JSON.stringify(credentials), 'utf8'),
@@ -22,9 +22,12 @@ export function createTokenVault(encodedKey) {
     },
     open(uid, record) {
       if (record?.version !== 1) throw Error('Unsupported encrypted credential version');
-      const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(record.iv, 'base64'));
+      const iv = Buffer.from(record.iv, 'base64'),
+        tag = Buffer.from(record.tag, 'base64');
+      if (iv.length !== 12 || tag.length !== 16) throw Error('Invalid encrypted credential format');
+      const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
       decipher.setAAD(Buffer.from(uid));
-      decipher.setAuthTag(Buffer.from(record.tag, 'base64'));
+      decipher.setAuthTag(tag);
       return JSON.parse(
         Buffer.concat([
           decipher.update(Buffer.from(record.data, 'base64')),
