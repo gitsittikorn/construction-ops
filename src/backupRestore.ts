@@ -1,3 +1,4 @@
+import { uploadStore, sharedCache, actorUid } from './workspaceIdentity';
 import { emptyData, type Audit, type Data } from './models';
 import {
   canonical,
@@ -28,6 +29,7 @@ export interface RestorePreview {
   deletedSkipped: number;
   exportedAt: string;
   daysToRecheck: number;
+  financeRecreated: number;
 }
 interface Plan {
   owner: string;
@@ -36,6 +38,7 @@ interface Plan {
   uploads: UploadRecord[];
   summary: { added: number; conflictsKept: number };
   originalDailyStates: Entity[];
+  originalFinanceRecords: Entity[];
 }
 // Keep validated data private: changing a preview's display counts cannot change a write.
 const plans = new WeakMap<RestorePreview, Plan>();
@@ -245,13 +248,13 @@ export async function previewLocalRestore(owner: string, file: Blob): Promise<Re
     throw Error('ID ไฟล์แนบซ้ำในข้อมูลสำรอง');
   const db = await openLocalDatabase();
   try {
-    const tx = db.transaction(['state', 'uploads'], 'readonly');
+    const tx = db.transaction(['state', uploadStore(owner)], 'readonly');
     const [current, allFiles]: [Data, UploadRecord[]] = await Promise.all([
       tx
         .objectStore('state')
         .get(owner)
         .then((value) => value ?? structuredClone(emptyData)),
-      tx.objectStore('uploads').getAll(),
+      tx.objectStore(uploadStore(owner)).getAll(),
     ]);
     await tx.done;
     const ownerFiles = allFiles.filter((file) => file.owner === owner);
@@ -265,8 +268,10 @@ export async function previewLocalRestore(owner: string, file: Blob): Promise<Re
       deletedSkipped: 0,
       exportedAt: raw.exportedAt,
       daysToRecheck: 0,
+      financeRecreated: 0,
     };
     const originalDailyStates: Entity[] = [];
+    const originalFinanceRecords: Entity[] = [];
     for (const kind of collections) {
       const occupied = new Map(
         [...(current[kind] ?? []), ...(current[deletedKey[kind]] ?? [])].map((record) => [
@@ -306,6 +311,20 @@ export async function previewLocalRestore(owner: string, file: Blob): Promise<Re
               },
             });
             preview.daysToRecheck++;
+          } else if (
+            'recordType' in record &&
+            record.recordType === 'finance' &&
+            record.body.entry.by !== actorUid(owner)
+          ) {
+            const at = new Date().toISOString();
+            originalFinanceRecords.push(structuredClone(record));
+            added.push({
+              ...record,
+              createdAt: at,
+              updatedAt: at,
+              body: { ...record.body, entry: { ...record.body.entry, by: actorUid(owner), at } },
+            } as Entity);
+            preview.financeRecreated++;
           } else added.push(record);
           preview.added++;
         }
@@ -321,7 +340,9 @@ export async function previewLocalRestore(owner: string, file: Blob): Promise<Re
     }
     const importedFiles: UploadRecord[] = [];
     for (const upload of files) {
-      const old = allFiles.find((file) => file.id === upload.id);
+      const old = allFiles.find(
+        (file) => file.id === upload.id && (!sharedCache(owner) || file.owner === owner),
+      );
       if (old) {
         if (old.owner !== owner) throw Error('รหัสไฟล์แนบชนกับข้อมูลที่ไม่สามารถกู้คืนร่วมกันได้');
         preview.filesKept++;
@@ -338,6 +359,7 @@ export async function previewLocalRestore(owner: string, file: Blob): Promise<Re
       uploads: importedFiles,
       summary: { added: preview.added, conflictsKept: preview.conflicts.length },
       originalDailyStates,
+      originalFinanceRecords,
     });
     return preview;
   } finally {
@@ -354,11 +376,11 @@ export async function applyLocalRestore(
     throw Error('ตัวอย่างกู้คืนหมดอายุหรือบัญชีเปลี่ยน กรุณาตรวจใหม่');
   const db = await openLocalDatabase();
   try {
-    const tx = db.transaction(['state', 'uploads'], 'readwrite');
+    const tx = db.transaction(['state', uploadStore(owner)], 'readwrite');
     try {
       const store = tx.objectStore('state');
       const current: Data = (await store.get(owner)) ?? structuredClone(emptyData);
-      const allFiles: UploadRecord[] = await tx.objectStore('uploads').getAll();
+      const allFiles: UploadRecord[] = await tx.objectStore(uploadStore(owner)).getAll();
       if (
         !isCurrentOwner() ||
         manifest(
@@ -377,12 +399,21 @@ export async function applyLocalRestore(
         entityId: 'backup-restore',
         action: 'restore-missing-only',
         at: new Date().toISOString(),
-        actor: owner,
-        before: { importedDailyStates: plan.originalDailyStates },
-        after: { ...plan.summary, filesAdded: plan.uploads.length },
+        actor: actorUid(owner),
+        before: {
+          importedDailyStates: plan.originalDailyStates,
+          ...(plan.originalFinanceRecords.length
+            ? { importedFinanceRecords: plan.originalFinanceRecords }
+            : {}),
+        },
+        after: {
+          ...plan.summary,
+          filesAdded: plan.uploads.length,
+          financeRecreated: plan.originalFinanceRecords.length,
+        },
       };
       next.audit.push(audit);
-      for (const upload of plan.uploads) await tx.objectStore('uploads').add(upload);
+      for (const upload of plan.uploads) await tx.objectStore(uploadStore(owner)).add(upload);
       if (!isCurrentOwner()) throw Error('บัญชีเปลี่ยน กรุณาตรวจใหม่');
       await store.put(next, owner);
       await tx.done;

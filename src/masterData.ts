@@ -1,3 +1,4 @@
+import { actorUid } from './workspaceIdentity';
 import type { Data, Master } from './models';
 import { validateMaster } from './domain';
 export const truckTypes = { 'six-wheel': 'หกล้อ', 'ten-wheel': 'สิบล้อ', other: 'อื่น ๆ' } as const;
@@ -57,7 +58,7 @@ export function saveMaster(data: Data, record: Master, actor: string): Data {
         entityId: record.id,
         action: before ? 'update' : 'create',
         at: new Date().toISOString(),
-        actor,
+        actor: actorUid(actor),
         before,
         after: record,
       },

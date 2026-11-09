@@ -1,3 +1,4 @@
+import { managesBusiness } from './workspaceIdentity';
 import { useRef, useState, type FormEvent } from 'react';
 import type { Data, Master } from './models';
 import type { DailyRow } from './workspaceModels';
@@ -40,6 +41,7 @@ export default function DailyPanel({
   onChange: (change: (data: Data) => Data) => Promise<void>;
   online: boolean;
 }) {
+  const canVerify = managesBusiness(owner);
   const ui = useDailyUi(
     owner,
     defaultProject || data.projects.find((p) => p.status === 'active')?.id || '',
@@ -422,7 +424,7 @@ export default function DailyPanel({
               ย้อนการแก้ไขล่าสุด
             </button>
             <button
-              disabled={busy || session.body.state === 'closed'}
+              disabled={!canVerify || busy || session.body.state === 'closed'}
               onClick={() =>
                 void run(async () => {
                   const uploads = await listUploads(owner);
@@ -443,7 +445,7 @@ export default function DailyPanel({
               ยืนยันยอดทั้งวัน
             </button>
             <button
-              disabled={busy || session.body.state === 'closed'}
+              disabled={!canVerify || busy || session.body.state === 'closed'}
               onClick={() =>
                 void run(async () => {
                   const uploads = await listUploads(owner);
@@ -456,7 +458,7 @@ export default function DailyPanel({
               ปิดวันทำงาน
             </button>
             <button
-              disabled={busy || session.body.state !== 'closed'}
+              disabled={!canVerify || busy || session.body.state !== 'closed'}
               onClick={() =>
                 void mutate((old) =>
                   reopenDaily(old, session.id, session.body.version, owner, reason),
@@ -602,7 +604,7 @@ export default function DailyPanel({
                         หลักฐาน {name(row.truckId)}
                       </button>
                       <button
-                        disabled={busy || session.body.state === 'closed'}
+                        disabled={!canVerify || busy || session.body.state === 'closed'}
                         onClick={() =>
                           void run(async () => {
                             const uploads = await listUploads(owner);

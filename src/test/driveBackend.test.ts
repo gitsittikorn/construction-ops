@@ -143,3 +143,40 @@ it('shows a safe retry message when the backend throttles requests', async () =>
   const { restoreDriveConnection } = await import('../driveBackend');
   await expect(restoreDriveConnection()).rejects.toMatchObject({ code: 'rate_limited' });
 });
+
+it('sends the selected company while authenticating only the actual member UID', async () => {
+  const { setWorkspaceSession } = await import('../workspaceIdentity');
+  setWorkspaceSession({ actorUid: 'owner', companyId: 'company', role: 'operator' });
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(response({ token: 'member-own-access', expiresAt: Date.now() + 3600000 }));
+  vi.stubGlobal('fetch', fetch);
+  try {
+    const { restoreDriveConnection } = await import('../driveBackend');
+    await restoreDriveConnection();
+    expect(mocks.idToken).toHaveBeenCalledWith('owner');
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-Company-ID': 'company' }) }),
+    );
+  } finally {
+    setWorkspaceSession(null);
+  }
+});
+it('cancels a backend mutation when company changes while awaiting the same user token', async () => {
+  const { setWorkspaceSession } = await import('../workspaceIdentity');
+  setWorkspaceSession({ actorUid: 'owner', companyId: 'company-a', role: 'manager' });
+  const fetch = vi.fn();
+  vi.stubGlobal('fetch', fetch);
+  mocks.idToken.mockImplementationOnce(async () => {
+    setWorkspaceSession({ actorUid: 'owner', companyId: 'company-b', role: 'operator' });
+    return 'same-user-token';
+  });
+  try {
+    const { disconnectDriveBackend } = await import('../driveBackend');
+    await expect(disconnectDriveBackend()).rejects.toMatchObject({ code: 'unauthorized' });
+    expect(fetch).not.toHaveBeenCalled();
+  } finally {
+    setWorkspaceSession(null);
+  }
+});

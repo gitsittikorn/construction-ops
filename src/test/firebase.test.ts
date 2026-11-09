@@ -51,7 +51,7 @@ describe('cloud sync adapter (mocked Firebase SDK)', () => {
     const { resolveDriveFolders } = await import('../firebase');
     await expect(
       resolveDriveFolders('admin', 'root', { rootId: 'r', projectsId: 'p' }),
-    ).rejects.toThrow('enabled: true');
+    ).rejects.toThrow('สิทธิ์กับเจ้าของ');
   });
   it('stores only document metadata and an audit event, never a Blob', async () => {
     mocks.get.mockResolvedValue({ exists: () => false });

@@ -1,3 +1,4 @@
+import { actorUid, companyId, cacheOwner, getWorkspaceSession } from './workspaceIdentity';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -38,8 +39,19 @@ export async function getFirebaseIdToken(owner: string) {
   if (!user || user.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ backend');
   return user.getIdToken();
 }
+export function identityDatabase() {
+  if (!app || !auth?.currentUser) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ');
+  return getFirestore(app);
+}
 export function ownerDatabase(owner: string) {
-  if (!app || auth?.currentUser?.uid !== owner) throw Error('กรุณาเข้าสู่ระบบก่อนเชื่อมต่อ');
+  const scope = getWorkspaceSession();
+  if (
+    !app ||
+    auth?.currentUser?.uid !== actorUid(owner) ||
+    (scope && cacheOwner(scope) !== owner) ||
+    (companyId(owner) !== actorUid(owner) && !scope)
+  )
+    throw Error('กรุณาเลือกบริษัทและเข้าสู่ระบบก่อนเชื่อมต่อ');
   return getFirestore(app);
 }
 export async function resolveDriveFolders(
@@ -48,7 +60,7 @@ export async function resolveDriveFolders(
   candidate: Record<string, string>,
 ): Promise<Record<string, string>> {
   const db = ownerDatabase(owner),
-    ref = doc(db, 'users', owner, 'driveFolders', key);
+    ref = doc(db, 'users', companyId(owner), 'driveFolders', key);
   return boundedFirestore(
     runTransaction(db, async (transaction) => {
       const existing = await transaction.get(ref);
@@ -71,7 +83,7 @@ async function boundedFirestore<T>(operation: Promise<T>): Promise<T> {
 }
 export async function saveDocumentMetadata(owner: string, record: UploadRecord) {
   const db = ownerDatabase(owner),
-    ref = doc(db, 'users', owner, 'documents', record.id);
+    ref = doc(db, 'users', companyId(owner), 'documents', record.id);
   const metadata = {
     ...(record.evidenceId
       ? {
@@ -83,7 +95,7 @@ export async function saveDocumentMetadata(owner: string, record: UploadRecord) 
         }
       : {}),
     id: record.id,
-    owner,
+    owner: companyId(owner),
     projectId: record.projectId,
     tripId: record.tripId,
     fileId: record.driveId,
@@ -104,10 +116,10 @@ export async function saveDocumentMetadata(owner: string, record: UploadRecord) 
         return;
       }
       transaction.set(ref, { ...metadata, uploadedAt: serverTimestamp() });
-      transaction.set(doc(db, 'users', owner, 'audit', `upload-${record.id}`), {
+      transaction.set(doc(db, 'users', companyId(owner), 'audit', `upload-${record.id}`), {
         entityId: record.id,
         action: 'upload',
-        actor: owner,
+        actor: actorUid(owner),
         at: serverTimestamp(),
         fileId: record.driveId,
       });
@@ -120,7 +132,7 @@ export async function resolveEvidenceFolder(
   candidate: { id: string; parentId: string; name: string },
 ) {
   const db = ownerDatabase(owner),
-    ref = doc(db, 'users', owner, 'evidenceFolders', key);
+    ref = doc(db, 'users', companyId(owner), 'evidenceFolders', key);
   return boundedFirestore(
     runTransaction(db, async (tx) => {
       const existing = await tx.get(ref);

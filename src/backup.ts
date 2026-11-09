@@ -1,3 +1,4 @@
+import { uploadStore } from './workspaceIdentity';
 import { openLocalDatabase } from './storage';
 import type { UploadRecord } from './uploads';
 import { readBlobBytes } from './files';
@@ -14,7 +15,7 @@ export async function exportLocalBackup(owner: string): Promise<Blob> {
     duplicateReviews,
     uploads: UploadRecord[];
   try {
-    const tx = db.transaction(['state', 'uploads', 'driveSettings'], 'readonly');
+    const tx = db.transaction(['state', uploadStore(owner), 'driveSettings'], 'readonly');
     [
       state,
       migrationBackup,
@@ -35,7 +36,7 @@ export async function exportLocalBackup(owner: string): Promise<Blob> {
       tx.objectStore('driveSettings').get(['project-default', owner]),
       tx.objectStore('driveSettings').get(['duplicate-reviews', owner]),
       tx
-        .objectStore('uploads')
+        .objectStore(uploadStore(owner))
         .getAll()
         .then((rows: UploadRecord[]) => rows.filter((row) => row.owner === owner)),
     ]);

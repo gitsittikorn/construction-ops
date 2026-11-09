@@ -1,3 +1,4 @@
+import { activeCacheOwner, companyId } from './workspaceIdentity';
 import { getFirebaseIdToken, getSessionIdentity } from './firebase';
 import type { DriveSession } from './driveSession';
 
@@ -23,6 +24,8 @@ export class DriveBackendError extends Error {
 async function call(path: string, body?: object, method = 'POST'): Promise<unknown> {
   const user = getSessionIdentity();
   if (!user) throw new DriveBackendError('unauthorized');
+  const workspace = activeCacheOwner(user.uid);
+  const company = companyId(workspace);
   const url = new URL(base);
   if (
     url.protocol !== 'https:' &&
@@ -30,7 +33,8 @@ async function call(path: string, body?: object, method = 'POST'): Promise<unkno
   )
     throw new DriveBackendError('invalid_backend_url');
   const idToken = await getFirebaseIdToken(user.uid);
-  if (getSessionIdentity()?.uid !== user.uid) throw new DriveBackendError('unauthorized');
+  if (getSessionIdentity()?.uid !== user.uid || activeCacheOwner(user.uid) !== workspace)
+    throw new DriveBackendError('unauthorized');
   let response: Response;
   try {
     response = await fetch(`${base}/api/drive/${path}`, {
@@ -40,6 +44,7 @@ async function call(path: string, body?: object, method = 'POST'): Promise<unkno
         Authorization: `Bearer ${idToken}`,
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
+        ...(company !== user.uid ? { 'X-Company-ID': company } : {}),
       },
       body: method === 'DELETE' ? undefined : JSON.stringify(body ?? {}),
       signal: AbortSignal.timeout(90000),
@@ -47,7 +52,8 @@ async function call(path: string, body?: object, method = 'POST'): Promise<unkno
   } catch {
     throw new DriveBackendError('service_unavailable');
   }
-  if (getSessionIdentity()?.uid !== user.uid) throw new DriveBackendError('unauthorized');
+  if (getSessionIdentity()?.uid !== user.uid || activeCacheOwner(user.uid) !== workspace)
+    throw new DriveBackendError('unauthorized');
   if (response.status === 204) return null;
   let data: Record<string, unknown>;
   try {

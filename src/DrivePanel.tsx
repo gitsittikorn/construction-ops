@@ -1,3 +1,4 @@
+import { workspaceMatches } from './workspaceIdentity';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Upload, RefreshCw, Link, Download, Unplug } from 'lucide-react';
 import type { Project, Trip } from './models';
@@ -95,7 +96,8 @@ export default function DrivePanel({
   const recoveredAt = useRef(0);
   const session = () => {
     const user = getSessionIdentity();
-    if (!user || user.uid !== owner) throw Error('กรุณาเข้าสู่ระบบ Firebase ก่อนเชื่อม Drive');
+    if (!user || !workspaceMatches(owner, user.uid))
+      throw Error('กรุณาเข้าสู่ระบบ Firebase ก่อนเชื่อม Drive');
     return user;
   };
   function expireConnection() {
@@ -128,7 +130,7 @@ export default function DrivePanel({
     if (!renewal.current) {
       renewal.current = restoreDriveConnection(force)
         .then((auth) => {
-          if (!alive.current || getSessionIdentity()?.uid !== owner)
+          if (!alive.current || !workspaceMatches(owner, getSessionIdentity()?.uid))
             throw Error('บัญชีผู้ใช้เปลี่ยนแล้ว');
           credentials.current = auth;
           saveDriveSession(owner, auth);
@@ -476,7 +478,7 @@ export default function DrivePanel({
     setNotice('');
     try {
       await restoreOriginalForOffline(owner, item, {
-        active: () => alive.current && getSessionIdentity()?.uid === owner,
+        active: () => alive.current && workspaceMatches(owner, getSessionIdentity()?.uid),
         download: async (record) => downloadVerifiedOriginal(await token(), record),
       });
       if (!alive.current) return;
@@ -498,11 +500,12 @@ export default function DrivePanel({
     try {
       session();
       const result = await auditDriveDocuments(owner, await listUploads(owner), {
-        active: () => alive.current && getSessionIdentity()?.uid === owner,
+        active: () => alive.current && workspaceMatches(owner, getSessionIdentity()?.uid),
         list: async () => listOwnedDriveFiles(await token(), owner),
         get: async (id) => getDriveFile(await token(), id),
       });
-      if (alive.current && getSessionIdentity()?.uid === owner) setAudit({ owner, result });
+      if (alive.current && workspaceMatches(owner, getSessionIdentity()?.uid))
+        setAudit({ owner, result });
     } catch (error) {
       if (alive.current) reportError(error);
     } finally {

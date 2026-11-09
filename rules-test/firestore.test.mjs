@@ -14,6 +14,8 @@ import {
   deleteDoc,
   serverTimestamp,
   runTransaction,
+  query,
+  where,
 } from 'firebase/firestore';
 
 let env;
@@ -269,4 +271,148 @@ test('finance events enforce money types, scoped parties and immutable originals
   await assertFails(
     save(event('second-reversal', 'expense', { ...reversal.body.entry, id: 'second-reversal' })),
   );
+});
+
+test('shared company roles protect finance, membership, sealed days and actual audit actors even without the UI', async () => {
+  const root = env.authenticatedContext('admin').firestore();
+  const at = '2026-11-08T00:00:00Z';
+  await assertSucceeds(
+    setDoc(doc(root, 'companies', 'admin'), {
+      ownerUid: 'admin',
+      name: 'Shared company',
+      createdAt: at,
+      updatedAt: at,
+    }),
+  );
+  for (const [uid, role] of [
+    ['manager', 'manager'],
+    ['worker', 'operator'],
+  ])
+    await assertSucceeds(
+      setDoc(doc(root, 'companies', 'admin', 'members', uid), {
+        uid,
+        name: uid,
+        role,
+        enabled: true,
+        updatedAt: at,
+      }),
+    );
+  const manager = env.authenticatedContext('manager').firestore(),
+    worker = env.authenticatedContext('worker').firestore(),
+    foreign = env.authenticatedContext('outsider').firestore();
+  await assertSucceeds(getDoc(doc(worker, 'users', 'admin', 'projects', 'p')));
+  await assertFails(getDoc(doc(foreign, 'users', 'admin', 'projects', 'p')));
+  await assertFails(
+    setDoc(doc(worker, 'companies', 'admin', 'members', 'worker'), {
+      uid: 'worker',
+      name: 'worker',
+      role: 'manager',
+      enabled: true,
+      updatedAt: at,
+    }),
+  );
+  await assertFails(
+    setDoc(doc(manager, 'companies', 'admin', 'members', 'outsider'), {
+      uid: 'outsider',
+      name: 'outsider',
+      role: 'manager',
+      enabled: true,
+      updatedAt: at,
+    }),
+  );
+  await assertFails(
+    setDoc(doc(root, 'companies', 'admin', 'members', 'admin'), {
+      uid: 'admin',
+      name: 'owner',
+      role: 'operator',
+      enabled: false,
+      updatedAt: at,
+    }),
+  );
+  await assertFails(getDocs(collection(worker, 'companies', 'admin', 'members')));
+  await assertFails(getDoc(doc(worker, 'users', 'admin', 'workspaces', 'valid-rate')));
+  await assertSucceeds(getDoc(doc(manager, 'users', 'admin', 'workspaces', 'valid-rate')));
+  await assertFails(getDocs(collection(worker, 'users', 'admin', 'workspaces')));
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(worker, 'users', 'admin', 'workspaces'),
+        where('payload.recordType', 'in', ['daily', 'evidence', 'survey']),
+      ),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(worker, 'users', 'admin', 'projects', 'worker-project'),
+      envelope(project('worker-project')),
+    ),
+  );
+  const day = {
+    id: 'daily-p-2026-11-08',
+    createdAt: at,
+    updatedAt: at,
+    recordType: 'daily',
+    projectId: 'p',
+    name: 'Working day',
+    body: {
+      date: '2026-11-08',
+      version: 1,
+      state: 'open',
+      rows: [],
+      verifications: {},
+      closures: [],
+      reason: '',
+    },
+  };
+  const dayRef = doc(worker, 'users', 'admin', 'workspaces', day.id);
+  await assertSucceeds(getDoc(dayRef));
+  await assertSucceeds(setDoc(dayRef, envelope(day)));
+  const verified = {
+    ...day,
+    body: { ...day.body, version: 2, verifications: { forged: { by: 'worker' } } },
+  };
+  await assertFails(setDoc(dayRef, envelope(verified, 2)));
+  const closure = { rows: [], verifications: {}, by: 'manager', at, trips: 0, volume: 0 };
+  const closed = {
+    ...day,
+    body: { ...day.body, version: 2, state: 'closed', closures: [closure] },
+  };
+  await assertFails(setDoc(dayRef, envelope(closed, 2)));
+  await assertSucceeds(
+    setDoc(doc(manager, 'users', 'admin', 'workspaces', day.id), envelope(closed, 2)),
+  );
+  await assertFails(
+    setDoc(
+      dayRef,
+      envelope(
+        {
+          ...closed,
+          body: { ...closed.body, version: 3, state: 'reopened', reason: 'forged reopen' },
+        },
+        3,
+      ),
+    ),
+  );
+  await assertFails(
+    setDoc(doc(worker, 'users', 'admin', 'audit', 'forged-actor'), {
+      actor: 'admin',
+      at: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    setDoc(doc(worker, 'users', 'admin', 'audit', 'actual-actor'), {
+      actor: 'worker',
+      at: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    setDoc(doc(root, 'companies', 'admin', 'members', 'worker'), {
+      uid: 'worker',
+      name: 'worker',
+      role: 'operator',
+      enabled: false,
+      updatedAt: at,
+    }),
+  );
+  await assertFails(getDoc(doc(worker, 'users', 'admin', 'projects', 'p')));
 });

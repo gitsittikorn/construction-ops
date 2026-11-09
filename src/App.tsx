@@ -1,3 +1,6 @@
+import { assertCompanyMutation } from './companyPermissions';
+import { actorUid, cacheOwner, companyRole, type CompanyScope } from './workspaceIdentity';
+import CompanyMembersPanel from './CompanyMembersPanel';
 import { useProjectPreference } from './useProjectPreference';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
@@ -94,10 +97,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-export default function App() {
+export default function App({
+  workspace,
+  onSwitchCompany,
+}: { workspace?: CompanyScope & { name?: string }; onSwitchCompany?: () => void } = {}) {
   const [data, setData] = useState<Data>(emptyData),
     [page, setPage] = useState('overview'),
-    [owner, setOwner] = useState(configured ? '' : 'local'),
+    [owner, setOwner] = useState(configured ? '' : workspace ? cacheOwner(workspace) : 'local'),
     [ready, setReady] = useState(false),
     [online, setOnline] = useState(navigator.onLine),
     [error, setError] = useState(''),
@@ -114,6 +120,13 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
   const projectPreference = useProjectPreference(owner, data.projects);
+  const canManage = companyRole(owner) !== 'operator';
+  const roleLabel =
+    companyRole(owner) === 'owner'
+      ? 'เจ้าของกิจการ'
+      : companyRole(owner) === 'manager'
+        ? 'ผู้จัดการ'
+        : 'พนักงานบันทึกข้อมูล';
   const [tripProject, setTripProject] = useState('');
   const [tripSoilType, setTripSoilType] = useState('');
   const [masterTagFilter, setMasterTagFilter] = useState('');
@@ -135,7 +148,13 @@ export default function App() {
     () =>
       observeAuth((user) => {
         if (!alive.current) return;
-        const nextOwner = user?.uid ?? '';
+        const nextOwner = user
+          ? workspace
+            ? workspace.actorUid === user.uid
+              ? cacheOwner(workspace)
+              : ''
+            : user.uid
+          : '';
         if (nextOwner) clearDriveSessionsExcept(nextOwner);
         else clearDriveSessions();
         if (nextOwner === account.current) return;
@@ -198,7 +217,9 @@ export default function App() {
           if (!latest || canonical(payloadOf(latest)) !== canonical(payloadOf(editing)))
             throw Error('ข้อมูลเปลี่ยนแปลงแล้ว กรุณาปิดฟอร์มและเปิดรายการใหม่');
         }
-        return make(old);
+        const next = make(old);
+        assertCompanyMutation(old, next, owner);
+        return next;
       });
       if (!alive.current || account.current !== owner) return;
       loadEpoch.current++;
@@ -298,6 +319,10 @@ export default function App() {
     return connectionMessage(e);
   }
   function open(type: typeof modal, record: typeof editing = null) {
+    if (!canManage && type !== 'trip') {
+      setError('พนักงานดูข้อมูลนี้ได้ การแก้ไขต้องให้ผู้จัดการดำเนินการ');
+      return;
+    }
     setConfirmDelete(false);
     if (type === 'trip') setTripSoilType(record && 'soilType' in record ? record.soilType : '');
     if (type === 'trip')
@@ -345,7 +370,7 @@ export default function App() {
               entityId: record.id,
               action: editing ? 'update' : 'create',
               at: now,
-              actor: owner,
+              actor: actorUid(owner),
               before: editing,
               after: record,
             },
@@ -393,7 +418,7 @@ export default function App() {
     }
   }
   async function remove() {
-    if (!editing || !modal || writeLock.current) return;
+    if (!canManage || !editing || !modal || writeLock.current) return;
     try {
       const uploads = await listUploads(owner);
       await change((old) => deleteRecord(old, modal, editing.id, owner, uploads));
@@ -477,8 +502,12 @@ export default function App() {
       <main>
         <h1>
           {cloudAccess === 'denied'
-            ? 'ไม่สามารถตรวจสอบสิทธิ์ Admin ได้'
-            : 'กำลังตรวจสอบสิทธิ์ Admin'}
+            ? workspace
+              ? 'ไม่สามารถตรวจสอบสิทธิ์บริษัทได้'
+              : 'ไม่สามารถตรวจสอบสิทธิ์ Admin ได้'
+            : workspace
+              ? 'กำลังตรวจสอบสิทธิ์บริษัท'
+              : 'กำลังตรวจสอบสิทธิ์ Admin'}
         </h1>
         <p role="alert">
           {cloudError ||
@@ -501,21 +530,23 @@ export default function App() {
         </div>
         <span className="nav-caption">พื้นที่ทำงาน</span>
         <nav>
-          {pages.map(([id, title, Icon]) => (
-            <button
-              key={id}
-              aria-label={title}
-              className={page === id ? 'selected' : ''}
-              onClick={() => {
-                setPage(id);
-                setQuery('');
-              }}
-            >
-              <Icon size={19} />
-              {title}
-              {id === 'trips' && pending > 0 && <span className="nav-count">{pending}</span>}
-            </button>
-          ))}
+          {pages
+            .filter(([id]) => canManage || id !== 'finance')
+            .map(([id, title, Icon]) => (
+              <button
+                key={id}
+                aria-label={title}
+                className={page === id ? 'selected' : ''}
+                onClick={() => {
+                  setPage(id);
+                  setQuery('');
+                }}
+              >
+                <Icon size={19} />
+                {title}
+                {id === 'trips' && pending > 0 && <span className="nav-count">{pending}</span>}
+              </button>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="site-note">
@@ -525,7 +556,13 @@ export default function App() {
           <div className="profile">
             <span>AD</span>
             <div>
-              <b>เจ้าของกิจการ</b>
+              <b>
+                {companyRole(owner) === 'owner'
+                  ? 'เจ้าของกิจการ'
+                  : companyRole(owner) === 'manager'
+                    ? 'ผู้จัดการ'
+                    : 'พนักงานบันทึกข้อมูล'}
+              </b>
               <small>{configured ? 'บัญชี Google' : 'พื้นที่ทำงานในเครื่อง'}</small>
             </div>
             {configured && (
@@ -540,11 +577,16 @@ export default function App() {
         </div>
       </aside>
       <div className="workspace">
-        <header>
+        <header className={workspace ? 'company-header' : undefined}>
           <div>
             <span className="breadcrumb">พื้นที่ทำงาน</span>
             <span className="slash">/</span>
             <b>{pages.find((p) => p[0] === page)?.[1]}</b>
+            {workspace && (
+              <span className="workspace-identity" aria-label="สิทธิ์บริษัทปัจจุบัน">
+                {workspace.name || 'บริษัท'} · {roleLabel}
+              </span>
+            )}
           </div>
           <div className="header-right">
             <span className={online ? 'online' : 'offline'}>
@@ -584,21 +626,22 @@ export default function App() {
                   : 'จัดการข้อมูลอย่างเป็นระบบ พร้อมสำหรับการทำงานหน้างาน'}
               </p>
             </div>
-            {!['daily', 'businessReports', 'survey'].includes(page) && (
-              <button
-                className="primary"
-                onClick={() =>
-                  open(page === 'projects' ? 'project' : page === 'masters' ? 'master' : 'trip')
-                }
-              >
-                <Plus size={18} />
-                {page === 'projects'
-                  ? 'เพิ่มโครงการ'
-                  : page === 'masters'
-                    ? 'เพิ่มข้อมูล'
-                    : 'บันทึกเที่ยวรถ'}
-              </button>
-            )}
+            {!['daily', 'businessReports', 'survey', 'finance'].includes(page) &&
+              (canManage || !['projects', 'masters'].includes(page)) && (
+                <button
+                  className="primary"
+                  onClick={() =>
+                    open(page === 'projects' ? 'project' : page === 'masters' ? 'master' : 'trip')
+                  }
+                >
+                  <Plus size={18} />
+                  {page === 'projects'
+                    ? 'เพิ่มโครงการ'
+                    : page === 'masters'
+                      ? 'เพิ่มข้อมูล'
+                      : 'บันทึกเที่ยวรถ'}
+                </button>
+              )}
           </div>
           {!configured && (
             <div className="local-banner">
@@ -783,7 +826,7 @@ export default function App() {
                   <ReportsPanel data={data} />
                 </Suspense>
               )}
-              {page === 'finance' && projectPreference.ready && (
+              {page === 'finance' && canManage && projectPreference.ready && (
                 <Suspense fallback={<p>กำลังเปิดการเงิน…</p>}>
                   <FinancePanel
                     key={owner}
@@ -833,7 +876,11 @@ export default function App() {
                           </p>
                           <div className="card-foot">
                             <b>{data.trips.filter((t) => t.projectId === p.id).length} เที่ยวรถ</b>
-                            <button className="text-button" onClick={() => open('project', p)}>
+                            <button
+                              disabled={!canManage}
+                              className="text-button"
+                              onClick={() => open('project', p)}
+                            >
                               ดู / แก้ไข <ArrowUpRight size={16} />
                             </button>
                           </div>
@@ -901,7 +948,7 @@ export default function App() {
                       </select>
                     )}
                   </div>
-                  {kind === 'truck' && (
+                  {kind === 'truck' && canManage && (
                     <TruckExcelPanel
                       data={data}
                       visibleTrucks={visibleMasters}
@@ -911,7 +958,12 @@ export default function App() {
                   )}
                   <div className="panel list">
                     {visibleMasters.map((m) => (
-                      <button className="project-row" key={m.id} onClick={() => open('master', m)}>
+                      <button
+                        disabled={!canManage}
+                        className="project-row"
+                        key={m.id}
+                        onClick={() => open('master', m)}
+                      >
                         <span className="project-symbol">
                           <Truck size={20} />
                         </span>
@@ -1141,7 +1193,7 @@ export default function App() {
                     {projectPreference.saving && <p role="status">กำลังบันทึกการตั้งค่า…</p>}
                     {projectPreference.error && <p role="alert">{projectPreference.error}</p>}
                   </section>
-                  <BackupRestorePanel key={`restore:${owner}`} owner={owner} />
+                  {canManage && <BackupRestorePanel key={`restore:${owner}`} owner={owner} />}
                   <DuplicateReviewPanel
                     key={`duplicates:${owner}`}
                     owner={owner}
@@ -1161,6 +1213,8 @@ export default function App() {
                       online={online}
                     />
                   )}
+                  {workspace?.role === 'owner' && <CompanyMembersPanel scope={workspace} />}
+                  {onSwitchCompany && <button onClick={onSwitchCompany}>เปลี่ยนบริษัท</button>}
                   <section className="panel padded audit-panel">
                     <h2>ประวัติการเปลี่ยนแปลง</h2>
                     <p>{data.audit.length} เหตุการณ์ในเครื่อง</p>
@@ -1210,7 +1264,7 @@ export default function App() {
               </button>
             </div>
             <form onSubmit={submit}>
-              {editing && (
+              {editing && canManage && (
                 <div>
                   <button type="button" onClick={() => setConfirmDelete(true)}>
                     ลบรายการโดยเก็บประวัติ

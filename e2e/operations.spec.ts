@@ -49,7 +49,7 @@ test('settings audit history scrolls inside a bounded panel and retains old entr
   await page.getByText('เริ่มต้นโครงการแรก', { exact: true }).waitFor();
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('construction-ops', 2);
+      const request = indexedDB.open('construction-ops');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -307,7 +307,7 @@ test('native file selection is queued durably and clearly waits for Drive connec
   await expect(page.getByText('evidence.pdf', { exact: true })).toBeVisible();
   const original = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const r = indexedDB.open('construction-ops', 2);
+      const r = indexedDB.open('construction-ops');
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });

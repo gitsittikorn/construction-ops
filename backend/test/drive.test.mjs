@@ -270,3 +270,61 @@ test('authenticated request budgets are bounded per owner, expire, and stop prov
   assert.equal((await post('owner-c')).status, 200);
   assert.equal(calls, 5);
 });
+
+test('shared company authorization never selects company-owner credentials for an authenticated member', async (t) => {
+  const { companyAuthorization } = await import('../companyAuthorization.mjs');
+  const s = setup();
+  await s.service.exchange(user, 'owner-code', 'https://app.example.com');
+  let enabled = true;
+  const member = { uid: 'worker', email: 'worker@example.com', email_verified: true };
+  const app = createApp({
+    service: s.service,
+    allowedOrigins: ['https://app.example.com'],
+    verifyUser: async (token, company) => {
+      const identity = token === 'worker-token' ? member : user;
+      return {
+        ...identity,
+        enabled: await companyAuthorization(identity.uid, company, {
+          admin: async (uid) => ({ enabled: uid === user.uid }),
+          company: async () => ({ ownerUid: user.uid }),
+          member: async (_company, uid) => ({ uid, enabled, role: 'operator' }),
+        }),
+      };
+    },
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(
+    () =>
+      new Promise((resolve) => {
+        server.closeAllConnections();
+        server.close(resolve);
+      }),
+  );
+  const post = (company = user.uid) =>
+    fetch(`http://127.0.0.1:${server.address().port}/api/drive/session`, {
+      method: 'POST',
+      headers: {
+        Origin: 'https://app.example.com',
+        Authorization: 'Bearer worker-token',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Company-ID': company,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+      signal: AbortSignal.timeout(5000),
+    });
+  // Owner has a usable connection; a member with no own credentials must reconnect.
+  assert.equal((await post()).status, 409);
+  assert.equal(s.records.size, 1);
+  assert.equal(s.records.has(user.uid), true);
+  assert.equal(s.records.has(member.uid), false);
+  s.google.email = async () => member.email;
+  await s.service.exchange({ ...member, enabled: true }, 'member-code', 'https://app.example.com');
+  assert.equal((await post()).status, 200);
+  assert.equal(s.records.size, 2);
+  assert.equal((await post('foreign-company')).status, 403);
+  enabled = false;
+  assert.equal((await post()).status, 403);
+  assert.equal(s.records.size, 2);
+});

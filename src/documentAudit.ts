@@ -1,3 +1,4 @@
+import { companyId } from './workspaceIdentity';
 import { validateUploadedFile, type DriveFile } from './drive';
 import type { UploadRecord } from './uploads';
 
@@ -42,7 +43,8 @@ export async function auditDriveDocuments(
   const knownOperations = new Set(records.map((record) => record.id));
   for (const file of inventory) {
     active();
-    if (file.appProperties?.owner !== owner) throw Error('รายการไฟล์ Drive ไม่ตรงกับบัญชี');
+    if (file.appProperties?.owner !== companyId(owner))
+      throw Error('รายการไฟล์ Drive ไม่ตรงกับบัญชี');
     if (
       !file.trashed &&
       !knownFiles.has(file.id) &&

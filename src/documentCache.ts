@@ -1,3 +1,4 @@
+import { uploadStore, uploadKey } from './workspaceIdentity';
 import { openLocalDatabase } from './storage';
 import { canonical } from './syncModel';
 import type { UploadRecord } from './uploads';
@@ -29,8 +30,10 @@ export async function readCachedOriginal(
   if (!valid(owner, record)) return null;
   const db = await openLocalDatabase();
   try {
-    const tx = db.transaction(['state', 'uploads'], 'readonly');
-    const current: UploadRecord | undefined = await tx.objectStore('uploads').get(record.id);
+    const tx = db.transaction(['state', uploadStore(record.owner)], 'readonly');
+    const current: UploadRecord | undefined = await tx
+      .objectStore(uploadStore(record.owner))
+      .get(uploadKey(record.owner, record.id));
     const cached: CachedOriginal | undefined = await tx
       .objectStore('state')
       .get(['document-cache', owner, record.id]);
@@ -74,16 +77,21 @@ export function restoreOriginalForOffline(
     if (cached) return cached;
     const db = await openLocalDatabase();
     try {
-      const before: UploadRecord | undefined = await db.get('uploads', record.id);
+      const before: UploadRecord | undefined = await db.get(
+        uploadStore(record.owner),
+        uploadKey(record.owner, record.id),
+      );
       if (!before || !valid(owner, before) || fingerprint(before) !== fingerprint(record))
         throw Error('ข้อมูลไฟล์เปลี่ยนแล้ว กรุณาโหลดรายการใหม่');
       const blob = await dependencies.download(record);
       assertActive();
       if (blob.size !== record.size || blob.type.split(';')[0] !== record.mimeType)
         throw Error('ไฟล์ที่ดาวน์โหลดไม่ตรงกับต้นฉบับ กรุณาลองใหม่');
-      const tx = db.transaction(['state', 'uploads'], 'readwrite');
+      const tx = db.transaction(['state', uploadStore(record.owner)], 'readwrite');
       try {
-        const latest: UploadRecord | undefined = await tx.objectStore('uploads').get(record.id);
+        const latest: UploadRecord | undefined = await tx
+          .objectStore(uploadStore(record.owner))
+          .get(uploadKey(record.owner, record.id));
         assertActive();
         if (!latest || !valid(owner, latest) || fingerprint(latest) !== fingerprint(record))
           throw Error('ข้อมูลไฟล์เปลี่ยนแล้ว ยังไม่บันทึกทับข้อมูลเดิม');

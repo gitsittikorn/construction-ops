@@ -577,6 +577,7 @@ test('production PWA caches lazy assets and preserves pending data through offli
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(error.message));
   await page.goto('http://127.0.0.1:5175');
+  await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -608,10 +609,11 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   context,
 }) => {
   await page.goto('http://127.0.0.1:5175');
+  await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('construction-ops', 2);
+      const request = indexedDB.open('construction-ops');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

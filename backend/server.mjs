@@ -5,6 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { createApp } from './app.mjs';
 import { createDriveService } from './driveService.mjs';
 import { createTokenVault } from './tokenVault.mjs';
+import { companyAuthorization } from './companyAuthorization.mjs';
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -76,10 +77,18 @@ const service = createDriveService({
 const app = createApp({
   service,
   allowedOrigins,
-  async verifyUser(token) {
+  async verifyUser(token, companyId) {
     const user = await getAuth().verifyIdToken(token, true);
-    const admin = await db.collection('admins').doc(user.uid).get();
-    return { ...user, enabled: admin.exists && admin.data().enabled === true };
+    const data = async (ref) => {
+      const snapshot = await ref.get();
+      return snapshot.exists ? snapshot.data() : null;
+    };
+    const enabled = await companyAuthorization(user.uid, companyId, {
+      admin: (uid) => data(db.collection('admins').doc(uid)),
+      company: (id) => data(db.collection('companies').doc(id)),
+      member: (id, uid) => data(db.collection('companies').doc(id).collection('members').doc(uid)),
+    });
+    return { ...user, enabled };
   },
 });
 app.listen(process.env.PORT || 3000, '0.0.0.0', () =>

@@ -1,3 +1,4 @@
+import { actorUid } from './workspaceIdentity';
 import type { Data } from './models';
 import type { FinanceRecord, FinanceRate, ProjectExpense, RateSide } from './financeModels';
 import { validateFinance } from './financeValidation';
@@ -92,7 +93,7 @@ export function addFinanceRate(
     revision: Math.max(0, ...old.map((rate) => rate.revision)) + 1,
     reason: input.reason.trim(),
     at: new Date().toISOString(),
-    by: actor,
+    by: actorUid(actor),
   };
   return commit(data, projectId, version, { kind: 'rate', entry }, actor, 'finance-rate-added');
 }
@@ -114,7 +115,7 @@ export function addProjectExpense(
     id: crypto.randomUUID(),
     reversesId: '',
     at: new Date().toISOString(),
-    by: actor,
+    by: actorUid(actor),
   };
   return commit(
     data,
@@ -151,7 +152,7 @@ export function reverseProjectExpense(
         reversesId: id,
         reason: reason.trim(),
         at: new Date().toISOString(),
-        by: actor,
+        by: actorUid(actor),
       },
     },
     actor,

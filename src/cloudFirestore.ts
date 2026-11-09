@@ -1,3 +1,4 @@
+import { actorUid, companyId, companyRole } from './workspaceIdentity';
 import {
   collection,
   doc,
@@ -33,16 +34,34 @@ const bounded = <T>(operation: Promise<T>) =>
   withDeadline(operation, 25000, 'ติดต่อ Cloud ไม่สำเร็จ ข้อมูลยังอยู่ในเครื่อง กรุณาลองซิงก์ใหม่');
 export async function authorizeCloud(owner: string) {
   const db = ownerDatabase(owner);
-  const admin = await bounded(getDocFromServer(doc(db, 'admins', owner)));
+  const role = companyRole(owner);
+  const admin = await bounded(
+    getDocFromServer(
+      role === 'owner'
+        ? doc(db, 'admins', actorUid(owner))
+        : doc(db, 'companies', companyId(owner), 'members', actorUid(owner)),
+    ),
+  );
   ownerDatabase(owner);
-  if (!admin.exists() || admin.data().enabled !== true)
-    throw Object.assign(Error('บัญชีนี้ไม่มีสิทธิ์ Admin สำหรับ Cloud'), {
-      code: 'permission-denied',
-    });
+  if (
+    !admin.exists() ||
+    admin.data().enabled !== true ||
+    (role !== 'owner' && admin.data().role !== role)
+  )
+    throw Object.assign(
+      Error(
+        role === 'owner'
+          ? 'บัญชีนี้ไม่มีสิทธิ์ Admin สำหรับ Cloud'
+          : 'สิทธิ์บริษัทเปลี่ยนแล้ว กรุณาเลือกบริษัทใหม่',
+      ),
+      {
+        code: 'permission-denied',
+      },
+    );
 }
 export async function readCloudRecord(owner: string, kind: EntityCollection, id: string) {
   const db = ownerDatabase(owner),
-    snapshot = await bounded(getDocFromServer(doc(db, 'users', owner, kind, id)));
+    snapshot = await bounded(getDocFromServer(doc(db, 'users', companyId(owner), kind, id)));
   ownerDatabase(owner);
   return snapshot.exists() ? decodeCloudRecord(kind, id, snapshot.data()) : null;
 }
@@ -68,7 +87,7 @@ export async function pushCloudRecord(
   const db = ownerDatabase(owner),
     desired = entry.desired;
   validateCloudRecord(kind, desired);
-  const ref = doc(db, 'users', owner, kind, desired.id);
+  const ref = doc(db, 'users', companyId(owner), kind, desired.id);
   return bounded(
     runTransaction(db, async (transaction) => {
       ownerDatabase(owner);
@@ -85,9 +104,11 @@ export async function pushCloudRecord(
         throw Error('เวอร์ชันข้อมูลไม่ถูกต้อง');
       const oldKey = uniqueKey(kind, remote),
         newKey = uniqueKey(kind, desired);
-      const newClaim = newKey ? doc(db, 'users', owner, 'uniqueKeys', newKey) : null;
+      const newClaim = newKey ? doc(db, 'users', companyId(owner), 'uniqueKeys', newKey) : null;
       const oldClaim =
-        oldKey && oldKey !== newKey ? doc(db, 'users', owner, 'uniqueKeys', oldKey) : null;
+        oldKey && oldKey !== newKey
+          ? doc(db, 'users', companyId(owner), 'uniqueKeys', oldKey)
+          : null;
       const claim = newClaim ? await transaction.get(newClaim) : null;
       const previousClaim = oldClaim ? await transaction.get(oldClaim) : null;
       if (claim?.exists() && claim.data().active === true && claim.data().entityId !== desired.id)
@@ -96,10 +117,10 @@ export async function pushCloudRecord(
       if (oldClaim && previousClaim?.exists() && previousClaim.data().entityId === desired.id)
         transaction.set(oldClaim, { entityId: desired.id, active: false });
       transaction.set(ref, { ...desired, serverUpdatedAt: serverTimestamp() });
-      transaction.set(doc(db, 'users', owner, 'audit', desired.operationId), {
+      transaction.set(doc(db, 'users', companyId(owner), 'audit', desired.operationId), {
         entityId: desired.id,
         action: desired.deletedAt ? 'soft-delete' : 'sync',
-        actor: owner,
+        actor: actorUid(owner),
         revision: desired.revision,
         at: serverTimestamp(),
       });
@@ -124,12 +145,19 @@ export async function pullCloud(owner: string, cursors: SyncState['cursors']): P
           orderBy(documentId()),
         ]
       : [orderBy(documentId())];
+    if (kind === 'workspaces' && companyRole(owner) === 'operator')
+      constraints.unshift(where('payload.recordType', 'in', ['daily', 'evidence', 'survey']));
     let after: QueryConstraint[] = [];
     for (;;) {
       ownerDatabase(owner);
       const page = await bounded(
         getDocsFromServer(
-          query(collection(db, 'users', owner, kind), ...constraints, ...after, limit(200)),
+          query(
+            collection(db, 'users', companyId(owner), kind),
+            ...constraints,
+            ...after,
+            limit(200),
+          ),
         ),
       );
       ownerDatabase(owner);

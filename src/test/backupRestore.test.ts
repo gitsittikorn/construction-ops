@@ -224,3 +224,33 @@ it('reopens restored verified days for fresh checks while retaining closure snap
   expect(daily.body.closures).toEqual([closure]);
   expect(restored.audit.at(-1)?.before).toEqual({ importedDailyStates: source.workspaces });
 });
+it('recreates a missing colleague finance event under the real restoring actor and retains the complete source in audit', async () => {
+  const { addFinanceRate, financeVersion, financeRecords } = await import('../finance');
+  const owner = crypto.randomUUID(),
+    initial = fixture(),
+    source = addFinanceRate(
+      initial,
+      'p',
+      financeVersion(initial, 'p'),
+      {
+        side: 'revenue',
+        partyId: '',
+        unit: 'trip',
+        satang: 12345,
+        effectiveFrom: '2026-11-01',
+        reason: 'colleague terms',
+      },
+      'previous-author',
+    );
+  const original = financeRecords(source, 'p')[0],
+    preview = await previewLocalRestore(owner, backup(owner, source));
+  expect(preview.financeRecreated).toBe(1);
+  await applyLocalRestore(owner, preview);
+  const restored = await loadData(owner),
+    event = financeRecords(restored, 'p')[0];
+  expect(event.body.entry.by).toBe(owner);
+  expect(event.body.entry.satang).toBe(12345);
+  expect(event.id).toBe(original.id);
+  expect(restored.audit.at(-1)?.before).toMatchObject({ importedFinanceRecords: [original] });
+  expect(restored.audit.at(-1)?.actor).toBe(owner);
+});

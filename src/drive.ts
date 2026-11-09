@@ -1,3 +1,4 @@
+import { companyId } from './workspaceIdentity';
 import type { UploadRecord } from './uploads';
 import { withDeadline } from './async';
 import { driveBackendConfigured, exchangeDriveCode } from './driveBackend';
@@ -176,6 +177,7 @@ export interface DriveFile {
 }
 // Inventory is limited to files created by this app for the current owner.
 export async function listOwnedDriveFiles(token: string, owner: string): Promise<DriveFile[]> {
+  owner = companyId(owner);
   const escape = (value: string) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const query = `trashed = false and mimeType != 'application/vnd.google-apps.folder' and appProperties has { key='owner' and value='${escape(owner)}' }`;
   const files: DriveFile[] = [];
@@ -267,7 +269,7 @@ export function validateUploadedFile(file: DriveFile, record: UploadRecord) {
     Number(file.size) !== record.size ||
     file.mimeType !== record.mimeType ||
     file.appProperties?.operationId !== record.id ||
-    file.appProperties?.owner !== record.owner ||
+    file.appProperties?.owner !== companyId(record.owner) ||
     !file.parents?.includes(record.folderId)
   )
     throw Error('ผลอัปโหลดไม่ตรงกับไฟล์ต้นฉบับ กรุณาตรวจสอบ');
@@ -299,7 +301,11 @@ export async function uploadOriginal(
         name: record.name,
         mimeType: record.mimeType,
         parents: [record.folderId],
-        appProperties: { operationId: record.id, owner: record.owner, projectId: record.projectId },
+        appProperties: {
+          operationId: record.id,
+          owner: companyId(record.owner),
+          projectId: record.projectId,
+        },
       }),
       signal: AbortSignal.timeout(60000),
     },

@@ -1,10 +1,11 @@
+import { activeCacheOwner } from './workspaceIdentity';
 import { getSessionIdentity } from './firebase';
 import { loadData } from './storage';
 import { listUploads, getFolders } from './uploads';
 if (import.meta.hot) {
   const inspect = async ({ id }: { id: string }) => {
     const user = getSessionIdentity();
-    const owner = user?.uid ?? 'local';
+    const owner = user ? activeCacheOwner(user.uid) : 'local';
     let result: unknown;
     try {
       const [data, uploads, folders] = await Promise.all([

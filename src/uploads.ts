@@ -1,4 +1,5 @@
 import { openLocalDatabase } from './storage';
+import { uploadStore } from './workspaceIdentity';
 const activeQueues = new Set<string>();
 export async function withUploadLock(owner: string, task: () => Promise<void>) {
   if (navigator.locks) {
@@ -49,7 +50,7 @@ export interface DriveFolders {
 export async function listUploads(owner: string): Promise<UploadRecord[]> {
   const db = await openLocalDatabase();
   try {
-    return (await db.getAll('uploads'))
+    return (await db.getAll(uploadStore(owner)))
       .filter((item: UploadRecord) => item.owner === owner)
       .sort((a: UploadRecord, b: UploadRecord) => b.createdAt.localeCompare(a.createdAt));
   } finally {
@@ -59,7 +60,7 @@ export async function listUploads(owner: string): Promise<UploadRecord[]> {
 export async function putUpload(record: UploadRecord) {
   const db = await openLocalDatabase();
   try {
-    await db.put('uploads', record);
+    await db.put(uploadStore(record.owner), record);
   } finally {
     db.close();
   }
@@ -109,7 +110,7 @@ export async function queueFiles(owner: string, projectId: string, tripId: strin
   const records = files.map((file) => createUpload(owner, projectId, tripId, file));
   const db = await openLocalDatabase();
   try {
-    const transaction = db.transaction('uploads', 'readwrite');
+    const transaction = db.transaction(uploadStore(owner), 'readwrite');
     await Promise.all([
       ...records.map((record) => transaction.store.add(record)),
       transaction.done,

@@ -1,3 +1,4 @@
+import { actorUid } from './workspaceIdentity';
 import type { Data, Project, Master } from './models';
 import type { UploadRecord } from './uploads';
 
@@ -99,7 +100,7 @@ export function deleteRecord(
         entityId: id,
         action: 'delete',
         at: now,
-        actor,
+        actor: actorUid(actor),
         before: record,
         after: null,
       },

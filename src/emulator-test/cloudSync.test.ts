@@ -1,3 +1,5 @@
+import { actorUid, cacheOwner } from '../workspaceIdentity';
+import { resolveCompany, saveCompanyProfile, saveCompanyMember } from '../companyAccess';
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import {
   collection,
@@ -32,8 +34,13 @@ import { IDBFactory } from 'fake-indexeddb';
 
 const session = vi.hoisted(() => ({ owner: '', db: null as Firestore | null }));
 vi.mock('../firebase', () => ({
+  identityDatabase: () => {
+    if (!session.db) throw Error('no session');
+    return session.db;
+  },
+  getSessionIdentity: () => ({ uid: session.owner, email: 'member@example.com' }),
   ownerDatabase: (owner: string) => {
-    if (!session.db || session.owner !== owner) throw Error('wrong account');
+    if (!session.db || session.owner !== actorUid(owner)) throw Error('wrong account');
     return session.db;
   },
 }));
@@ -471,4 +478,157 @@ it('finance: multiple offline events sync idempotently in dependency order and r
   } finally {
     vi.stubGlobal('indexedDB', originalDatabase);
   }
+});
+
+it('company: manager and operator share data with isolated caches, actual actors, downgrade and revocation enforcement', async () => {
+  const { addFinanceRate, financeVersion, financeRecords } = await import('../finance');
+  const { readCloudRecord, pushCloudRecord, authorizeCloud } = await import('../cloudFirestore');
+  const { prepareSync } = await import('../syncModel');
+  const root = session.owner,
+    rootScope = { companyId: root, actorUid: root, role: 'owner' as const };
+  const manager = `manager-${crypto.randomUUID()}`,
+    worker = `worker-${crypto.randomUUID()}`;
+  await saveCompanyProfile(rootScope, 'Shared construction company');
+  await saveCompanyMember(rootScope, {
+    uid: manager,
+    name: 'Manager',
+    role: 'manager',
+    enabled: true,
+  });
+  await saveCompanyMember(rootScope, {
+    uid: worker,
+    name: 'Worker',
+    role: 'operator',
+    enabled: true,
+  });
+  let data = addFinanceRate(
+    fixture(),
+    'p',
+    financeVersion(fixture(), 'p'),
+    {
+      side: 'revenue',
+      partyId: '',
+      unit: 'trip',
+      satang: 10000,
+      effectiveFrom: '2026-11-01',
+      reason: 'owner agreed',
+    },
+    root,
+  );
+  await persistData(root, data);
+  await synchronize(root, firestoreTransport);
+  const financialId = financeRecords(await loadData(root), 'p')[0].id;
+  const asUser = (uid: string) => {
+    session.owner = uid;
+    session.db = environment.authenticatedContext(uid).firestore() as unknown as Firestore;
+  };
+  asUser(manager);
+  const managerScope = await resolveCompany(manager, root),
+    managerKey = cacheOwner(managerScope);
+  expect(managerScope.role).toBe('manager');
+  await synchronize(managerKey, firestoreTransport);
+  expect((await loadData(managerKey)).projects[0].id).toBe('p');
+  expect(financeRecords(await loadData(managerKey), 'p')).toHaveLength(1);
+  await updateData(managerKey, (previous) =>
+    addFinanceRate(
+      previous,
+      'p',
+      financeVersion(previous, 'p'),
+      {
+        side: 'revenue',
+        partyId: '',
+        unit: 'trip',
+        satang: 12000,
+        effectiveFrom: '2026-11-01',
+        reason: 'manager correction',
+      },
+      managerKey,
+    ),
+  );
+  await synchronize(managerKey, firestoreTransport);
+  const actualAudit = await getDocs(collection(session.db!, 'users', root, 'audit'));
+  expect(actualAudit.docs.some((snapshot) => snapshot.data().actor === manager)).toBe(true);
+  asUser(worker);
+  const operatorScope = await resolveCompany(worker, root),
+    operatorKey = cacheOwner(operatorScope);
+  await synchronize(operatorKey, firestoreTransport);
+  expect((await loadData(operatorKey)).projects[0].id).toBe('p');
+  expect(financeRecords(await loadData(operatorKey), 'p')).toEqual([]);
+  await expect(readCloudRecord(operatorKey, 'workspaces', financialId)).rejects.toThrow();
+  const forgedKey = cacheOwner({ ...operatorScope, role: 'manager' });
+  await expect(authorizeCloud(forgedKey)).rejects.toHaveProperty('code', 'permission-denied');
+  data = addFinanceRate(
+    await loadData(operatorKey),
+    'p',
+    financeVersion(await loadData(operatorKey), 'p'),
+    {
+      side: 'revenue',
+      partyId: '',
+      unit: 'trip',
+      satang: 1,
+      effectiveFrom: '2026-11-01',
+      reason: 'forged role',
+    },
+    forgedKey,
+  );
+  const forgedRecord = financeRecords(data, 'p').at(-1)!;
+  const forgedEntry = prepareSync(await loadData(operatorKey), data).sync!.entries[
+    `workspaces/${forgedRecord.id}`
+  ];
+  await expect(pushCloudRecord(forgedKey, 'workspaces', forgedEntry)).rejects.toThrow();
+  await updateData(operatorKey, (previous) =>
+    createDaily(previous, 'p', '2026-11-08', operatorKey),
+  );
+  await synchronize(operatorKey, firestoreTransport);
+  asUser(manager);
+  await synchronize(managerKey, firestoreTransport);
+  expect(dailySessions(await loadData(managerKey))).toHaveLength(1);
+  await expect(
+    saveCompanyMember(managerScope, {
+      uid: worker,
+      name: 'Worker',
+      role: 'manager',
+      enabled: true,
+    }),
+  ).rejects.toThrow('สิทธิ์');
+  const retainedManager = structuredClone(await loadData(managerKey));
+  asUser(root);
+  await saveCompanyMember(rootScope, {
+    uid: manager,
+    name: 'Manager',
+    role: 'operator',
+    enabled: true,
+  });
+  asUser(manager);
+  await expect(authorizeCloud(managerKey)).rejects.toHaveProperty('code', 'permission-denied');
+  const downgraded = cacheOwner(await resolveCompany(manager, root));
+  expect(downgraded).not.toBe(managerKey);
+  await synchronize(downgraded, firestoreTransport);
+  expect(financeRecords(await loadData(downgraded), 'p')).toEqual([]);
+  expect(await loadData(managerKey)).toEqual(retainedManager);
+  asUser(worker);
+  await updateData(operatorKey, (previous) => ({
+    ...previous,
+    trips: [
+      {
+        ...previous.trips[0],
+        notes: 'pending before revocation',
+        revision: previous.trips[0].revision + 1,
+      },
+    ],
+  }));
+  const pending = structuredClone(await loadData(operatorKey));
+  asUser(root);
+  await saveCompanyMember(rootScope, {
+    uid: worker,
+    name: 'Worker',
+    role: 'operator',
+    enabled: false,
+  });
+  asUser(worker);
+  await expect(synchronize(operatorKey, firestoreTransport)).rejects.toHaveProperty(
+    'code',
+    'permission-denied',
+  );
+  expect(await loadData(operatorKey)).toEqual(pending);
 });

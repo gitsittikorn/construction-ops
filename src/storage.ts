@@ -3,12 +3,15 @@ import { emptyData, type Data } from './models';
 import { withDeadline } from './async';
 import { prepareSync } from './syncModel';
 import type { UploadRecord } from './uploads';
+import { uploadStore, uploadKey } from './workspaceIdentity';
 async function db() {
-  const opening = openDB('construction-ops', 2, {
+  const opening = openDB('construction-ops', 3, {
     upgrade(database) {
       if (!database.objectStoreNames.contains('state')) database.createObjectStore('state');
       if (!database.objectStoreNames.contains('uploads'))
         database.createObjectStore('uploads', { keyPath: 'id' });
+      if (!database.objectStoreNames.contains('scopedUploads'))
+        database.createObjectStore('scopedUploads', { keyPath: ['owner', 'id'] });
       if (!database.objectStoreNames.contains('driveSettings'))
         database.createObjectStore('driveSettings');
     },
@@ -72,7 +75,7 @@ async function mutateData(
 ): Promise<Data> {
   const database = await db();
   try {
-    const transaction = database.transaction(['state', 'uploads'], 'readwrite');
+    const transaction = database.transaction(['state', uploadStore(owner)], 'readwrite');
     const store = transaction.objectStore('state');
     const previous: Data = (await store.get(owner)) ?? structuredClone(emptyData);
     let next: Data;
@@ -84,13 +87,15 @@ async function mutateData(
       next = change(previous);
       if (enqueue) next = prepareSync(previous, next);
       for (const record of uploads) {
-        const old = await transaction.objectStore('uploads').get(record.id);
+        const old = await transaction
+          .objectStore(uploadStore(owner))
+          .get(uploadKey(owner, record.id));
         if (
           old &&
           (old.owner !== owner || old.evidenceId !== record.evidenceId || old.size !== record.size)
         )
           throw Error('รหัสไฟล์ซ้ำแต่ข้อมูลไม่ตรงกัน');
-        if (!old) await transaction.objectStore('uploads').add(record);
+        if (!old) await transaction.objectStore(uploadStore(owner)).add(record);
       }
     } catch (error) {
       transaction.abort();

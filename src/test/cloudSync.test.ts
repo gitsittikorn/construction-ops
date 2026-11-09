@@ -76,8 +76,8 @@ it('migrates additively and atomically saves an immutable pre-migration backup a
   expect(await loadMigrationBackup(owner)).toEqual(old);
   expect((await loadData(owner)).sync!.entries['projects/p'].status).toBe('pending');
   const db = await openLocalDatabase();
-  expect(db.version).toBe(2);
-  expect([...db.objectStoreNames]).toEqual(['driveSettings', 'state', 'uploads']);
+  expect(db.version).toBe(3);
+  expect([...db.objectStoreNames]).toEqual(['driveSettings', 'scopedUploads', 'state', 'uploads']);
   db.close();
 });
 it('rejects unknown local schema without changing data and aborts invalid changes with their outbox', async () => {

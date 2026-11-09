@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Isolated company role UI simulation</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import App from '/src/App.tsx';
+      import { cacheOwner } from '/src/workspaceIdentity.ts';
+      import { loadData, updateData } from '/src/storage.ts';
+      import { addFinanceRate, financeVersion } from '/src/finance.ts';
+      import '/src/styles.css';
+      // Synthetic local UI only. Firestore/backend role enforcement is exercised
+      // separately against real emulator identities; this never signs into Google.
+      const role =
+        new URLSearchParams(location.search).get('role') === 'manager' ? 'manager' : 'operator';
+      const workspace = {
+        actorUid: 'simulated-worker',
+        companyId: 'simulated-company',
+        role,
+        name: 'Shared field team',
+      };
+      const owner = cacheOwner(workspace),
+        stamp = '2026-11-06T00:00:00Z';
+      if (!(await loadData(owner)).projects.length) {
+        let data = {
+          projects: [
+            {
+              id: 'p',
+              createdAt: stamp,
+              updatedAt: stamp,
+              name: 'Shared field project',
+              customer: '',
+              location: '',
+              startDate: '',
+              endDate: '',
+              status: 'active',
+              description: '',
+            },
+          ],
+          masters: [
+            ['truck', 'truck', '00123'],
+            ['driver', 'driver', 'สมชาย'],
+          ].map(([id, kind, name]) => ({
+            id,
+            kind,
+            name,
+            createdAt: stamp,
+            updatedAt: stamp,
+            detail: '',
+            active: true,
+            capacity: 12,
+          })),
+          trips: [
+            {
+              id: 'trip',
+              createdAt: stamp,
+              updatedAt: stamp,
+              projectId: 'p',
+              date: '2026-11-06',
+              time: '10:00',
+              truckId: 'truck',
+              driverId: 'driver',
+              sourceId: '',
+              soilType: '',
+              notes: '',
+              revision: 1,
+              syncStatus: 'pending',
+              capacityPerTrip: 12,
+            },
+          ],
+          audit: [],
+        };
+        if (role === 'manager')
+          data = addFinanceRate(
+            data,
+            'p',
+            financeVersion(data, 'p'),
+            {
+              side: 'revenue',
+              partyId: '',
+              unit: 'trip',
+              satang: 12300,
+              effectiveFrom: '2026-11-01',
+              reason: 'fixture terms',
+            },
+            owner,
+          );
+        await updateData(owner, () => data);
+      }
+      createRoot(document.getElementById('root')).render(React.createElement(App, { workspace }));
+    </script>
+  </body>
+</html>

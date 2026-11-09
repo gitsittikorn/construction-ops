@@ -33,7 +33,7 @@ export function createApp({
     cors({
       origin: allowedOrigins,
       methods: ['POST', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
+      allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With', 'X-Company-ID'],
     }),
   );
   app.use(express.json({ limit: '8kb' }));
@@ -43,7 +43,7 @@ export function createApp({
     if (!bearer) throw new ApiError(401, 'unauthorized');
     let user;
     try {
-      user = await verifyUser(bearer);
+      user = await verifyUser(bearer, req.get('x-company-id'));
     } catch {
       throw new ApiError(401, 'unauthorized');
     }

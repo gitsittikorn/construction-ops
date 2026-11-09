@@ -1,3 +1,4 @@
+import { actorUid } from './workspaceIdentity';
 import type { Data } from './models';
 import type { DailySession, DailyRow, Verification } from './workspaceModels';
 import type { UploadRecord } from './uploads';
@@ -124,7 +125,7 @@ export function commitWorkspace(
         entityId: record.id,
         action,
         at: record.updatedAt,
-        actor,
+        actor: actorUid(actor),
         before,
         after: structuredClone(record),
       },
@@ -223,7 +224,7 @@ export function updateDaily(
       action,
       reason: reason.trim(),
       at: next.updatedAt,
-      by: actor,
+      by: actorUid(actor),
       changes: changes.map((change) => ({
         rowId: change.rowId,
         before: summary(change.before),
@@ -575,7 +576,7 @@ export function verifyDaily(
           fingerprint: rowFingerprint(s, row),
           evidenceId: evidence.id,
           fileIds,
-          by: actor,
+          by: actorUid(actor),
           at: new Date().toISOString(),
         };
         s.body.verifications[row.id] = verification;
@@ -612,7 +613,7 @@ export function closeDaily(
       }
       s.body.closures.push({
         at: new Date().toISOString(),
-        by: actor,
+        by: actorUid(actor),
         rows: structuredClone(s.body.rows),
         verifications: structuredClone(s.body.verifications),
         trips: s.body.rows.reduce((n, r) => n + r.tripCount, 0),

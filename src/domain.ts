@@ -1,3 +1,4 @@
+import { actorUid } from './workspaceIdentity';
 import type { Data, Trip, Project, Master } from './models';
 export function workDate(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -122,7 +123,7 @@ export function saveTrip(data: Data, trip: Trip, actor = 'local'): Data {
         entityId: trip.id,
         action: previous ? 'update' : 'create',
         at: new Date().toISOString(),
-        actor,
+        actor: actorUid(actor),
         before: previous ?? null,
         after: trip,
       },

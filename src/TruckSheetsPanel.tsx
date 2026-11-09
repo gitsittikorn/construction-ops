@@ -1,3 +1,4 @@
+import { workspaceMatches } from './workspaceIdentity';
 import { useEffect, useRef, useState } from 'react';
 import { getSessionIdentity } from './firebase';
 import { loadGoogleIdentity, requestDriveToken, verifyDriveAccount } from './drive';
@@ -62,16 +63,19 @@ export default function TruckSheetsPanel({
     try {
       const id = spreadsheetId(link);
       const user = getSessionIdentity();
-      if (!user || user.uid !== owner) throw Error('กรุณาเข้าสู่ระบบ Google ก่อนนำเข้าจากชีต');
+      if (!user || !workspaceMatches(owner, user.uid))
+        throw Error('กรุณาเข้าสู่ระบบ Google ก่อนนำเข้าจากชีต');
       await loadGoogleIdentity();
       const auth = await requestDriveToken(user.email, [
         prepare ? sheetsWriteScope : sheetsReadScope,
       ]);
       await verifyDriveAccount(auth.token, user.email);
-      if (generation.current !== current || getSessionIdentity()?.uid !== owner) return;
+      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
+        return;
       if (prepare) {
         await prepareTruckSheet(auth.token, id);
-        if (generation.current !== current || getSessionIdentity()?.uid !== owner) return;
+        if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
+          return;
         await saveTruckSheet(owner, id);
         if (generation.current !== current) return;
         setSaved(id);
@@ -79,9 +83,11 @@ export default function TruckSheetsPanel({
         return;
       }
       const rows = await readTruckSheet(auth.token, id);
-      if (generation.current !== current || getSessionIdentity()?.uid !== owner) return;
+      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
+        return;
       await saveTruckSheet(owner, id);
-      if (generation.current !== current || getSessionIdentity()?.uid !== owner) return;
+      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
+        return;
       setSaved(id);
       onRows(rows);
     } catch (e) {

@@ -1,3 +1,4 @@
+import { managesBusiness } from './workspaceIdentity';
 import { useMemo, useState, useRef } from 'react';
 import { canonical } from './syncModel';
 import { readSurveyImport, surveyCsv } from './surveyImport';
@@ -635,7 +636,10 @@ export default function SurveyPanel({
         กริดหน้าถัดไป
       </button>
       <div className="operations-actions">
-        <button disabled={!project || !result.value} onClick={() => void save()}>
+        <button
+          disabled={!managesBusiness(owner) || !project || !result.value}
+          onClick={() => void save()}
+        >
           บันทึกประวัติสำรวจ
         </button>
         <button disabled={!result.value} onClick={() => void excel()}>

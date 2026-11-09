@@ -1,3 +1,4 @@
+import { companyId, uploadStore, uploadKey } from './workspaceIdentity';
 import {
   collection,
   documentId,
@@ -23,7 +24,7 @@ export async function restoreDocumentMetadata(owner: string) {
     const page = await withDeadline(
       getDocsFromServer(
         query(
-          collection(db, 'users', owner, 'documents'),
+          collection(db, 'users', companyId(owner), 'documents'),
           orderBy(documentId()),
           ...cursor,
           limit(200),
@@ -37,7 +38,7 @@ export async function restoreDocumentMetadata(owner: string) {
       const d = snapshot.data();
       if (
         d.id !== snapshot.id ||
-        d.owner !== owner ||
+        d.owner !== companyId(owner) ||
         d.status !== 'synced' ||
         !d.uploadedAt ||
         ['projectId', 'tripId', 'fileId', 'folderId', 'name', 'mimeType', 'createdAt'].some(
@@ -85,9 +86,9 @@ export async function restoreDocumentMetadata(owner: string) {
   const local = await openLocalDatabase();
   try {
     ownerDatabase(owner);
-    const tx = local.transaction('uploads', 'readwrite');
+    const tx = local.transaction(uploadStore(owner), 'readwrite');
     for (const record of remote) {
-      const existing: UploadRecord | undefined = await tx.store.get(record.id);
+      const existing: UploadRecord | undefined = await tx.store.get(uploadKey(owner, record.id));
       if (!existing) await tx.store.add(record);
     }
     await tx.done;

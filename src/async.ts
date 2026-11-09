@@ -22,7 +22,7 @@ export function connectionMessage(error: unknown): string {
     return 'พื้นที่เก็บข้อมูลเต็ม กรุณาอัปโหลดหรือสำรองข้อมูลก่อนบันทึกใหม่ อย่าล้างข้อมูลเว็บไซต์';
   const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
   if (code === 'permission-denied')
-    return 'Firestore ไม่อนุญาต กรุณาตรวจ Rules ล่าสุดและ admins/{UID} ที่มี enabled: true';
+    return 'Firestore ไม่อนุญาต กรุณาตรวจบัญชี บริษัท และสิทธิ์กับเจ้าของหรือผู้ดูแล';
   if (code === 'unavailable')
     return 'เชื่อมต่อ Firestore ไม่ได้ ไฟล์ยังอยู่ในเครื่อง กรุณาลองใหม่เมื่อออนไลน์';
   return error instanceof Error ? error.message : 'เกิดข้อผิดพลาด กรุณาลองใหม่';
