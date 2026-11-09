@@ -173,6 +173,7 @@ it('P1-07/08/09 recovers a lost commit response and coalesces offline revisions 
 it('P1-10/13/19 restores every master category into independent device storage and preserves another account', async () => {
   const owner = session.owner,
     original = fixture();
+  original.masters[0].nickname = 'รถเล็ก';
   original.masters.push(
     ...(['driver', 'source', 'customer', 'soilType', 'tag'] as const).map((kind) => ({
       ...truck,
@@ -194,6 +195,7 @@ it('P1-10/13/19 restores every master category into independent device storage a
     await synchronize(owner, firestoreTransport);
     const restored = await loadData(owner);
     expect(restored.projects).toEqual(original.projects);
+    expect(restored.masters.find((master) => master.kind === 'truck')?.nickname).toBe('รถเล็ก');
     expect(restored.masters.map((m) => m.kind).sort()).toEqual([
       'customer',
       'driver',

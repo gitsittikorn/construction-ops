@@ -31,6 +31,7 @@ test('truck details, team tags, XLSX export and reviewed import work together in
     await page.getByLabel('ทะเบียนรถ', { exact: true }).fill(plate);
     await page.getByLabel('จังหวัดทะเบียน', { exact: true }).fill(province);
     await page.getByLabel('เบอร์โทร', { exact: true }).fill(phone);
+    await page.getByLabel('ชื่อเล่น', { exact: true }).fill('รถ ' + plate);
     await page.getByRole('combobox', { name: 'ประเภทรถ', exact: true }).selectOption(type);
     await page.getByRole('checkbox', { name: tag, exact: true }).check();
     await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -45,7 +46,8 @@ test('truck details, team tags, XLSX export and reviewed import work together in
   await page.getByRole('button', { name: /ส่งออกรถ Excel/ }).click();
   const exported = await readSheet(await bytes(await exportPromise), 'Trucks');
   expect(exported).toHaveLength(2);
-  expect(exported[1][3]).toBe('0812345678');
+  expect(exported[1][4]).toBe('0812345678');
+  expect(exported[1][5]).toBe('รถ 81-1111');
   expect(exported[1][6]).toBe('ทีม A');
   const stableId = String(exported[1][0]);
   const templatePromise = page.waitForEvent('download');
@@ -56,8 +58,30 @@ test('truck details, team tags, XLSX export and reviewed import work together in
   const file = await writeExcel(
     [
       truckHeaders,
-      [stableId, '81-1111', 'ภูเก็ต', '0899999999', 'สิบล้อ', 12, 'ทีม A', 'updated', 'ใช้งาน'],
-      ['', '83-3333', 'ภูเก็ต', '0800000000', 'หกล้อ', 6, 'ทีม C, ทีม A', 'imported', 'ใช้งาน'],
+      [
+        stableId,
+        '81-1111',
+        'ภูเก็ต',
+        'สิบล้อ',
+        '0899999999',
+        'รถใหญ่',
+        'ทีม A',
+        12,
+        'updated',
+        'ใช้งาน',
+      ],
+      [
+        '',
+        '83-3333',
+        'ภูเก็ต',
+        'หกล้อ',
+        '0800000000',
+        'เสี่ยเล็ก',
+        'ทีม C, ทีม A',
+        6,
+        'imported',
+        'ใช้งาน',
+      ],
     ],
     { sheet: 'Trucks' },
   ).toBuffer();
@@ -82,6 +106,9 @@ test('truck details, team tags, XLSX export and reviewed import work together in
     .getByRole('combobox', { name: 'กรองแท็กทีม', exact: true })
     .selectOption({ label: 'ทีม C' });
   await expect(page.getByText('83-3333', { exact: true })).toBeVisible();
+  await page.getByLabel('ค้นหาข้อมูลพื้นฐาน', { exact: true }).fill('เสี่ยเล็ก');
+  await expect(page.getByText('83-3333', { exact: true })).toBeVisible();
+  await page.getByLabel('ค้นหาข้อมูลพื้นฐาน', { exact: true }).clear();
   await expect(page.getByText('81-1111', { exact: true })).toHaveCount(0);
   await page.getByRole('combobox', { name: 'กรองแท็กทีม', exact: true }).selectOption('');
   await page.getByLabel('ค้นหาข้อมูลพื้นฐาน', { exact: true }).fill('0899999999');
@@ -90,8 +117,8 @@ test('truck details, team tags, XLSX export and reviewed import work together in
   const bad = await writeExcel(
     [
       truckHeaders,
-      ['', '84-4444', 'ภูเก็ต', '0811111111', 'หกล้อ', 6, '', '', 'ใช้งาน'],
-      ['', '84-4444', 'ภูเก็ต', '0822222222', 'หกล้อ', 6, '', '', 'ใช้งาน'],
+      ['', '84-4444', 'ภูเก็ต', 'หกล้อ', '0811111111', '', '', 6, '', 'ใช้งาน'],
+      ['', '84-4444', 'ภูเก็ต', 'หกล้อ', '0822222222', '', '', 6, '', 'ใช้งาน'],
     ],
     { sheet: 'Trucks' },
   ).toBuffer();

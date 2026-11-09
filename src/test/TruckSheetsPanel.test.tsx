@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import TruckSheetsPanel from '../TruckSheetsPanel';
-import { truckHeaders } from '../truckImport';
+import { legacyTruckHeaders as truckHeaders } from '../truckImport';
 import { parseTruckRows } from '../truckImport';
 const mocks = vi.hoisted(() => ({
   read: vi.fn(),
@@ -70,6 +70,9 @@ it('defaults to the user template and prepares headers without importing vehicle
   const onRows = vi.fn();
   render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
   const link = await screen.findByRole('link');
+  fireEvent.click(screen.getByText('แก้ปัญหาเชื่อมต่อ Google'));
+  expect(screen.getByText(window.location.origin)).toBeInTheDocument();
+  expect(screen.getByText(/Authorized JavaScript origins/)).toBeInTheDocument();
   expect(link).toHaveAttribute(
     'href',
     'https://docs.google.com/spreadsheets/d/1_DHAvNEMXyeVbFhc9Am13o8b_gu4AhOSCQljTUq6jzA/edit',

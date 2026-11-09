@@ -43,6 +43,7 @@ function Version({ record, data }: { record: CloudRecord | null; data: Data }) {
       ['เปิดใช้งาน', p.active ? 'ใช่' : 'ไม่'],
       ['จังหวัด', p.province ?? ''],
       ['เบอร์โทร', p.phone ?? ''],
+      ['ชื่อเล่น', p.nickname ?? ''],
       ['ประเภทรถ', p.truckType ?? ''],
       [
         'ทีม',

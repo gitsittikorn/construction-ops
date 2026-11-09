@@ -1,5 +1,5 @@
 import { loadTruckSheet, saveTruckSheet, spreadsheetId, readTruckSheet } from '../truckSheets';
-import { truckHeaders } from '../truckImport';
+import { legacyTruckHeaders as truckHeaders } from '../truckImport';
 afterEach(() => vi.unstubAllGlobals());
 it('accepts normal Sheets links and rejects published or unrelated URLs', () => {
   expect(spreadsheetId('https://docs.google.com/spreadsheets/d/abc_123/edit#gid=0')).toBe(

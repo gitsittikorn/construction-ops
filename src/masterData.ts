@@ -8,6 +8,11 @@ export const plateKey = (plate: string, province = '') =>
   `${normalizeName(plate).replace(/[\s-]/g, '')}|${normalizeName(province)}`;
 export function validateExtendedMaster(record: Master, masters: Master[]) {
   validateMaster(record);
+  if (
+    record.nickname !== undefined &&
+    (typeof record.nickname !== 'string' || record.nickname.length > 100)
+  )
+    throw Error('ชื่อเล่นต้องเป็นข้อความไม่เกิน 100 ตัวอักษร');
   if (record.phone && !/^[+\d][\d\s()+-]{4,24}$/.test(record.phone))
     throw Error('เบอร์โทรต้องมี 5–25 ตัวอักษร ใช้ตัวเลข + - วงเล็บ และช่องว่าง');
   if (record.province && record.province.length > 100) throw Error('จังหวัดทะเบียนยาวเกินไป');
@@ -76,6 +81,7 @@ export function matchesMaster(record: Master, masters: Master[], query: string, 
     record.detail,
     record.province,
     record.phone,
+    record.nickname,
     record.truckType ? truckTypes[record.truckType] : '',
     ...tagNames(record, masters),
   ]

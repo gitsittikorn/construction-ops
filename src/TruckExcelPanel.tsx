@@ -169,6 +169,7 @@ export default function TruckExcelPanel({
                 <tr>
                   <th>แถว</th>
                   <th>ทะเบียน / จังหวัด</th>
+                  <th>ชื่อเล่น</th>
                   <th>การดำเนินการ</th>
                   <th>ข้อผิดพลาด</th>
                 </tr>
@@ -180,6 +181,7 @@ export default function TruckExcelPanel({
                     <td>
                       {row.source.plate} / {row.source.province || 'ไม่ระบุ'}
                     </td>
+                    <td>{row.source.nickname ?? 'คงชื่อเล่นเดิม'}</td>
                     <td>
                       {
                         {

@@ -45,7 +45,7 @@ export function validateCloudRecord(
     collection === 'projects'
       ? ['latitude', 'longitude']
       : collection === 'masters'
-        ? ['capacity', 'active', 'province', 'phone', 'truckType', 'tagIds']
+        ? ['capacity', 'active', 'province', 'phone', 'nickname', 'truckType', 'tagIds']
         : ['revision', 'capacityPerTrip'];
   const allowed = new Set(['id', 'createdAt', 'updatedAt', ...strings, ...optional]);
   if (
@@ -78,6 +78,7 @@ export function validateCloudRecord(
     collection === 'masters' &&
     ((p.province !== undefined && typeof p.province !== 'string') ||
       (p.phone !== undefined && typeof p.phone !== 'string') ||
+      (p.nickname !== undefined && (typeof p.nickname !== 'string' || p.nickname.length > 100)) ||
       (p.truckType !== undefined &&
         !['six-wheel', 'ten-wheel', 'other'].includes(String(p.truckType))))
   )

@@ -1,4 +1,9 @@
-import { truckHeaders, parseTruckRows, planTruckImport, applyTruckImport } from '../truckImport';
+import {
+  legacyTruckHeaders as truckHeaders,
+  parseTruckRows,
+  planTruckImport,
+  applyTruckImport,
+} from '../truckImport';
 import { saveMaster, matchesMaster } from '../masterData';
 import { emptyData, type Master } from '../models';
 const truck: Master = {

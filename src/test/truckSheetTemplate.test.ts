@@ -1,8 +1,8 @@
 import { prepareTruckSheet } from '../truckSheets';
-import { truckHeaders } from '../truckImport';
+import { truckHeaders, legacyTruckHeaders } from '../truckImport';
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 afterEach(() => vi.unstubAllGlobals());
-it('creates Trucks and writes the nine literal headers atomically while preserving other tabs', async () => {
+it('creates Trucks and writes ten literal headers with numeric capacity and text phone/nickname columns', async () => {
   const fetcher = vi
     .fn()
     .mockResolvedValueOnce(json({ sheets: [{ properties: { sheetId: 0, title: 'Sheet1' } }] }))
@@ -11,6 +11,7 @@ it('creates Trucks and writes the nine literal headers atomically while preservi
   await prepareTruckSheet('token', 'abc');
   const { requests } = JSON.parse(fetcher.mock.calls[1][1].body);
   expect(requests[0].addSheet.properties.title).toBe('Trucks');
+  expect(requests[0].addSheet.properties.gridProperties.columnCount).toBe(10);
   expect(
     requests[1].updateCells.rows[0].values.map(
       (cell: { userEnteredValue: { stringValue: string } }) => cell.userEnteredValue.stringValue,
@@ -25,7 +26,7 @@ it('creates Trucks and writes the nine literal headers atomically while preservi
     ),
   ).toHaveLength(2);
 });
-it.each([{ header: [] }, { header: truckHeaders }])(
+it.each([{ header: [] }, { header: truckHeaders }, { header: legacyTruckHeaders }])(
   'reuses an existing Trucks tab and never writes vehicle rows',
   async ({ header }) => {
     const fetcher = vi
@@ -38,6 +39,18 @@ it.each([{ header: [] }, { header: truckHeaders }])(
     const { requests } = JSON.parse(fetcher.mock.calls[2][1].body);
     expect(requests.some((r: object) => 'addSheet' in r)).toBe(false);
     const writes = requests.filter((r: object) => 'updateCells' in r);
+    const formats = requests.filter(
+      (r: { repeatCell?: { cell?: { userEnteredFormat?: { numberFormat?: unknown } } } }) =>
+        r.repeatCell?.cell?.userEnteredFormat?.numberFormat,
+    );
+    const capacityColumn = (header.length ? header : truckHeaders).indexOf('ความจุ (m³)');
+    expect(
+      formats.every(
+        (r: { repeatCell: { range: { startColumnIndex: number; endColumnIndex: number } } }) =>
+          capacityColumn < r.repeatCell.range.startColumnIndex ||
+          capacityColumn >= r.repeatCell.range.endColumnIndex,
+      ),
+    ).toBe(true);
     expect(writes).toHaveLength(header.length ? 0 : 1);
     if (writes.length) {
       expect(writes[0].updateCells.start.rowIndex).toBe(0);

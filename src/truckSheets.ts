@@ -1,4 +1,4 @@
-import { parseTruckRows, truckHeaders } from './truckImport';
+import { parseTruckRows, truckHeaders, legacyTruckHeaders } from './truckImport';
 import { openLocalDatabase } from './storage';
 
 export const sheetsReadScope = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -71,17 +71,25 @@ export async function prepareTruckSheet(token: string, id: string) {
   );
   const sheetId: number = existing?.properties.sheetId ?? Math.max(0, ...ids) + 1;
   let needsHeader = true;
+  let activeHeaders = truckHeaders;
   if (existing) {
     const header = await call(
-      `${base}/values/${encodeURIComponent("'Trucks'!A1:I1")}?valueRenderOption=UNFORMATTED_VALUE`,
+      `${base}/values/${encodeURIComponent("'Trucks'!A1:Z1")}?valueRenderOption=UNFORMATTED_VALUE`,
     );
     const cells: unknown[] = header.values?.[0] ?? [];
     const nonempty = cells.some((value) => value !== '' && value !== null);
-    if (nonempty && truckHeaders.some((value, index) => cells[index] !== value))
+    const labels = cells.map((value) => String(value ?? '').trim());
+    if (
+      nonempty &&
+      (legacyTruckHeaders.some((value) => !labels.includes(value)) ||
+        labels.some((value) => !truckHeaders.includes(value)) ||
+        new Set(labels).size !== labels.length)
+    )
       throw Error(
         'ชีต Trucks มีหัวคอลัมน์เดิมที่ไม่ตรงเทมเพลต ระบบจะไม่เขียนทับ กรุณาเก็บสำเนาหรือใช้ชีตว่าง',
       );
     needsHeader = !nonempty;
+    if (nonempty) activeHeaders = labels;
   }
   const requests: object[] = [];
   if (!existing)
@@ -90,10 +98,26 @@ export async function prepareTruckSheet(token: string, id: string) {
         properties: {
           sheetId,
           title: 'Trucks',
-          gridProperties: { rowCount: 1001, columnCount: 9 },
+          gridProperties: { rowCount: 1001, columnCount: truckHeaders.length },
         },
       },
     });
+  if (needsHeader)
+    if (existing)
+      requests.push({
+        updateSheetProperties: {
+          properties: {
+            sheetId,
+            gridProperties: {
+              columnCount: Math.max(
+                existing.properties.gridProperties?.columnCount ?? 0,
+                truckHeaders.length,
+              ),
+            },
+          },
+          fields: 'gridProperties.columnCount',
+        },
+      });
   if (needsHeader)
     requests.push({
       updateCells: {
@@ -112,7 +136,13 @@ export async function prepareTruckSheet(token: string, id: string) {
   });
   requests.push({
     repeatCell: {
-      range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 9 },
+      range: {
+        sheetId,
+        startRowIndex: 0,
+        endRowIndex: 1,
+        startColumnIndex: 0,
+        endColumnIndex: activeHeaders.length,
+      },
       cell: {
         userEnteredFormat: {
           backgroundColor: { red: 0.14, green: 0.3, blue: 0.24 },
@@ -122,10 +152,11 @@ export async function prepareTruckSheet(token: string, id: string) {
       fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat',
     },
   });
+  const capacityColumn = activeHeaders.indexOf('ความจุ (m³)');
   for (const [startColumnIndex, endColumnIndex] of [
-    [0, 5],
-    [6, 9],
-  ])
+    [0, capacityColumn],
+    [capacityColumn + 1, activeHeaders.length],
+  ].filter(([start, end]) => end > start))
     requests.push({
       repeatCell: {
         range: { sheetId, startRowIndex: 1, startColumnIndex, endColumnIndex },

@@ -4,6 +4,11 @@ import { withDeadline } from './async';
 import { driveBackendConfigured, exchangeDriveCode } from './driveBackend';
 export const driveScope = 'https://www.googleapis.com/auth/drive.file';
 export const driveConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+function oauthFailure(code?: string) {
+  return code === 'origin_mismatch'
+    ? `Google ไม่อนุญาต URL นี้ (origin_mismatch) ให้ผู้ดูแลเพิ่ม ${window.location.origin} ใน Authorized JavaScript origins ของ OAuth Client ID ที่แอปใช้`
+    : 'ไม่ได้รับสิทธิ์ Google Drive กรุณาอนุญาตการเข้าถึงไฟล์';
+}
 interface TokenResponse {
   access_token?: string;
   expires_in?: number;
@@ -93,7 +98,7 @@ export function requestDriveToken(
         callback: (response) =>
           response.code && !response.error
             ? resolve(response.code)
-            : reject(Error('ไม่ได้รับสิทธิ์ Google Drive')),
+            : reject(Error(oauthFailure(response.error))),
         error_callback: () => reject(Error('หน้าต่างเชื่อมต่อถูกปิดหรือถูกบล็อก กรุณาลองใหม่')),
       });
       client.requestCode();
@@ -115,7 +120,7 @@ export function requestDriveToken(
             ) ||
             !response.expires_in
           ) {
-            reject(Error('ไม่ได้รับสิทธิ์ Google Drive กรุณาอนุญาตการเข้าถึงไฟล์'));
+            reject(Error(oauthFailure(response.error)));
             return;
           }
           resolve({

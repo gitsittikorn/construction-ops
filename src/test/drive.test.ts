@@ -104,6 +104,24 @@ it('requires every additional OAuth scope and rejects partial consent', async ()
     token: 'token',
   });
 });
+it('explains a reported origin_mismatch with the current origin without requesting sheet data', async () => {
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test.apps.googleusercontent.com');
+  window.google = {
+    accounts: {
+      oauth2: {
+        initTokenClient: (options) => ({
+          requestAccessToken: () => options.callback({ error: 'origin_mismatch' }),
+        }),
+      },
+    },
+  };
+  const { requestDriveToken } = await import('../drive');
+  await expect(
+    requestDriveToken('owner@company.com', [
+      'https://www.googleapis.com/auth/spreadsheets.readonly',
+    ]),
+  ).rejects.toThrow(`เพิ่ม ${window.location.origin}`);
+});
 it('reports token expiry and permission denial without exposing tokens', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({}, 401)));
   await expect(generateDriveIds('secret-token', 1)).rejects.toMatchObject({ status: 401 });

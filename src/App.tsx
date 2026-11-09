@@ -402,6 +402,7 @@ export default function App({
             ? {
                 province: get('province'),
                 phone: get('phone'),
+                nickname: get('nickname'),
                 truckType: (get('truckType') || undefined) as Master['truckType'],
               }
             : {}),
@@ -935,7 +936,7 @@ export default function App({
                     <Search size={17} />
                     <input
                       aria-label="ค้นหาข้อมูลพื้นฐาน"
-                      placeholder="ค้นหาทะเบียน จังหวัด เบอร์โทร หรือแท็ก"
+                      placeholder="ค้นหาทะเบียน จังหวัด เบอร์โทร ชื่อเล่น หรือแท็ก"
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                     />
@@ -997,6 +998,7 @@ export default function App({
                             {m.kind === 'truck' ? ` · ${number(m.capacity)} m³` : ''}
                             {m.kind === 'truck' && m.province ? ` · ${m.province}` : ''}
                             {m.phone ? ` · ${m.phone}` : ''}
+                            {m.nickname ? ` · ${m.nickname}` : ''}
                             {m.truckType ? ` · ${truckTypes[m.truckType]}` : ''}
                           </small>
                           <span className="tag-badges">
@@ -1351,6 +1353,7 @@ export default function App({
                       <>
                         {input('province', 'จังหวัดทะเบียน')}
                         {input('phone', 'เบอร์โทร', 'tel')}
+                        {input('nickname', 'ชื่อเล่น')}
                         <Field label="ประเภทรถ">
                           <select
                             name="truckType"

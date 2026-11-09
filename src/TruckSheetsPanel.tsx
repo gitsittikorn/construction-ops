@@ -114,8 +114,9 @@ export default function TruckSheetsPanel({
         />
       </label>
       <p>
-        ใช้ชีต Trucks และหัวคอลัมน์จากเทมเพลตเดิม ตั้งทะเบียนและเบอร์โทรเป็นข้อความธรรมดา
-        ระบบอ่านชีตเมื่อกดปุ่ม และบันทึกข้อมูลรถเมื่อยืนยันรายการเท่านั้น
+        ใช้ชีต Trucks รองรับหัวคอลัมน์ 10 ช่องรวมชื่อเล่น และไฟล์เดิม 9 ช่อง
+        ตั้งทะเบียนและเบอร์โทรเป็นข้อความธรรมดา ระบบอ่านชีตเมื่อกดปุ่ม
+        และบันทึกข้อมูลรถเมื่อยืนยันรายการเท่านั้น
       </p>
       <div className="drive-actions">
         <button
@@ -149,6 +150,22 @@ export default function TruckSheetsPanel({
           {error}
         </div>
       )}
+      <details>
+        <summary>แก้ปัญหาเชื่อมต่อ Google</summary>
+        <p>
+          หาก Google แจ้ง Error 400: origin_mismatch ให้ผู้ดูแลเปิด Google Cloud Console → Google
+          Auth Platform → Clients → Web client ที่แอปใช้ แล้วเพิ่ม URL นี้ใน Authorized JavaScript
+          origins: <code>{window.location.origin}</code>
+        </p>
+        <p>
+          OAuth Client ID ของแอป:{' '}
+          <code>{import.meta.env.VITE_GOOGLE_CLIENT_ID || 'ยังไม่ได้ตั้งค่า'}</code>
+        </p>
+        <p>
+          บันทึกแล้วลองเชื่อมต่อใหม่ ไม่ต้องแก้หัวคอลัมน์หรือเผยแพร่ชีตเป็นสาธารณะเพื่อแก้
+          origin_mismatch
+        </p>
+      </details>
     </div>
   );
 }

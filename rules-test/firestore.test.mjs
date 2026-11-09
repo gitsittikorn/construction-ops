@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
 import {
   initializeTestEnvironment,
@@ -134,6 +135,16 @@ test('projects and all master categories accept create, exact next revision and 
     await assertFails(deleteDoc(ref));
   }
 });
+test('optional truck nicknames accept bounded text and reject malformed values', async () => {
+  const db = env.authenticatedContext('admin').firestore();
+  const payload = { ...master('nickname-truck', 'truck'), nickname: 'รถเล็ก' };
+  const ref = doc(db, 'users', 'admin', 'masters', payload.id);
+  await assertSucceeds(setDoc(ref, envelope(payload)));
+  for (const nickname of [123, 'x'.repeat(101)])
+    await assertFails(setDoc(ref, envelope({ ...payload, nickname }, 2)));
+  assert.equal((await getDoc(ref)).data().payload.nickname, 'รถเล็ก');
+});
+
 test('trips require related records and valid payloads; legacy documents upgrade without changing IDs', async () => {
   const db = env.authenticatedContext('admin').firestore();
   const trip = {

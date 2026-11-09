@@ -1,6 +1,6 @@
 import type { Data, Master } from './models';
 import { normalizeName, plateKey, saveMaster, validateExtendedMaster } from './masterData';
-export const truckHeaders = [
+export const legacyTruckHeaders = [
   'รหัสรถ',
   'ทะเบียนรถ',
   'จังหวัดทะเบียน',
@@ -11,12 +11,25 @@ export const truckHeaders = [
   'รายละเอียด',
   'สถานะ',
 ];
+export const truckHeaders = [
+  'รหัสรถ',
+  'ทะเบียนรถ',
+  'จังหวัดทะเบียน',
+  'ประเภทรถ',
+  'เบอร์โทร',
+  'ชื่อเล่น',
+  'แท็กทีม',
+  'ความจุ (m³)',
+  'รายละเอียด',
+  'สถานะ',
+];
 export interface TruckImportRow {
   row: number;
   id: string;
   plate: string;
   province: string;
   phone: string;
+  nickname?: string;
   truckType: Master['truckType'];
   capacity: number;
   tags: string[];
@@ -47,7 +60,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
   if (!rows.length) throw Error('ไฟล์ไม่มีหัวตาราง');
   const headers = rows[0].map(text);
   if (!headers.includes('ทะเบียนรถ')) throw Error('ไม่พบคอลัมน์ ทะเบียนรถ กรุณาใช้ไฟล์ตัวอย่าง');
-  if (truckHeaders.some((header) => !headers.includes(header)))
+  if (legacyTruckHeaders.some((header) => !headers.includes(header)))
     throw Error('หัวตารางไม่ครบ กรุณาใช้ไฟล์ตัวอย่างและคงชื่อคอลัมน์ทั้งหมด');
   if (new Set(headers.filter(Boolean)).size !== headers.filter(Boolean).length)
     throw Error('หัวคอลัมน์ซ้ำ กรุณาตรวจไฟล์');
@@ -62,6 +75,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
       let plate = '',
         province = '',
         phone = '',
+        nickname: string | undefined,
         id = '',
         detail = '',
         tags: string[] = [],
@@ -72,6 +86,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
         plate = get('ทะเบียนรถ');
         province = get('จังหวัดทะเบียน');
         phone = get('เบอร์โทร');
+        nickname = headers.includes('ชื่อเล่น') ? get('ชื่อเล่น') : undefined;
         id = get('รหัสรถ');
         detail = get('รายละเอียด');
         if (!plate) errors.push('กรุณาระบุทะเบียนรถ');
@@ -125,6 +140,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
             active,
             province,
             phone,
+            ...(nickname !== undefined ? { nickname } : {}),
             truckType,
             createdAt: '',
             updatedAt: '',
@@ -140,6 +156,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
         plate,
         province,
         phone,
+        ...(nickname !== undefined ? { nickname } : {}),
         truckType,
         capacity,
         tags,
@@ -274,6 +291,7 @@ export function applyTruckImport(
       name: source.plate,
       province: source.province,
       phone: source.phone,
+      ...(source.nickname !== undefined ? { nickname: source.nickname } : {}),
       truckType: source.truckType,
       capacity: source.capacity,
       detail: source.detail,

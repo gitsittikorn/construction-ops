@@ -27,6 +27,18 @@ Regression: `App.syncNavigation.test.tsx` tests successful navigation, pending p
 
 ## Open roadmap work / verification gaps
 
+### ENV-003 — real backend omits shared-company CORS header
+
+2026-11-09, Phase 4/shared-company acceptance, **Medium**, **OPEN on the configured remote backend**. Send an OPTIONS preflight to the actual configured `/api/drive/session` with Origin `http://127.0.0.1:5173`, requested method POST and requested headers `authorization,content-type,x-requested-with,x-company-id`. The real service returns HTTP 204 and the correct allowed origin/method, but omits `x-company-id` from allowed headers. The browser therefore blocks a shared member's request before token exchange. The equivalent owner preflight without the company header passes. No authenticated request or production mutation was required to reproduce it.
+
+Current `backend/app.mjs` already includes `X-Company-ID`; its existing behavior must be preserved. Remote source/configuration revision is not established by `/health`, so do not identify an exact deployed commit from this symptom. Regression: repeat both real OPTIONS requests and require every requested header to be allowed; owner and shared-member cases must both pass. Keep shared-member real acceptance open until a reviewed, separately authorized backend rollout/configuration correction and real retest. No deployment, secrets change, access-rule relaxation or fabricated OAuth success was performed. Details: REAL_SERVICE_ACCEPTANCE.md.
+
+### ENV-004 — supplied published Rules deny owner bootstrap and omit company/data paths
+
+2026-11-09, Phase 1/4/company, **High availability impact**, **OPEN on real-service acceptance**. The user supplied a Console screenshot of `admins/{ownUid}` with boolean `enabled: true` and then copied their published Rules. Those Rules explicitly contain `match /admins/{uid} { allow read, write: if false; }` and have no `companies` permission. Thus the authenticated frontend's admin read is denied before the company read, which would also be denied. Existing flat-trip-only Rules additionally omit current projects/masters/workspaces. The supplied text confirms the configuration mismatch; no authenticated remote export or publication was performed by the agent.
+
+The current root `firestore.rules` already provides self-only admin GET and scoped company/data access. Fresh `npm.cmd run test:rules` exited **0**, Rules **10/10** and emulator integration **10/10**, including old flat-trip migration with preserved IDs and denial tests. Candidate SHA-256, archived supplied Rules, reviewed compatibility and exact manual publication/real retest steps: `docs/deployment/FIRESTORE_COMPANY_UPDATE_2026-11-09.md`. Do not fix only the first read or add global public permissions. Actual publication and successful owner-company access remain unverified until the administrator publishes the reviewed candidate and retries. No source change, privilege grant, deletion or deployment has been performed.
+
 - GAP-P4: inventory-level orphan detection และ coverage ของ OAuth/partial failures ต้อง audit ต่อ; มี on-demand missing-file/metadata validation แล้ว ไม่ถือว่าขาดทั้งระบบ
 - GAP-P5: open-day correction reason policy และ role/sync scenarios ต้องเทียบ Master อย่างเจาะจง
 - GAP-P6: weekly/monthly grouping, export metadata/optional evidence refs, loose/compacted/design volume wording

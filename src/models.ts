@@ -23,6 +23,7 @@ export interface Master extends Base {
   active: boolean;
   province?: string;
   phone?: string;
+  nickname?: string;
   truckType?: 'six-wheel' | 'ten-wheel' | 'other';
   tagIds?: string[];
 }
