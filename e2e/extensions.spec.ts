@@ -91,7 +91,7 @@ for (const viewport of [
     await page.goto('/');
     await page
       .getByRole('navigation')
-      .getByRole('button', { name: 'การตั้งค่า', exact: true })
+      .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
       .click();
     const restore = page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true });
     await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file('different-owner'));
@@ -133,6 +133,11 @@ for (const viewport of [
       folder: '',
       uploadStatus: 'error',
     });
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true })
+      .click();
+    await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ', exact: true });
     await expect(duplicates).toContainText('พบ 1 กลุ่ม');
     await duplicates.getByLabel('ผลการตรวจ', { exact: true }).selectOption('needs-correction');
@@ -141,6 +146,10 @@ for (const viewport of [
       .fill('รอตรวจตั๋วกับหน้างาน');
     await duplicates.getByRole('button', { name: 'บันทึกผลตรวจเที่ยวซ้ำ', exact: true }).click();
     await expect(duplicates.getByRole('status')).toContainText('ต้องตรวจแก้ไข');
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'การตั้งค่า', exact: true })
+      .click();
     await expect(page.getByLabel('เลือกโครงการเริ่มต้น', { exact: true })).toBeEnabled();
     await page.getByLabel('เลือกโครงการเริ่มต้น', { exact: true }).selectOption('p');
     await expect
@@ -158,13 +167,22 @@ for (const viewport of [
     await page.reload();
     await page
       .getByRole('navigation')
+      .getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true })
+      .click();
+    await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
+    await expect(duplicates.getByRole('status')).toContainText('รอตรวจตั๋วกับหน้างาน');
+    await page
+      .getByRole('navigation')
       .getByRole('button', { name: 'การตั้งค่า', exact: true })
       .click();
-    await expect(duplicates.getByRole('status')).toContainText('รอตรวจตั๋วกับหน้างาน');
     await expect(page.getByLabel('เลือกโครงการเริ่มต้น', { exact: true })).toHaveValue('p');
     // A second import is a no-overwrite merge.
     const changed = data();
     changed.projects[0].name = 'Different backup';
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
+      .click();
     await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file('local', changed));
     await expect(preview).toContainText('เพิ่ม 0 รายการ');
     await expect(preview).toContainText('เก็บฉบับปัจจุบัน 1 รายการ');
@@ -186,7 +204,7 @@ test('JSON restore refuses stale previews and recovers after quota failure witho
   await page.goto('/');
   await page
     .getByRole('navigation')
-    .getByRole('button', { name: 'การตั้งค่า', exact: true })
+    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
     .click();
   const restore = page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true });
   await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file());

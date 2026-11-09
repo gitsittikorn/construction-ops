@@ -132,6 +132,10 @@ export default function CloudSyncPanel({
         </button>
       )}
       <button onClick={() => void download()}>ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ</button>
+      <p>
+        ข้อมูลบันทึกในอุปกรณ์ก่อนซิงก์ Cloud การล้างข้อมูลเว็บไซต์อาจทำให้ข้อมูลในเครื่องสูญหาย
+        ควรดาวน์โหลดข้อมูลสำรอง JSON พร้อมไฟล์แนบสม่ำเสมอ
+      </p>
       {data.sync?.restoredAt && (
         <p>ตรวจข้อมูลจาก Cloud ล่าสุด: {workTimestamp(data.sync.restoredAt)}</p>
       )}

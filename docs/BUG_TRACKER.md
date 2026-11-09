@@ -1,5 +1,13 @@
 # Bug tracker
 
+## UX-006 — duplicate reports and misplaced task controls (2026-11-09)
+
+Phase 1/6/8, Medium usability. Reproduction: open Reports and Business Reports; both show overlapping trip data, and the former repeats trip editing. The generic page header also offers trip creation on Reports/Settings. Backup export and JSON restore live on different pages, duplicate review is buried in Settings, and a large local-mode banner repeats on every page. Completed-task notices persist when changing pages.
+
+Consolidation: one Reports menu for summary/volume/reconciliation, retaining CSV/XLSX/PDF; the original trip list, editing, original-field CSV/PDF and duplicate review belong only to Trips; backup export/restore belong to Sync, preserving manager/operator guards. Keep local status compact in the header and full storage guidance in Sync. Page-specific notices clear on navigation while cloud failures remain in the sync channel. Overview keeps compact summaries/shortcuts; daily batch operations, engineering survey tools, financial estimates and context-bound evidence remain distinct workflows without merging records or verification states.
+
+Regression: new App page-ownership tests and desktop/tablet/mobile E2E cover one report menu, date errors, trip-only list/editing/exports, preserved CSV/pending data, correct panel locations, duplicate decisions, invalid backup rejection and no page overflow. Existing wrong-account/stale/quota/offline restore, role restrictions, report exports and duplicate persistence tests are retained through the new entry points. **FIXED**: final `npm.cmd run check` exit **0**, frontend **322**, backend **15**, Rules **10**, integration **10**, E2E **64** (3.1 minutes), tooling **4**. Lint 59 warnings/zero errors. Initial exact-label E2E failure was corrected with an explicit select label; assertions remain enabled. Evidence/intermediate attempts: [PAGE_OWNERSHIP_REPORT.md](PAGE_OWNERSHIP_REPORT.md).
+
 ## UX-005 — sync details occupy every page (2026-11-09)
 
 Phase 1/8, Medium usability. Reproduction: after an authorized cloud restore fails (for example, trip references are missing), open overview, projects or daily work. `App` rendered the full sync panel before every page title, including the long restore error, pending/conflict counts and backup controls. Expected: details in a dedicated menu, with a compact persistent indicator for problems.

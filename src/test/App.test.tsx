@@ -121,13 +121,15 @@ it('calculates both survey and fill volume through forms', async () => {
   await user.click(screen.getAllByRole('button', { name: 'คำนวณ' })[1]);
   expect(screen.getByRole('status')).toHaveTextContent('23 เที่ยว');
 });
-it('shows offline mode and generates a printable report', async () => {
+it('shows offline mode and prints the original trip list from its own page', async () => {
   const print = vi.spyOn(window, 'print').mockImplementation(() => {});
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('เริ่มต้นโครงการแรก');
   window.dispatchEvent(new Event('offline'));
-  await user.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'รายงาน' }));
+  await user.click(
+    within(screen.getByRole('navigation')).getByRole('button', { name: 'บันทึกเที่ยวรถ' }),
+  );
   expect(screen.getByText(/รายการรอซิงก์ยังไม่ใช่ข้อมูลยืนยัน/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'พิมพ์ / PDF' }));
   expect(print).toHaveBeenCalledOnce();

@@ -69,7 +69,6 @@ const pages = [
   ['daily', 'งานรายวันและตรวจยอด', Truck],
   ['masters', 'ข้อมูลพื้นฐาน', Database],
   ['reports', 'รายงาน', BarChart3],
-  ['businessReports', 'รายงานธุรกิจ', BarChart3],
   ['survey', 'สำรวจและคำนวณ', Calculator],
   ['finance', 'การเงินโครงการ', BarChart3],
   ['sync', 'ซิงก์และสำรองข้อมูล', RefreshCw],
@@ -104,6 +103,7 @@ export default function App({
 }: { workspace?: CompanyScope & { name?: string }; onSwitchCompany?: () => void } = {}) {
   const [data, setData] = useState<Data>(emptyData),
     [page, setPage] = useState('overview'),
+    [tripView, setTripView] = useState('records'),
     [owner, setOwner] = useState(configured ? '' : workspace ? cacheOwner(workspace) : 'local'),
     [ready, setReady] = useState(false),
     [online, setOnline] = useState(navigator.onLine),
@@ -324,6 +324,12 @@ export default function App({
   }
   function message(e: unknown) {
     return connectionMessage(e);
+  }
+  function navigate(nextPage: string) {
+    setPage(nextPage);
+    setQuery('');
+    if (ready) setError('');
+    setNotice('');
   }
   function open(type: typeof modal, record: typeof editing = null) {
     if (!canManage && type !== 'trip') {
@@ -548,10 +554,7 @@ export default function App({
                   id === 'sync' && syncNeedsAttention ? 'sync-attention' : undefined
                 }
                 className={page === id ? 'selected' : ''}
-                onClick={() => {
-                  setPage(id);
-                  setQuery('');
-                }}
+                onClick={() => navigate(id)}
               >
                 <Icon size={19} />
                 <span className="nav-label">{title}</span>
@@ -609,6 +612,7 @@ export default function App({
             )}
           </div>
           <div className="header-right">
+            {!configured && <span className="badge pending">โหมดในเครื่อง</span>}
             <span className={online ? 'online' : 'offline'}>
               {online ? <Wifi size={14} /> : <WifiOff size={14} />} {online ? 'ออนไลน์' : 'ออฟไลน์'}
             </span>
@@ -625,11 +629,7 @@ export default function App({
             <div>
               <span className="eyebrow">CONSTRUCTION WORKSPACE</span>
               <h1>
-                {page === 'overview'
-                  ? 'ภาพรวมการทำงาน'
-                  : page === 'sync'
-                    ? 'ความปลอดภัยและซิงก์ข้อมูล'
-                    : pages.find((p) => p[0] === page)?.[1]}
+                {page === 'overview' ? 'ภาพรวมการทำงาน' : pages.find((p) => p[0] === page)?.[1]}
               </h1>
               <p>
                 {page === 'overview'
@@ -639,7 +639,8 @@ export default function App({
                     : 'จัดการข้อมูลอย่างเป็นระบบ พร้อมสำหรับการทำงานหน้างาน'}
               </p>
             </div>
-            {!['daily', 'businessReports', 'survey', 'finance', 'sync'].includes(page) &&
+            {['projects', 'masters', 'trips'].includes(page) &&
+              (page !== 'trips' || tripView === 'records') &&
               (canManage || !['projects', 'masters'].includes(page)) && (
                 <button
                   className="primary"
@@ -656,17 +657,6 @@ export default function App({
                 </button>
               )}
           </div>
-          {!configured && (
-            <div className="local-banner">
-              <span>
-                <span className="live-dot amber" /> โหมดในเครื่อง · ข้อมูลบันทึกในอุปกรณ์นี้
-                ยังไม่ได้เชื่อมต่อ Firebase
-              </span>
-              <button onClick={() => setPage('settings')}>
-                ตั้งค่าการเชื่อมต่อ <ArrowUpRight size={14} />
-              </button>
-            </div>
-          )}
           {error && (
             <div className="alert error" role="alert">
               {error}
@@ -689,17 +679,20 @@ export default function App({
           ) : (
             <>
               {page === 'sync' && (
-                <CloudSyncPanel
-                  owner={owner}
-                  data={data}
-                  configured={configured}
-                  online={online}
-                  busy={busy}
-                  status={cloudStatus}
-                  failure={cloudError}
-                  onSync={sync}
-                  onResolve={resolve}
-                />
+                <>
+                  <CloudSyncPanel
+                    owner={owner}
+                    data={data}
+                    configured={configured}
+                    online={online}
+                    busy={busy}
+                    status={cloudStatus}
+                    failure={cloudError}
+                    onSync={sync}
+                    onResolve={resolve}
+                  />
+                  {canManage && <BackupRestorePanel key={`restore:${owner}`} owner={owner} />}
+                </>
               )}
               {page === 'overview' && (
                 <>
@@ -770,7 +763,11 @@ export default function App({
                       </article>
                     ))}
                   </section>
-                  <OperationsDashboard owner={owner} data={data} onDaily={() => setPage('daily')} />
+                  <OperationsDashboard
+                    owner={owner}
+                    data={data}
+                    onDaily={() => navigate('daily')}
+                  />
                   <div className="dashboard-grid">
                     <section className="panel">
                       <div className="section-heading">
@@ -778,7 +775,7 @@ export default function App({
                           <h2>โครงการที่กำลังดำเนินการ</h2>
                           <p>ติดตามงานที่คุณดูแล</p>
                         </div>
-                        <button className="text-button" onClick={() => setPage('projects')}>
+                        <button className="text-button" onClick={() => navigate('projects')}>
                           ดูทั้งหมด <ArrowUpRight size={15} />
                         </button>
                       </div>
@@ -823,7 +820,7 @@ export default function App({
                         [data.trips.length > 0, 'บันทึกเที่ยวรถ', 'trips'],
                         [configured, 'เชื่อมต่อระบบคลาวด์', 'settings'],
                       ].map(([done, title, target], i) => (
-                        <button key={String(title)} onClick={() => setPage(String(target))}>
+                        <button key={String(title)} onClick={() => navigate(String(target))}>
                           <span className={done ? 'step done' : 'step'}>
                             {done ? <Check size={14} /> : i + 1}
                           </span>
@@ -847,7 +844,7 @@ export default function App({
                   />
                 </Suspense>
               )}
-              {page === 'businessReports' && (
+              {page === 'reports' && (
                 <Suspense fallback={<p>กำลังเปิดรายงาน…</p>}>
                   <ReportsPanel data={data} />
                 </Suspense>
@@ -1025,21 +1022,45 @@ export default function App({
                   )}
                 </>
               )}
-              {(page === 'trips' || page === 'reports') && (
+              {page === 'trips' && (
+                <div className="toolbar view-selector">
+                  <label>
+                    มุมมองเที่ยวรถ
+                    <select
+                      aria-label="มุมมองเที่ยวรถ"
+                      value={tripView}
+                      onChange={(event) => setTripView(event.target.value)}
+                    >
+                      <option value="records">รายการเที่ยวรถ</option>
+                      <option value="duplicates">ตรวจเที่ยวที่อาจซ้ำ</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+              {page === 'trips' && tripView === 'duplicates' && (
+                <DuplicateReviewPanel
+                  key={`duplicates:${owner}`}
+                  owner={owner}
+                  data={data}
+                  onOpen={(id) => {
+                    const trip = data.trips.find((trip) => trip.id === id);
+                    if (trip) open('trip', trip);
+                  }}
+                />
+              )}
+              {page === 'trips' && tripView === 'records' && (
                 <>
-                  {page === 'reports' && (
-                    <div className="report-meta">
-                      <h2>
-                        รายงานเที่ยวรถ ·{' '}
-                        {filter ? data.projects.find((p) => p.id === filter)?.name : 'ทุกโครงการ'}
-                      </h2>
-                      <p>
-                        วันที่ทำงาน: {date || 'ทุกวัน'} · ออกรายงาน: {workDate()} · รวม{' '}
-                        {tripRows.length} เที่ยว · รอซิงก์{' '}
-                        {tripRows.filter((t) => t.syncStatus !== 'synced').length} เที่ยว
-                      </p>
-                    </div>
-                  )}
+                  <div className="report-meta print-only">
+                    <h2>
+                      รายงานเที่ยวรถ ·{' '}
+                      {filter ? data.projects.find((p) => p.id === filter)?.name : 'ทุกโครงการ'}
+                    </h2>
+                    <p>
+                      วันที่ทำงาน: {date || 'ทุกวัน'} · ออกรายงาน: {workDate()} · รวม{' '}
+                      {tripRows.length} เที่ยว · รอซิงก์{' '}
+                      {tripRows.filter((t) => t.syncStatus !== 'synced').length} เที่ยว
+                    </p>
+                  </div>
                   <div className="toolbar wrap">
                     <Search size={17} />
                     <input
@@ -1057,7 +1078,7 @@ export default function App({
                       ทุกวันที่
                     </label>
                     <input
-                      aria-label={page === 'trips' ? 'วันที่เที่ยวรถ' : 'วันที่รายงาน'}
+                      aria-label="วันที่เที่ยวรถ"
                       type="date"
                       value={date}
                       disabled={!date}
@@ -1075,31 +1096,18 @@ export default function App({
                         </option>
                       ))}
                     </select>
-                    {page === 'reports' && (
-                      <>
-                        <button className="secondary" onClick={exportCSV}>
-                          <Download size={16} /> CSV
-                        </button>
-                        <button className="secondary" onClick={() => window.print()}>
-                          พิมพ์ / PDF
-                        </button>
-                      </>
-                    )}
+                    <button className="secondary" onClick={exportCSV}>
+                      <Download size={16} /> CSV
+                    </button>
+                    <button className="secondary" onClick={() => window.print()}>
+                      พิมพ์ / PDF
+                    </button>
                   </div>
                   <div className="panel">
-                    <div className="section-heading">
+                    <div className="section-heading trip-list-heading">
                       <h2>
-                        {page === 'reports' ? 'รายงานเที่ยวรถ' : 'รายการเที่ยวรถ'}{' '}
-                        <span className="badge">{tripRows.length} เที่ยว</span>
+                        รายการเที่ยวรถ <span className="badge">{tripRows.length} เที่ยว</span>
                       </h2>
-                      <button
-                        className="text-button"
-                        disabled={busy || !configured || !online}
-                        onClick={() => void sync()}
-                      >
-                        <RefreshCw size={15} />
-                        {busy ? 'กำลังซิงก์…' : 'ซิงก์รายการ'}
-                      </button>
                     </div>
                     <div className="table-wrap">
                       <table>
@@ -1165,7 +1173,7 @@ export default function App({
               {page === 'settings' && (
                 <div className="settings-grid">
                   <section className="panel padded">
-                    <h2>การเชื่อมต่อและข้อมูล</h2>
+                    <h2>การเชื่อมต่อ</h2>
                     <p>
                       Firebase:{' '}
                       <span className="badge">
@@ -1174,26 +1182,9 @@ export default function App({
                     </p>
                     <p>Google Drive: จัดการการเชื่อมต่อและคิวเอกสารด้านล่าง</p>
                     <p>
-                      เก็บข้อมูลในอุปกรณ์เพื่อทำงานออฟไลน์ และซิงก์โครงการ ข้อมูลพื้นฐาน เที่ยวรถ
-                      และงานที่เกี่ยวข้องเมื่อเชื่อมต่อและได้รับสิทธิ์
-                    </p>
-                    <p>
                       หากยังไม่ได้เชื่อมบริการ
                       กรุณาติดต่อผู้ดูแลเพื่อตั้งค่าบัญชีและสิทธิ์ใช้งานคลาวด์
                     </p>
-                    <p>
-                      ข้อมูลในเครื่องอาจสูญหายเมื่อผู้ใช้ล้างข้อมูลเว็บไซต์ ควรดาวน์โหลดข้อมูลสำรอง
-                      JSON พร้อมไฟล์แนบสม่ำเสมอ
-                    </p>
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        setPage('reports');
-                        setDate('');
-                      }}
-                    >
-                      <Download size={16} /> เปิดรายงานเพื่อส่งออกข้อมูล
-                    </button>
                   </section>
                   <section className="panel padded" aria-label="โครงการเริ่มต้น">
                     <h2>โครงการเริ่มต้น</h2>
@@ -1219,16 +1210,6 @@ export default function App({
                     {projectPreference.saving && <p role="status">กำลังบันทึกการตั้งค่า…</p>}
                     {projectPreference.error && <p role="alert">{projectPreference.error}</p>}
                   </section>
-                  {canManage && <BackupRestorePanel key={`restore:${owner}`} owner={owner} />}
-                  <DuplicateReviewPanel
-                    key={`duplicates:${owner}`}
-                    owner={owner}
-                    data={data}
-                    onOpen={(id) => {
-                      const trip = data.trips.find((trip) => trip.id === id);
-                      if (trip) open('trip', trip);
-                    }}
-                  />
                   {projectPreference.ready && (
                     <DrivePanel
                       defaultProject={projectPreference.id}
@@ -1413,7 +1394,7 @@ export default function App({
                       onChange={setTripProject}
                       onManage={() => {
                         setModal(null);
-                        setPage('projects');
+                        navigate('projects');
                         if (!data.projects.length) open('project');
                       }}
                     />

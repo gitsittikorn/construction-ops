@@ -157,11 +157,11 @@ it('keeps a restore failure in the sync menu across navigation and clears the in
   expect(screen.queryByText(failure)).not.toBeInTheDocument();
   expect((await loadData('test-owner')).trips[0].syncStatus).toBe('pending');
   await user.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
-  expect(screen.getByText(failure)).toBeInTheDocument();
+  expect(await screen.findByText(failure)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'โครงการ' }));
   expect(screen.queryByText(failure)).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
-  expect(screen.getByText(failure)).toBeInTheDocument();
+  expect(await screen.findByText(failure)).toBeInTheDocument();
   vi.mocked(firestoreTransport.pull).mockResolvedValue({ records: [], cursors: {} });
   await user.click(screen.getByRole('button', { name: 'ซิงก์และกู้คืนจาก Cloud' }));
   await waitFor(async () =>

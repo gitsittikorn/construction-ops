@@ -23,3 +23,9 @@ CSV แนบ metadata columns; XLSX มีชีต “ข้อมูลรา
 UI และ metadata ระบุ delivered loose volume ตาม saved truck snapshots แยกจาก compacted fill/design quantities ของ survey ไม่เอายอดต่าง material state มารวมเงียบ
 
 Phase 6 isolated gate: npm run check exit 0, frontend 263, backend 10, rules 7, emulator integration 8, E2E 44; lint/typecheck/build/smoke PASS. The earlier missing calendar/export-context items are now implemented and covered. Real Android/Excel printing and Google services remain NOT VERIFIED.
+
+## Consolidated report ownership — 2026-11-09
+
+UX-006: one **รายงาน** menu now owns operational summaries/volumes/reconciliation/calendar reports and their CSV/XLSX/PDF. The repeated original trip table is removed from Reports; its date/project/search filters, editing and original-field CSV/PDF live only in **บันทึกเที่ยวรถ**. Print metadata appears only under print media and retains the selected dates, project and pending count. Domain calculations, source distinctions and evidence references are unchanged.
+
+Windows `npm.cmd run check` **exit 0**: frontend **322/322** (55 files), backend **15/15**, Rules **10/10**, emulator integration **10/10**, E2E **64/64** (3.1 minutes), editor tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 lint warnings/zero errors, no skipped tests. New browser cases cover ownership, invalid ranges, unchanged CSV/pending data and responsive layouts; existing calendar/reconciliation/XLSX/PDF/offline regressions remain enabled. Details/actual command: [PAGE_OWNERSHIP_REPORT.md](PAGE_OWNERSHIP_REPORT.md). Real service, physical Android and actual printer/Excel acceptance remain separate/NOT VERIFIED in this task.

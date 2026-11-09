@@ -5,8 +5,8 @@
 ## Where to use the features
 
 - **การเงินโครงการ**: choose project/date range; enter revenue, truck or driver rates per trip/m³; enter fuel/repair/other expenses; inspect provisional totals, truck/driver payable estimates, rate history, expense reversals and calculation CSV
-- **การตั้งค่า → กู้คืนไฟล์สำรอง JSON**: select a same-account version-1 backup, inspect counts/collisions/reopened days, confirm missing-only merge. Cancel is read-only. Keep the original file
-- **การตั้งค่า → ตรวจเที่ยวที่อาจซ้ำ**: search legacy-trip candidates, open individual trips, record distinct/needs-correction with a reason. A review never deletes or voids a trip
+- **ซิงก์และสำรองข้อมูล → กู้คืนไฟล์สำรอง JSON**: select a same-account version-1 backup, inspect counts/collisions/reopened days, confirm missing-only merge. Cancel is read-only. Keep the original file
+- **บันทึกเที่ยวรถ → มุมมองเที่ยวรถ → ตรวจเที่ยวที่อาจซ้ำ**: search legacy-trip candidates, open individual trips, record distinct/needs-correction with a reason. A review never deletes or voids a trip
 - **การตั้งค่า → โครงการเริ่มต้น**: set an active project for new forms on this browser/account. Existing daily drafts and edited historical records keep their project
 
 ## Data safety and calculation rules

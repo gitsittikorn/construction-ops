@@ -15,10 +15,11 @@ for (const viewport of [
     );
     await expect(page.getByLabel('สิทธิ์บริษัทปัจจุบัน', { exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
-    await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
+    await nav.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true }).click();
     await expect(
       page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true }),
     ).toHaveCount(0);
+    await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
     await expect(page.getByRole('region', { name: 'สมาชิกบริษัท', exact: true })).toHaveCount(0);
     await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
     await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();

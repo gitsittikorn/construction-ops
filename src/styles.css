@@ -1332,6 +1332,9 @@ main.login-screen {
     font-size: 9px;
   }
 }
+.print-only {
+  display: none;
+}
 @media print {
   @page {
     size: A4;
@@ -1342,6 +1345,7 @@ main.login-screen {
   .page-title button,
   .local-banner,
   .toolbar,
+  .trip-list-heading,
   .text-button,
   footer,
   .alert {
@@ -1350,6 +1354,9 @@ main.login-screen {
   .workspace {
     margin: 0;
     width: 100%;
+  }
+  .print-only {
+    display: block;
   }
   main {
     padding: 0;

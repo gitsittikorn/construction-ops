@@ -565,10 +565,7 @@ test('business XLSX/CSV and survey history use persisted values and produce down
 }) => {
   await seed(page);
   await createRow(page);
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
-    .click();
+  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
   for (const label of ['ส่งออกรายงาน Excel', 'ส่งออกรายงาน CSV']) {
     const event = page.waitForEvent('download');
     await page.getByRole('button', { name: label, exact: true }).click();
@@ -630,10 +627,7 @@ test('production PWA caches lazy assets and preserves pending data through offli
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByText('PWA offline project', { exact: true })).toBeVisible();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
-    .click();
+  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
   const event = page.waitForEvent('download');
   await page.getByRole('button', { name: 'ส่งออกรายงาน Excel', exact: true }).click();
   expect((await event).suggestedFilename()).toBe('daily-report.xlsx');
@@ -756,10 +750,7 @@ test('P6: mixed capacity reconciliation preserves mismatches in the UI, CSV and 
   await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจยอดตามใบเที่ยวใหม่');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
   await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
-    .click();
+  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('verification');
   const row = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
   await expect(row).toHaveCount(1);
@@ -826,10 +817,7 @@ test('P6: calendar reports apply date filters before grouping and export Bangkok
     });
   });
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
-    .click();
+  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('weekly');
   const rows = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
   await expect(rows).toHaveCount(2);
@@ -962,10 +950,7 @@ test('P8: coarse-pointer tablet targets remain usable and report controls work b
     const page = await context.newPage();
     await seed(page);
     expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
-      .click();
+    await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
     const panel = page.locator('section[aria-label="รายงานธุรกิจ"]');
     for (const control of [
       panel.getByLabel('รูปแบบรายงาน', { exact: true }),
@@ -997,10 +982,7 @@ test('desktop report columns scroll within their table without widening the whol
   await page.setViewportSize({ width: 1440, height: 1000 });
   await seed(page);
   await createRow(page);
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'รายงานธุรกิจ', exact: true })
-    .click();
+  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
   const panel = page.locator('section[aria-label="รายงานธุรกิจ"]');
   await panel.getByLabel('แนบเลขอ้างอิงหลักฐาน', { exact: true }).check();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
@@ -1064,7 +1046,8 @@ test('preferred project persists without replacing an existing daily draft; dupl
   await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p2');
   await page.getByLabel('โครงการทำงาน', { exact: true }).selectOption('p');
-  await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
+  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
   const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' });
   await expect(duplicates).toContainText('พบ 1 กลุ่ม');
   await duplicates.getByLabel('เหตุผลตรวจเที่ยวซ้ำ').fill('ตรวจตั๋วแล้ว คนละเที่ยว');
@@ -1073,7 +1056,8 @@ test('preferred project persists without replacing an existing daily draft; dupl
   await page.reload();
   await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p');
-  await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
+  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
   await expect(duplicates.getByRole('status')).toContainText('ตรวจตั๋วแล้ว คนละเที่ยว');
   expect(
     await page.evaluate(async () => {

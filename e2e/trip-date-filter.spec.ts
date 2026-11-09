@@ -102,11 +102,14 @@ test('all-date searches combine with project filters and empty results preserve 
   await expect(rows).toHaveCount(3);
 });
 
-test('reports share the all-date filter and export historical rows', async ({ page }) => {
-  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+test('trip-list exports and print metadata use the same all-date filter and retain historical rows', async ({
+  page,
+}) => {
   await page.getByRole('checkbox', { name: 'ทุกวันที่' }).check();
   await expect(page.locator('tbody tr')).toHaveCount(3);
+  await page.emulateMedia({ media: 'print' });
   await expect(page.getByText(/วันที่ทำงาน: ทุกวัน/)).toBeVisible();
+  await page.emulateMedia({ media: 'screen' });
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'CSV', exact: true }).click();
   const stream = await (await download).createReadStream();
