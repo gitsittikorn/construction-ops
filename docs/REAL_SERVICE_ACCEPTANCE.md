@@ -1,5 +1,13 @@
 # Real-service acceptance — desktop Phase 0–8
 
+## Latest cross-session handoff — 2026-11-09
+
+The user reports that the VS Code session now connects to Firebase and Google Drive, and that **นำเข้าจาก Google Sheets** still reports that it cannot connect to the account. Treat Firebase/Drive success as **user-reported**, not independent verification of the complete phase matrix below. Earlier remote configuration findings remain historical/open pending their specific retests; do not reapply previous Rules or backend changes from these older instructions automatically.
+
+The cloud checkout fetched and fast-forwarded from `5001edd` to GitHub `main` at `aec9592`, including `398f648` (dedicated Sync menu), `480a686` (page ownership) and the later Sheets/nickname/OAuth updates. This synchronizes committed source and repository documents only. VS Code chat history, ignored `.env.local`/backend configuration, browser login/consent and local IndexedDB do not transfer through Git. Both environment files and relevant frontend shell configuration are absent in this cloud checkout; no actual Google account request or cloud permission change was made here.
+
+Sheets import independently requests `spreadsheets.readonly` through the browser token flow, verifies the account against the Firebase email and then reads the sheet. Drive backend success alone does not establish this additional consent/read path. The latest source contains guidance for `origin_mismatch`, but the current user's full error text, failing stage and browser origin are not yet established. Do not identify an origin mismatch, wrong account, disabled API or insufficient consent as the confirmed cause without that evidence. Next: obtain the visible error screenshot/text and page origin, distinguish Google popup failure from app account verification or Sheets API failure, then reproduce/fix the confirmed cause without collecting tokens or clearing storage.
+
 Prepared 2026-11-09 (Asia/Bangkok), source `ba6ad8c`, checkout baseline `5001edd`. The user requested all-phase testing with real Firebase and Google Drive. This document records prerequisites and actual evidence separately; preparing the checklist is not a passing real-service test. Physical Android acceptance remains deferred by the earlier explicit instruction.
 
 ## Initial connection checkpoint (before configuration)
