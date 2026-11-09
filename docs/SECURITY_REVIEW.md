@@ -1,5 +1,7 @@
 # Security and completeness review
 
+Latest review: [SECURITY_SCAN_2026-11-09.md](SECURITY_SCAN_2026-11-09.md). Semgrep/Gitleaks were run in that follow-up; the 2026-11-08 scanner availability and 31-moderate counts below are historical. Current dependency audit: 23 moderate development findings, zero runtime findings. Confirmed sealed-evidence and GCM-tag findings were fixed and retested; production deployment/real-service acceptance remains separate.
+
 วันที่ 2026-11-08 (Asia/Bangkok). Baseline `1591e17`; working tree clean before review. This is a scoped source/dependency/negative-test review, not proof that the product has no vulnerabilities or a penetration-test certification. No live production attack, push/deploy, credential rotation or data reset was performed
 
 ## Answer against the Master Roadmap
@@ -18,7 +20,7 @@
 | 7     | BM/TP/orientation/interpolation/cut-fill assumptions, import preview/validation/roundtrip, bounded 2D contours                             | Optional 3D deferred; engineering measurements not certified                     |
 | 8     | quota/performance/touch/keyboard/PWA/backup export/cloud restore/security negative tests/audit and smoke plan                              | Physical Android, full manual accessibility and production smoke; dev advisories |
 
-Backup JSON export is verified; arbitrary local JSON re-import/merge is not an implemented UI. Do not clear local storage expecting the file to restore automatically. This limitation is separate from tested cloud restore and pending-original retention
+Backup JSON export and same-account missing-only preview/atomic JSON restore are now implemented and tested in the approved extensions; see EXTENSIONS_REPORT.md for limits, conflict/tombstone handling and original-byte retention. Preserve source backups and do not clear local storage to test restore. This supersedes the original export-only limitation; real production cloud acceptance remains separate.
 
 ## Confirmed issues fixed in this review
 
@@ -58,13 +60,13 @@ README said access tokens were memory-only and did not survive reload, while dri
 - No eval/new Function/dangerous HTML injection was found in production source during the targeted search. new Function in the service-worker unit harness is test-only. Report document.write receives escaped printableReport output; it is still reviewed as a sensitive HTML sink
 - Cleanup script uses an explicit generated-path allowlist and realpath/symlink guards. It does not clear IndexedDB, credentials, arbitrary files, source or lockfiles. Dependency directories and useful dist build artifacts are retained
 
-## Scans actually run
+## Scans actually run — historical 2026-11-08
 
 - Fresh npm audit: frontend runtime 0; backend runtime 0; full development tree 31 moderate, 0 high/critical. Exact advisories/remediation assessment remain in PHASE_8_FINAL_QA_REPORT. No forced downgrade/major override; lockfiles unchanged
 - Initial redacted pattern scan: 197 tracked files, 190 decodable text files, 0 matches for selected private-key/GitHub/OAuth-secret/AWS/Stripe/Slack token formats. Only file/line/type would be emitted, never values. This is not a general secret-detection guarantee
 - History search across available Git refs for selected PEM/GitHub/OAuth-secret patterns returned no matching commits. Unreachable Git objects, external vaults and arbitrary secret formats were not scanned
 - Reviewed package scripts and seven scripts/ helpers used by build/test/clean. No tracked custom SKILL.md files found; none were executed as an audit target. Cloud runtime skill is an assistant workflow, not an application vulnerability scanner
-- Semgrep, Gitleaks and Trivy are not installed in this environment and were not run. No dedicated SAST/DAST or live penetration-test result is claimed
+- At that review Semgrep, Gitleaks and Trivy were not installed and were not run. The 2026-11-09 follow-up installs and runs Semgrep/Gitleaks under /tmp; see the linked report for actual scope, warnings and parser limitation. Trivy/DAST/live penetration testing remain unperformed
 
 ## Residual risks and external checks
 
