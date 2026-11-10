@@ -23,6 +23,10 @@
 
 Production build ที่ไม่มี Firebase config จะแสดงข้อผิดพลาดและไม่เปิดข้อมูลบริษัท หากตั้งใจสร้าง local demo แยกต่างหาก ต้องกำหนด `VITE_ALLOW_LOCAL_DEMO=true` โดยชัดแจ้ง Local demo ไม่ใช่บัญชีที่ได้รับอนุญาต ส่วน development localhost ยังคงใช้ดูเดโมได้
 
+ล่าสุดเพิ่มฟอร์มมือถือ 16 px/พื้นที่แตะ 48 px, หน้าต่างกรอกข้อมูลที่กักโฟกัสและรองรับหมุนจอ, ปุ่ม Logout ที่จอเล็กเข้าถึงได้ และหน้า Firebase TOTP Authenticator setup/login challenge. ดู [ผลตรวจมือถือและข้อจำกัด Safari](docs/MOBILE_WEB_READINESS.md). การตั้งค่าบริการ MFA จริงยังต้องผ่านการตรวจรับก่อนเปิด enforcement
+
+เตรียม GitHub Pages ได้ด้วย `npm run build:pages` และ `npm run smoke:pages`; ผลอยู่ใน `dist-pages/` รองรับ base `/construction-ops/`. [คู่มือเผยแพร่เว็บ](docs/WEB_RELEASE_PREPARATION.md) อธิบาย manual artifact workflow, public-config preflight และ Backend ที่ต้องแยกจาก Pages. ยังไม่ได้ Merge/Deploy หรือเปิด GitHub Pages อัตโนมัติ
+
 ## เริ่มใช้งาน
 
 Node.js 22.12 ขึ้นไป (เครื่อง Windows ที่จำกัด PowerShell scripts ให้ใช้ `npm.cmd`)

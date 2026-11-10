@@ -81,7 +81,9 @@ Deployment order:
 
 ## MFA and custom claims
 
-Custom role claims were considered but deliberately not used as authority: claims can remain stale until refresh. The live Firestore grant and protected mirror decide access. `ACCESS_REQUIRE_ADMIN_MFA=true` optionally requires a Firebase `sign_in_second_factor` claim for super-admin sessions and administrative calls. Default is false. Enable it only after a compatible Firebase MFA enrollment/sign-in solution is deployed and tested; this branch does **not** claim to provision MFA or provide a complete TOTP/SMS enrollment/challenge UI. Google account two-step verification alone does not establish that Firebase claim. Real MFA acceptance remains open.
+Custom role claims were considered but deliberately not used as authority: claims can remain stale until refresh. The live Firestore grant and protected mirror decide access. `ACCESS_REQUIRE_ADMIN_MFA=true` optionally requires a Firebase `sign_in_second_factor` claim for super-admin sessions and administrative calls. Default is false. Google account two-step verification alone does not establish that Firebase claim.
+
+Follow-up implementation on 2026-11-10 now adds Firebase TOTP enrollment in Settings and a login challenge modal; see [MOBILE_WEB_READINESS.md](MOBILE_WEB_READINESS.md) for current test evidence and [WEB_RELEASE_PREPARATION.md](WEB_RELEASE_PREPARATION.md) for provider setup/recovery prerequisites. The original source `1b4c21d` gate below predates this UI. No provider was enabled or real Google/TOTP enrollment tested. SMS/recovery-code/factor-removal UI remains outside this change. Keep enforcement off until real acceptance, including token/offline boundaries. The optional backend flag does not independently impose MFA on every Firestore read or cached record.
 
 ## Actual verification and remaining acceptance
 
@@ -93,7 +95,7 @@ Browser tests use explicitly synthetic identities and the production access-serv
 
 Security scan: Semgrep **1.184.0**, pinned community rules `16b9e6d45f10649f6a531ec4838ed9924372c3bc`, **176 rules / 98 production targets**, including all new access-service/model/store/bootstrap/script/frontend API/back-office files. Four pre-existing escaped-HTML warnings remain at two `src/reports.ts` locations; manual review/injection regressions are retained. One pre-existing parser limitation remains in `src/models.ts`. No new auth finding was reported within this scope; this is not a penetration-test or vulnerability-free certification. Gitleaks **8.30.1**, redacted `git --log-opts=--all` scan at `1b4c21d`: **43 commits, zero findings**. The 2026-11-09 dependency audit is historical (runtime zero / development 23 moderate); both lockfiles are unchanged, and no fresh dependency audit is claimed.
 
-`npm run clean` completed. Only the two regenerated Phase 2 screenshots were restored. Source, lockfiles, unknown files, credentials, original business data, local caches and pending original bytes were preserved. No deployment workflow exists under `.github` in this checkout; source push is separate from release.
+`npm run clean` completed. Only the two regenerated Phase 2 screenshots were restored. Source, lockfiles, unknown files, credentials, original business data, local caches and pending original bytes were preserved. At source `1b4c21d` no workflow existed under `.github`; the later `ef2564b` adds only manual artifact preparation with read permission and no deployment job. Source push remains separate from release.
 
 ## Delivery and next-session checkpoint
 

@@ -1,5 +1,13 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Latest mobile / TOTP / hosting-preparation gate — 2026-11-10
+
+Source **`ef2564b`**, baseline `2c74288`, feature branch unchanged. Full documented cloud `npm run check` exit **0**: frontend **355/355** (61 files), backend **24/24**, release preflight **5/5**, Node emulator **15/15** (13 Rules + 2 backend transactions), client integration **10/10**, E2E **81/81** (3.0 minutes), tooling **4/4**. Format/lint/typecheck, root and Pages build/HTTP smoke pass; 59 existing warnings/zero errors. Main JS chunk approximately 509.8 kB keeps its warning threshold. No tests/assertions were disabled.
+
+Adds touch/rotation/cancel/focus/offline record-form regressions at 320/390/844/820 px, synthetic TOTP setup/challenge/retry and real subpath PWA/offline lazy-report checks. Details/reproduced bugs: [MOBILE_WEB_READINESS.md](MOBILE_WEB_READINESS.md). Fresh runtime audits zero/zero; compatible TypeScript ESLint patch fix reduces development findings 31→23 moderate, zero high/critical. Semgrep 176 rules/104 targets retains only four known report findings and one prior models parser limitation. Gitleaks redacted working snapshot zero and history through source 46 commits/zero findings. Safe cleanup completed without deleting source/data/credentials/pending originals.
+
+Prepared manual artifact workflow has read-only contents permission and no deployment job. [WEB_RELEASE_PREPARATION.md](WEB_RELEASE_PREPARATION.md) covers separate Backend/Rules/client release, public-config preflight, provider/TOTP acceptance and origin-based IndexedDB limits. No merge/deploy/bootstrap/provider/billing/environment changes performed. WebKit download was attempted but blocked by 403 Domain forbidden; Safari, real iPhone/iPad/Home Screen/keyboard/notch and actual Google/TOTP are NOT VERIFIED. Original Phase 8 remains **PARTIAL** for real-service/manual acceptance; physical Android remains deferred.
+
 ## Latest allowlist / RBAC gate — 2026-11-10
 
 Validated source **`1b4c21d`** on `feat/google-allowlist-rbac`, baseline `b5b046f`. Full documented cloud `npm run check` exited **0**: frontend **343/343** (59 files), backend **24/24**, Node emulator **15/15** (13 Rules + 2 backend Firestore transaction integrations), client integration **10/10**, Playwright **73/73** (2.6 minutes), tooling **4/4**. Formatting/lint/typecheck/build/HTTP smoke pass; 59 existing lint warnings and zero errors. No tests/assertions were disabled. A supplemental emulator matrix verifies finance permissions, staff open-day/proof creation and viewer constrained reads/write denial. The Rules expression-budget regression was fixed and retested.
