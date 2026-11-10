@@ -2,6 +2,8 @@
 
 แหล่งที่มา: Master Roadmap ที่ผู้ใช้ส่งใน session นี้ เก็บเนื้อหาทั้งหมดด้านล่างเพื่อใช้ต่อเนื่องทุก session คำสั่ง START NOW เป็นส่วนหนึ่งของต้นฉบับ; ให้ทำตามคำสั่งล่าสุดของผู้ใช้และ AGENTS.md เสมอ สถานะจริงอยู่ใน [ROADMAP_PROGRESS.md](ROADMAP_PROGRESS.md) ไม่ใช่เอกสารแผนนี้
 
+เพิ่มเติม 2026-11-10: ผู้ใช้ให้ใช้ [ข้อกำหนด Google Authentication / Allowlist / RBAC / User Management ลงวันที่ 2026-11-09](AUTH_RBAC_REQUIREMENTS_2026-11-09.md) ร่วมกับแผนนี้ โดยไม่เปลี่ยนเลข Phase 0–8 ดู gap analysis, permission matrix, bootstrap/rollout และผลทดสอบใน [AUTH_RBAC_IMPLEMENTATION.md](AUTH_RBAC_IMPLEMENTATION.md). ทำงานบน Feature Branch + PR; ห้าม Merge/Deploy Production โดยไม่ได้รับอนุมัติ
+
 ROLE: Senior Full-Stack Engineer, Solution Architect, QA Automation Engineer and Technical Lead.
 
 PROJECT: https://github.com/gitsittikorn/construction-ops

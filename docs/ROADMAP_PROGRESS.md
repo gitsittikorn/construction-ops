@@ -4,7 +4,16 @@
 
 ผู้ใช้กำหนดให้รีวิวฟีเจอร์บนเว็บ/เดสก์ท็อปก่อน และเลื่อน physical Android acceptance ออกไป ไม่ต้องรอ Android เพื่อเปิดดู desktop features. คงสถานะ hardware เป็น deferred/NOT VERIFIED โดยไม่อ้างว่า PASS. Real Firebase/Drive integration เป็นงานแยกที่ยังจำเป็นสำหรับ login/sync/upload/restore จริงบน desktop. ดู DESKTOP_REVIEW.md สำหรับ workflow, local mode และข้อจำกัดการเผยแพร่เว็บ ไม่ได้ deploy จากการ push GitHub โดยอัตโนมัติ
 
-อัปเดต 2026-11-10 (Asia/Bangkok). Latest implementation `222ab69`; Requirements: [MASTER_ROADMAP.md](MASTER_ROADMAP.md). UX/DEMO baseline `48adc66` (application `aec9592`); security-task baseline `cbef922`; original roadmap baseline `949711e`, original upstream baseline `ad490a8`. ผู้ใช้อนุมัติ UX/UI, ลำดับเมนู, ระยะห่างปุ่ม/ช่องเลือก/หัวข้อ, โครงการ DEMO พร้อม commit/push ไม่มีการ deploy หรือแก้ไข/publish environment
+อัปเดต 2026-11-10 (Asia/Bangkok). Latest validated implementation **`1b4c21d`**, branch **`feat/google-allowlist-rbac`**, clean baseline **`b5b046f`**. ผู้ใช้ให้ใช้ [ข้อกำหนด Authentication / Allowlist / RBAC ลงวันที่ 2026-11-09](AUTH_RBAC_REQUIREMENTS_2026-11-09.md) เพิ่มจาก [MASTER_ROADMAP.md](MASTER_ROADMAP.md) โดยรักษา Phase 0–8. ดู [gap analysis / implementation / bootstrap guide](AUTH_RBAC_IMPLEMENTATION.md). ข้อกำหนดล่าสุดให้ใช้ Feature Branch + PR และ **ห้าม Merge/Deploy Production โดยไม่ได้อนุมัติ** แทนคำสั่ง push-to-main จากงานก่อน ไม่มีการเปลี่ยน/publish environment หรือ production access metadata
+
+## Current authentication milestone — 2026-11-10
+
+- IMPLEMENTED / isolated tests PASS: Google Auth เดิม + verified email allowlist, first-login UID binding ผ่าน trusted Admin SDK, `super_admin/admin/staff/viewer`, หน้า **ผู้ใช้งานและสิทธิ์**, role/status/search/paging/timestamps/audit, last enabled UID-bound super-admin transaction guard และ revocation
+- Firestore Rules/API เป็น authority; client เขียน allowlist/member mirror/counter/access audit ไม่ได้ Viewer อ่านอย่างเดียวและไม่มี finance; staff บันทึกงาน/หลักฐานในบริษัทที่ได้รับสิทธิ์แต่ไม่มี finance/closeout. ยังไม่เพิ่ม individual project-assignment ACL
+- Offline grant 12 ชั่วโมง, known-denial marker, online revalidation, reconnect cancellation, cache/actor/company/role isolation และ pending originals เดิมยังอยู่ Production config หายต้อง fail closed; local demo build ต้อง opt in ชัดเจน
+- Migration เป็น opt-in `allowlist-v1`: dry-run-first script รักษา namespace/member/business data เดิม ยัง **ไม่รัน production bootstrap**. บริษัท legacy ยังทำงานเดิมจนอนุมัติ coordinated release/activation
+- MFA claim gate รองรับ optional enforcement แต่ยังไม่มี enrollment/challenge UI ครบกระบวนการ และยังไม่ทดสอบ Google/MFA จริง คง `ACCESS_REQUIRE_ADMIN_MFA=false` จนมี compatible Firebase flow ที่ผ่านการตรวจรับ
+- DELIVERY CHECKPOINT: implementation committed locally at `1b4c21d`; documentation prepared. Branch push and actual PR creation are the next delivery steps. Git fetch confirms `origin/main` remains `b5b046f`. GitHub API preflight returned Forbidden; `gh auth status` could not verify configured-token authentication. Do not claim a PR exists until creation succeeds. PR body: [AUTH_RBAC_PR.md](AUTH_RBAC_PR.md)
 
 ## Approved additions after the original roadmap
 
@@ -37,14 +46,18 @@ FIREBASE_EMULATORS_PATH=/workspace/.cache/firebase/emulators \
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run check
 ```
 
-Latest complete command on `222ab69`, 2026-11-10, exit **0**: frontend **330/330** (57 files), backend **15/15**, rules **11/11**, emulator integration **10/10**, Playwright **67/67** (2.5 minutes); lint tooling **4/4**, formatting/typecheck/build/HTTP smoke PASS. No skipped tests, failed assertions or unhandled rejections in the final run. Lint retains 59 warnings and zero errors. Previous application gate `aec9592`: 327 frontend / 15 backend / 11 Rules / 10 integration / 64 E2E. See UX_UI_REPORT.md for changes, intermediate failures/retests and screenshots; SECURITY_SCAN_2026-11-09.md, COMPANY_ACCESS.md and EXTENSIONS_REPORT.md retain earlier evidence. Original real-service and physical-device acceptance remains open.
+Latest complete command on source **`1b4c21d`**, 2026-11-10, exit **0**: frontend **343/343** (59 files), backend **24/24**, Node emulator suite **15/15** (**13 Rules + 2 real backend Firestore transaction integrations**), Firestore client integration **10/10**, Playwright **73/73** (2.6 minutes); editor tooling **4/4**, formatting/typecheck/build/HTTP smoke PASS. No skipped tests, failed assertions or unhandled rejections in the final run. Lint retains 59 warnings and zero errors. Supplemental role-matrix emulator retest also exits 0 (same 15 Node / 10 client integration tests): positive manager/super-admin finance and staff day/proof creation, viewer/staff finance denial, viewer write denial and constrained viewer list access. Existing UX/DEMO gate `222ab69` (330/15/11/10/67) is historical; preserved details are in UX_UI_REPORT.md
 
-Security audit checkpoint from 2026-11-09 (not rerun for this UX task; lockfiles unchanged): frontend/backend runtime zero findings; full dev tree **23 moderate**, zero high/critical (earlier 31 is historical). Compatible dry-run proposed zero installed version changes; no forced override. Semgrep 176 rules/88 targets: GCM finding fixed, four reviewed escaped-HTML warnings and one parser limitation remain. Redacted Gitleaks scans found zero findings within their documented scope. See SECURITY_SCAN_2026-11-09.md and PHASE_8_FINAL_QA_REPORT.md.
+Browser access tests are explicit synthetic simulations using production service policies. API/Rules/real Firestore transactions have separate coverage; no real Google login or MFA is implied. Original real-service and physical-device acceptance remains open. New access details and rollout prerequisites: AUTH_RBAC_IMPLEMENTATION.md
+
+Security scan rerun for this auth task: Semgrep 1.184.0 / pinned community rules `16b9e6d45f10649f6a531ec4838ed9924372c3bc`, **176 rules / 98 production targets**, including new auth files. Four existing escaped-HTML warnings at two report locations and one existing models parser limitation remain; no new auth finding within scan scope. Redacted Gitleaks 8.30.1 at implementation commit: **43 commits / zero findings**. Runtime-zero / development-23-moderate dependency audit from 2026-11-09 is historical and was **not** rerun; lockfiles unchanged. Main build chunk approximately 503 kB retains its existing warning threshold. No vulnerability-free claim
 
 ## Local commit checkpoints
 
 | Commit    | Scope                                                                                                                                       |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1b4c21d` | Trusted Google email allowlist, four roles, User Management, backend/Rules authority, offline expiry, viewer guards and regression tests    |
+| `222ab69` | Novice UX improvements and safe complete draft DEMO project; full gate and browser review                                                   |
 | `ba6ad8c` | Freeze sealed evidence/context, start new closure generations, combine company proof, select current report references and enforce GCM tags |
 | `7fae411` | Shared company membership/roles, preserved namespaces, isolated caches/uploads, per-user credential authorization and restore provenance    |
 | `246a174` | Approved extensions: immutable finance, safe JSON merge, duplicate review, preferred project and sync cancellation                          |
@@ -58,6 +71,10 @@ Security audit checkpoint from 2026-11-09 (not rerun for this UX task; lockfiles
 Earlier work: P2 `d13a2fb`, P3 `bd884dc`, original restore `335daa2`; previous local fixes `aa18632`, `4ad0958`, `f7a6266`; roadmap persistence `949711e`. Final checkpoint documentation commit is discoverable using `git log -1 -- docs/ROADMAP_PROGRESS.md` rather than embedding its own hash
 
 ## Resume checkpoint and exact next actions
+
+**Current handoff — 2026-11-10:** auth/RBAC implementation and full isolated gate completed in `1b4c21d`; see the current authentication milestone above for delivery status. Read AGENTS, latest requirements, AUTH_RBAC_IMPLEMENTATION, Git and actual code before resuming. Finish feature-branch delivery/PR if still pending; do not merge main or deploy. Before any authorized rollout, use dedicated Google identities, reviewed ADC/project configuration, coordinated backend/Rules/index/client versions and dry-run-first metadata bootstrap. MFA enrollment/sign-in, real service revocation/restore and the separate Sheets-account error remain open. No usage limit was reported. Safe cleanup completed; do not repeat migrations or delete preserved pending data.
+
+The following earlier extension checkpoint is historical; its real-service prerequisites remain relevant:
 
 - Current phase/task: all nine approved extension implementations are validated; latest source `ba6ad8c` includes the completed bug/security follow-up. No role-scope question remains. Original Phase 8 real-service/release acceptance and Phase 1/4 production checks remain open
 - Preserve current local commits. Inspect `git status`, recent log, AGENTS, Master, Bug Tracker, phase reports and actual source before proceeding. Do not rebuild working features or repeat obsolete fixes

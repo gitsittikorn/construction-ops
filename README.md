@@ -15,6 +15,14 @@
 
 เป้าหมายรอบนี้คือดูและใช้งานฟีเจอร์บนเว็บเดสก์ท็อปก่อน การตรวจ Android เลื่อนไปภายหลัง ดู [คู่มือ Desktop Review](docs/DESKTOP_REVIEW.md) สำหรับลำดับทดลองฟีเจอร์และความต่างระหว่าง local mode กับบริการ Firebase/Drive จริง
 
+## Google Allowlist และสิทธิ์ทีมงาน — 2026-11-10
+
+เพิ่มข้อกำหนด [Authentication/RBAC](docs/AUTH_RBAC_REQUIREMENTS_2026-11-09.md) แล้ว โดยใช้ Firebase Google Auth เดิม รองรับ `super_admin/admin/staff/viewer` และหน้า **ผู้ใช้งานและสิทธิ์** สำหรับ Super Admin เพิ่มอีเมลทีมงานก่อน Login, เปลี่ยนบทบาท/สถานะ, ค้นหา และดูประวัติ ระบบผูก UID ผ่าน trusted backend และป้องกันปิด Super Admin คนสุดท้าย Viewer อ่านอย่างเดียวทั้ง UI และ server
+
+ดู [รายละเอียดและคู่มือ Super Admin คนแรก](docs/AUTH_RBAC_IMPLEMENTATION.md) ก่อนใช้งานจริง: บริษัทเดิมยังใช้ legacy policy จนกว่าจะ deploy องค์ประกอบที่เกี่ยวข้องและอนุมัติ bootstrap แบบ opt-in. `VITE_ACCESS_BACKEND_URL` เว้นว่างเพื่อใช้ backend เดียวกับ `VITE_DRIVE_BACKEND_URL` ได้ ห้ามใส่ secret ในค่า frontend. Offline grants มีอายุ 12 ชั่วโมงและตรวจสิทธิ์ใหม่เมื่อออนไลน์ โดยเก็บข้อมูลรอซิงก์เดิมไว้ ผลทดสอบล่าสุดอยู่ใน [Progress](docs/ROADMAP_PROGRESS.md); ยังไม่ได้ Deploy/Bootstrap Production หรือทดสอบ Login Google/MFA จริง
+
+Production build ที่ไม่มี Firebase config จะแสดงข้อผิดพลาดและไม่เปิดข้อมูลบริษัท หากตั้งใจสร้าง local demo แยกต่างหาก ต้องกำหนด `VITE_ALLOW_LOCAL_DEMO=true` โดยชัดแจ้ง Local demo ไม่ใช่บัญชีที่ได้รับอนุญาต ส่วน development localhost ยังคงใช้ดูเดโมได้
+
 ## เริ่มใช้งาน
 
 Node.js 22.12 ขึ้นไป (เครื่อง Windows ที่จำกัด PowerShell scripts ให้ใช้ `npm.cmd`)
@@ -76,7 +84,7 @@ Access token อยู่ในหน่วยความจำและ sessio
 
 คัดลอก `.env.example` เป็น `.env.local` แล้วกรอก public web app configuration เปิด Google provider ใน Firebase Authentication และเพิ่ม authorized domain
 
-สร้างเอกสาร `admins/{uid}` ผ่าน Firebase Console สำหรับเจ้าของเพียงคนเดียว ก่อนใช้งานคลาวด์ ต้องตรวจสอบและ deploy `firestore.rules` ไปยังโปรเจกต์จริง (แอปไม่สร้างสิทธิ์ admin เอง) ห้ามใส่ service account private key หรือ OAuth client secret ใน `VITE_*`
+สำหรับบริษัท legacy เอกสาร `admins/{companyId}` ใน Firebase Console เป็น registration gate ของบริษัท สำหรับนโยบายใหม่ให้ทำตาม [bootstrap/rollout guide](docs/AUTH_RBAC_IMPLEMENTATION.md) เพื่อเปิดใช้ Allowlist โดยไม่ลบข้อมูลเดิม ไม่ใช้เอกสารนี้แทนสถานะของสมาชิกแต่ละคน ก่อนใช้งานคลาวด์ต้องตรวจสอบและ deploy Rules/index/backend/client ที่เข้ากันได้โดยได้รับอนุมัติ ห้ามใส่ service account private key หรือ OAuth client secret ใน `VITE_*`
 
 กฎที่แนบเป็นจุดเริ่มต้น ยังต้องทดสอบด้วย Firebase Emulator และขยาย validation ของข้อมูลอ้างอิงเมื่อเพิ่ม project/master cloud sync ก่อนเปิด production
 
@@ -141,4 +149,4 @@ Vite dev server มีตัวตรวจสถานะอัปโหลด�
 
 See [the nine-item scope](docs/APPROVED_EXTENSIONS.md) and [implementation, usage and validation](docs/EXTENSIONS_REPORT.md) for project finance estimates, JSON restore, duplicate review and preferred projects. Real-service/physical-device acceptance remains separate; shared company roles and rollout requirements are documented in [Company Access](docs/COMPANY_ACCESS.md).
 
-Latest validated source `7fae411` (2026-11-09): shared company membership is implemented; frontend 310, backend 14, Rules 9, integration 10 and browser E2E 58 passed. See [Company Access](docs/COMPANY_ACCESS.md) for owner/member setup and coordinated client/backend/Rules/index release prerequisites. This milestone has not been pushed or deployed.
+Historical shared-company source `7fae411` (2026-11-09) passed frontend 310, backend 14, Rules 9, integration 10 and browser E2E 58. The latest allowlist/RBAC gate and Git delivery state are in [Roadmap Progress](docs/ROADMAP_PROGRESS.md). See [Company Access](docs/COMPANY_ACCESS.md) and the newer rollout guide before configuring members. Source delivery does not deploy Rules/index/backend/hosting or migrate production access metadata.

@@ -33,6 +33,15 @@
 - These recommendations **do not switch the actual Codex model or UI settings**. Never claim a model switch unless supported by a real routing capability and verified. Continue with the available model when switching is unsupported.
 - High-risk earthwork calculations, Google/Firebase/Drive/Sheets sync, account permissions and data migrations require the additional verification in `docs/MODEL_ROUTING.md`; preserve the project’s existing automated gates and evidence requirements.
 
+## Google allowlist and RBAC update — 2026-11-10
+
+- Read `docs/AUTH_RBAC_REQUIREMENTS_2026-11-09.md` and `docs/AUTH_RBAC_IMPLEMENTATION.md` before changing authentication, roles, membership, Rules, offline authorization or bootstrap. These additive requirements preserve Phase 0–8. Latest validated source and delivery state are in `docs/ROADMAP_PROGRESS.md`.
+- Reuse Firebase Google Auth and the original company namespaces. Canonical roles are `super_admin/admin/staff/viewer`; existing cache aliases are `owner/manager/operator/viewer`. They grant authority within the selected company only. Viewer must remain read-only in UI, domain, synchronization, Rules and backend; staff has no finance or verification/closeout authority.
+- For `allowlist-v1` companies, only the trusted Admin SDK service may mutate allowlists, UID binding, member mirrors, counters and access audit. Require verified Google identity and live enabled grants, serialize last bound super-admin protection, and never trust client/custom-claim role flags. Preserve the organization registration gate and distinguish it from individual account status.
+- Offline access requires a previously verified grant no older than 12 hours. Preserve known-revocation markers, account/company/role cache isolation and pending originals. Revalidate before online synchronization; never delete IndexedDB or transfer a previous actor's queue to make role changes pass.
+- Bootstrap is dry-run-first and opt-in. Implementation authorization does not authorize production access-metadata migration. Preserve existing company/data IDs, credentials and encryption keys. MFA enforcement is optional pending a separately configured/tested Firebase enrollment/sign-in flow; do not claim the gate alone implements that flow.
+- The latest requirements authorize a feature branch and PR with test results. No force push, main merge, production deployment or environment publication without explicit authorization. This supersedes earlier task-specific instructions to push directly to main.
+
 ## Novice UX and DEMO checkpoint
 
 - For internal-page UX changes, read `docs/UX_UI_GUIDE.md` and `docs/UX_UI_REPORT.md`. Preserve workflow menu groups, clear Thai labels, keyboard focus, readable form spacing and 48 px daily-work controls. Source `222ab69` passed the complete 2026-11-10 gate: frontend 330/backend 15/Rules 11/integration 10/E2E 67; upstream model-routing documentation was then merged without application changes.

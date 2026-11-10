@@ -1,5 +1,11 @@
 # Phase 1 — evidence index
 
+## Allowlist/offline access follow-up — 2026-11-10
+
+Validated source **`1b4c21d`** adds email-based Google allowlist access through a trusted backend, protected first UID binding, four canonical roles, a read-only viewer and transactional last-super-admin protection. Offline grants expire after 12 hours; known revocation cannot fall back to a legacy owner timestamp, and reconnect revalidates before synchronization. Account/company/role cache isolation and pending originals are preserved; an interleaved reconnect/revocation regression cannot reopen the old workspace or leave selection busy.
+
+Full gate exit **0**: frontend **343**, backend **24**, Node emulator **15** (13 Rules + 2 backend transactions), client integration **10**, E2E **73**, tooling **4**. Supplemental role-matrix retest also passes. Real Google login, deployed access expiry/revocation, original-cloud restore and MFA remain **NOT VERIFIED**. Phase 1 remains **PARTIAL** for those real-service checks. See [AUTH_RBAC_IMPLEMENTATION.md](AUTH_RBAC_IMPLEMENTATION.md) for policy activation and preserved-data rollout; no production migration/deployment was performed.
+
 2026-11-08 (Asia/Bangkok). Status: PARTIAL overall; isolated regression PASS ใน final gate 2026-11-08 ดู current run ใน TEST_RESULTS.md.
 
 รายงานรายละเอียดจริง: [PHASE_1_E2E_REPORT.md](PHASE_1_E2E_REPORT.md). รายงาน historical implementation: [PHASE1_REPORT.md](../PHASE1_REPORT.md).

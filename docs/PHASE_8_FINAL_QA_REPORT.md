@@ -1,5 +1,15 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Latest allowlist / RBAC gate — 2026-11-10
+
+Validated source **`1b4c21d`** on `feat/google-allowlist-rbac`, baseline `b5b046f`. Full documented cloud `npm run check` exited **0**: frontend **343/343** (59 files), backend **24/24**, Node emulator **15/15** (13 Rules + 2 backend Firestore transaction integrations), client integration **10/10**, Playwright **73/73** (2.6 minutes), tooling **4/4**. Formatting/lint/typecheck/build/HTTP smoke pass; 59 existing lint warnings and zero errors. No tests/assertions were disabled. A supplemental emulator matrix verifies finance permissions, staff open-day/proof creation and viewer constrained reads/write denial. The Rules expression-budget regression was fixed and retested.
+
+New browser cases exercise email invitation, role/status/search/last-super-admin denial and read-only viewer behavior at desktop/tablet/mobile widths using explicit synthetic identities and production access-service policies. API middleware and real Firestore transactions/Rules have separate tests. This is **not** real Google/OAuth/MFA or physical-device acceptance.
+
+Semgrep **1.184.0**, 176 rules / 98 production targets, pinned rules `16b9e6d45f10649f6a531ec4838ed9924372c3bc`: no new auth finding; four existing escaped-HTML warnings in reports and one existing parser limitation remain. Redacted Gitleaks **8.30.1**, 43 commits through source `1b4c21d`: zero findings. Lockfiles unchanged; the previous dependency audit is historical. Main bundle approximately 503 kB retains the normal build warning. `npm run clean` completed; restored only two generated Phase 2 screenshots, preserving source/data/credentials/pending originals.
+
+See [AUTH_RBAC_IMPLEMENTATION.md](AUTH_RBAC_IMPLEMENTATION.md) for gaps, canonical role matrix, dry-run-first bootstrap and release order, and [ROADMAP_PROGRESS.md](ROADMAP_PROGRESS.md) for branch/PR state. Production bootstrap/Rules/index/backend/hosting deployment and environment publication were not run. Phase 8 remains **PARTIAL** for real-service/manual acceptance; physical Android remains deferred. Optional MFA claim enforcement is not a complete enrollment/challenge UI.
+
 ## Latest novice UX / DEMO gate — 2026-11-10
 
 Source `222ab69`, baseline `48adc66` (application `aec9592`). Final cloud `npm run check` exit **0**: frontend **330/330** (57 files), backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **67/67** (2.5 minutes); tooling **4/4**, formatting/lint/typecheck/build/HTTP smoke PASS. 59 lint warnings/zero errors; no skipped/disabled tests or unhandled rejections. Full evidence, initial failure/retest history and screenshots: [UX_UI_REPORT.md](UX_UI_REPORT.md). Upstream model-routing documentation merged afterward as `7a5fd71` with no application changes.
