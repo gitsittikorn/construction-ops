@@ -32,3 +32,8 @@
 - Read `docs/MODEL_ROUTING.md` when planning or starting a substantial task. Classify the task and its risk, and recommend an appropriate model/intelligence/speed setting without interrupting authorized implementation.
 - These recommendations **do not switch the actual Codex model or UI settings**. Never claim a model switch unless supported by a real routing capability and verified. Continue with the available model when switching is unsupported.
 - High-risk earthwork calculations, Google/Firebase/Drive/Sheets sync, account permissions and data migrations require the additional verification in `docs/MODEL_ROUTING.md`; preserve the project’s existing automated gates and evidence requirements.
+
+## Novice UX and DEMO checkpoint
+
+- For internal-page UX changes, read `docs/UX_UI_GUIDE.md` and `docs/UX_UI_REPORT.md`. Preserve workflow menu groups, clear Thai labels, keyboard focus, readable form spacing and 48 px daily-work controls. Source `222ab69` passed the complete 2026-11-10 gate: frontend 330/backend 15/Rules 11/integration 10/E2E 67; upstream model-routing documentation was then merged without application changes.
+- The overview DEMO action is explicit, owner/manager-only and idempotent. It adds a separate fictitious project through the existing atomic pending-outbox path, retains draft edits and originals, and never invents cloud acknowledgements or verified evidence. Keep the report warning when DEMO is included; do not auto-seed/reset a user's data or repeat this completed implementation.

@@ -1,5 +1,14 @@
 # Bug tracker
 
+## Novice UX and demo review — 2026-11-10
+
+- UX-007 (Medium / Phase 8): inner-page help/labels were small and faint; Sheets content touched its border, headings/controls lacked consistent separation, and technical status codes made routine work harder to understand. Added clear Thai page descriptions/three-step help, workflow menu groups, 14–16 px controls, 20 px section headings, 8+ px label gaps, 16 px control-group gaps, 20–24 px panel spacing, mobile stacking, focusable report scrolling and filter recovery. Preserve 48 px daily-work controls; the first complete regression caught a 46 px override, which was corrected without lowering the assertion. Browser checks cover guides, keyboard scrolling, gap measurements and no document overflow at desktop/tablet/mobile sizes.
+- BUG-014 (Medium / Phase 6/overview): project counts read only legacy single-trip records, so a project with 80 daily trips displayed zero. Both overview project rows and project cards now aggregate operational report rows once per page. The DEMO regression checks 80 trips, unchanged pre-existing records and an 80-trip/1,200 m³ Excel readback.
+
+Detailed implementation, intermediate failures/retests, final gate and source checkpoint: UX_UI_REPORT.md and ROADMAP_PROGRESS.md. DEMO records remain explicitly fictitious and unverified. The separate real Google Sheets account failure remains unresolved pending its actual error/origin; no OAuth or cloud deployment success is claimed.
+
+UX-007 and BUG-014 **FIXED in `222ab69`**: final full gate exit 0 on 2026-11-10, frontend 330/backend 15/Rules 11/integration 10/E2E 67. All initial failed regressions were corrected and rerun; no tests or data-preservation assertions were disabled.
+
 ## UX-006 — duplicate reports and misplaced task controls (2026-11-09)
 
 Phase 1/6/8, Medium usability. Reproduction: open Reports and Business Reports; both show overlapping trip data, and the former repeats trip editing. The generic page header also offers trip creation on Reports/Settings. Backup export and JSON restore live on different pages, duplicate review is buried in Settings, and a large local-mode banner repeats on every page. Completed-task notices persist when changing pages.

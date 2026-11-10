@@ -1,5 +1,13 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Latest novice UX / DEMO gate — 2026-11-10
+
+Source `222ab69`, baseline `48adc66` (application `aec9592`). Final cloud `npm run check` exit **0**: frontend **330/330** (57 files), backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **67/67** (2.5 minutes); tooling **4/4**, formatting/lint/typecheck/build/HTTP smoke PASS. 59 lint warnings/zero errors; no skipped/disabled tests or unhandled rejections. Full evidence, initial failure/retest history and screenshots: [UX_UI_REPORT.md](UX_UI_REPORT.md). Upstream model-routing documentation merged afterward as `7a5fd71` with no application changes.
+
+Tests cover novice help/navigation, visible label/control gaps at 1440/800/390 px, report keyboard scrolling, empty/invalid filter recovery, retained 48 px daily targets, immutable real records and pending queues, idempotent DEMO creation/draft retention, 80-trip/1,200 m³ Excel readback, 49,200-baht provisional difference and 100 m³ fictitious survey fill. No evidence acknowledgement/verification was fabricated. The generic project count now includes daily work. Security formulas/permissions/schema and dependency lockfiles are unchanged.
+
+Safe cleanup completed; restored two regenerated Phase 2 screenshots and retained four reviewed synthetic example screenshots. Commit/push authorized; no deployment/environment publication or real Google/Drive/Sheets/device acceptance. Original manual/service limitations and the actual Sheets account error remain separate open work. The historical Phase 8 evidence below remains dated.
+
 2026-11-08 (Asia/Bangkok). Automated gate results recorded below after execution. Real-service/hardware acceptance remains NOT VERIFIED; no push/deploy, credential changes or data reset.
 
 ## Changes and evidence

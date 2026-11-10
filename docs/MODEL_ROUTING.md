@@ -8,12 +8,12 @@ Model labels and availability may change. The following names are preferences ba
 
 ## Recommended task routing
 
-| Task | Preferred model | Intelligence | Speed |
-| --- | --- | --- | --- |
-| Feature implementation, TypeScript/React, APIs, bug fixes, phases, integrations and E2E | 6.1 Sol | High | Standard |
-| Architecture, data integrity, authentication/security review, sync design and critical earthwork calculation review | 6 Astra | High | Standard |
-| Scoped responsive UI, page layout, styling and accessibility adjustments | 6.1 Terra | Medium | Standard |
-| Documentation, formatting, routine summaries and simple clearly scoped changes | 6 Luna | Medium | Standard |
+| Task                                                                                                                | Preferred model | Intelligence | Speed    |
+| ------------------------------------------------------------------------------------------------------------------- | --------------- | ------------ | -------- |
+| Feature implementation, TypeScript/React, APIs, bug fixes, phases, integrations and E2E                             | 6.1 Sol         | High         | Standard |
+| Architecture, data integrity, authentication/security review, sync design and critical earthwork calculation review | 6 Astra         | High         | Standard |
+| Scoped responsive UI, page layout, styling and accessibility adjustments                                            | 6.1 Terra       | Medium       | Standard |
+| Documentation, formatting, routine summaries and simple clearly scoped changes                                      | 6 Luna          | Medium       | Standard |
 
 These are suggested defaults, not a benchmark, and should never override test evidence or current platform constraints. Escalate complex UI or documentation tasks to the implementation/architecture category when they carry high risk.
 
