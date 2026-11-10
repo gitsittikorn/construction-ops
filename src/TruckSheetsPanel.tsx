@@ -101,7 +101,7 @@ export default function TruckSheetsPanel({
     }
   }
   return (
-    <div className="panel">
+    <div className="panel sheet-import-panel content-stack">
       <h3>นำเข้าจาก Google Sheets</h3>
       <label className="field">
         <span>ลิงก์ Google Sheets สำหรับข้อมูลรถ</span>

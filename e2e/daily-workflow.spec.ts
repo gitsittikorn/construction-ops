@@ -55,7 +55,7 @@ async function createRow(page: Page) {
   await page.getByLabel('เที่ยวบันทึก', { exact: true }).fill('3');
   await page.getByLabel('เที่ยวรายงาน', { exact: true }).fill('3');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
 }
 
 test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved capacity snapshots', async ({
@@ -132,7 +132,7 @@ for (const viewport of [
     await createRow(page);
     await context.setOffline(true);
     await page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true }).dblclick();
-    await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
+    await expect(page.getByRole('cell', { name: /^ยอดไม่ตรงกัน/ })).toBeVisible();
     const state = await page.evaluate(async () => {
       const path = '/src/storage.ts';
       const data = await (await import(path)).loadData('local');
@@ -268,14 +268,14 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
   await page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true }).click();
-  await expect(page.getByText(/^สถานะหลักฐาน: READY /)).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
   await page
     .getByRole('navigation')
     .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
     .click();
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
-  await expect(page.getByText(/^สถานะหลักฐาน: READY /)).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   // Controlled external acknowledgement fixture; this is NOT a real Drive upload.
   await page.evaluate(async () => {
     const path = '/src/uploads.ts',
@@ -289,7 +289,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
       });
   });
   await page.getByRole('button', { name: 'ยืนยันยอดทั้งวัน', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^VERIFIED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ตรวจสอบยืนยันแล้ว/ })).toBeVisible();
   await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).click();
   await expect(page.getByText('สถานะวัน: ปิดวันแล้ว', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true })).toBeDisabled();
@@ -299,7 +299,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   );
   await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('แก้หลักฐานจากหน้างาน');
   await page.getByRole('button', { name: 'เปิดวันใหม่พร้อมเหตุผล', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^REOPENED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^เปิดวันเพื่อแก้ไข/ })).toBeVisible();
   const stored = await page.evaluate(async () => {
     const path = '/src/storage.ts';
     return (await import(path)).loadData('local');
@@ -309,7 +309,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   );
   expect(stored.audit.some((a: any) => a.action === 'daily-reopen')).toBe(true);
   // Reopening starts a new proof generation. Historical evidence stays immutable.
-  await expect(page.getByText(/^สถานะหลักฐาน: INCOMPLETE /)).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: หลักฐานยังไม่ครบ/)).toBeVisible();
   await page.getByLabel('ประเภทภาพหลักฐาน', { exact: true }).selectOption('driver-photo');
   await page
     .getByLabel('เลือกหลักฐานจากแกลเลอรี', { exact: true })
@@ -333,7 +333,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   await page.mouse.move(freshBounds.x + 130, freshBounds.y + 65, { steps: 6 });
   await page.mouse.up();
   await page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true }).click();
-  await expect(page.getByText(/^สถานะหลักฐาน: READY /)).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.evaluate(async () => {
     const path = '/src/uploads.ts',
       module = await import(path);
@@ -351,7 +351,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
     'ยืนยัน',
   );
   await page.getByRole('button', { name: 'ยืนยันยอดทั้งวัน', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^VERIFIED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ตรวจสอบยืนยันแล้ว/ })).toBeVisible();
   await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).click();
   await expect(page.getByText('สถานะวัน: ปิดวันแล้ว', { exact: true })).toBeVisible();
   await page.reload();
@@ -432,26 +432,26 @@ test('P3: reject blank/cleared signatures, replace proof, invalidate/reconfirm t
   await sign(page);
   await acknowledgeEvidence(page);
   await page.getByRole('button', { name: 'ยืนยัน 00123', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^VERIFIED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ตรวจสอบยืนยันแล้ว/ })).toBeVisible();
   await photo(page, 'driver-photo', 'replacement-proof.png', 'changed');
-  await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
   await acknowledgeEvidence(page);
   await page.getByRole('button', { name: 'ยืนยัน 00123', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^VERIFIED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ตรวจสอบยืนยันแล้ว/ })).toBeVisible();
   await page.getByRole('button', { name: 'เพิ่มเที่ยว 00123', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ยอดไม่ตรงกัน/ })).toBeVisible();
   await page.getByRole('button', { name: 'แก้ไข 00123', exact: true }).click();
   await page.getByLabel('เที่ยวรายงาน', { exact: true }).fill('4');
   await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจยอดตามใบเที่ยวใหม่');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
-  await expect(page.getByText(/^สถานะหลักฐาน: INCOMPLETE /)).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: หลักฐานยังไม่ครบ/)).toBeVisible();
   await photo(page, 'driver-photo', 'updated-driver.png');
   await photo(page, 'trip-slip', 'updated-slip.png');
   await sign(page);
   await acknowledgeEvidence(page);
   await page.getByRole('button', { name: 'ยืนยัน 00123', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^VERIFIED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ตรวจสอบยืนยันแล้ว/ })).toBeVisible();
   await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).dblclick();
   await expect(page.getByText('สถานะวัน: ปิดวันแล้ว', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'คัดลอกข้อมูลไปวันถัดไป', exact: true }).click();
@@ -713,7 +713,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   await photo(page, 'driver-photo', 'offline-driver.png');
   await photo(page, 'trip-slip', 'offline-slip.png');
   await sign(page);
-  await expect(page.getByText(/^สถานะหลักฐาน: READY /)).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
   await page
     .getByRole('navigation')
@@ -721,7 +721,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
     .click();
   await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 12 m³/)).toBeVisible();
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
-  await expect(page.getByText(/^สถานะหลักฐาน: READY /)).toBeVisible();
+  await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await expect(
     page.getByRole('img', { name: 'ภาพที่บันทึก offline-driver.png', exact: true }),
   ).toBeVisible();
@@ -749,7 +749,7 @@ test('P6: mixed capacity reconciliation preserves mismatches in the UI, CSV and 
   );
   await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจยอดตามใบเที่ยวใหม่');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
-  await expect(page.getByRole('cell', { name: /^MISMATCHED / })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /^ยอดไม่ตรงกัน/ })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('verification');
   const row = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
@@ -842,7 +842,11 @@ test('P6: calendar reports apply date filters before grouping and export Bangkok
   expect(metadata.flat().join(' ')).toContain('from=2027-01-01');
   expect(metadata.flat().join(' ')).toContain('ปริมาตรดินหลวม');
   await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2028-01-01');
-  await expect(rows).toHaveCount(0);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.locator('.empty-results')).toHaveText(
+    'ยังไม่พบรายการในช่วงที่เลือก ลองเปลี่ยนวันที่หรือกดล้างตัวกรองรายงาน',
+  );
+  await expect(rows.getByRole('cell')).toHaveCount(1);
 });
 
 test('P7: survey import previews safely, rejects stale/invalid data, persists exact levels and roundtrips XLSX with correct Y orientation', async ({

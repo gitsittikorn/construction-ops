@@ -1,6 +1,6 @@
 export const verificationLabels: Record<string, string> = {
   PENDING: 'รอตรวจ',
-  MATCHED: 'ยอดตรงกัน รอ Admin ยืนยัน',
+  MATCHED: 'ยอดตรงกัน รอผู้จัดการยืนยัน',
   MISMATCHED: 'ยอดไม่ตรงกัน',
   VERIFIED: 'ตรวจสอบยืนยันแล้ว',
   REOPENED: 'เปิดวันเพื่อแก้ไข',

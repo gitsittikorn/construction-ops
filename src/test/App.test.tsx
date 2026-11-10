@@ -86,7 +86,7 @@ it('edits and archives projects and filters search results', async () => {
   await user.click(screen.getByRole('button', { name: /ดู \/ แก้ไข/ }));
   await user.clear(screen.getByLabelText('ชื่อโครงการ'));
   await user.type(screen.getByLabelText('ชื่อโครงการ'), 'Changed');
-  await user.selectOptions(screen.getByLabelText('สถานะ'), 'archived');
+  await user.selectOptions(screen.getByLabelText('สถานะโครงการ'), 'archived');
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
   await screen.findByText('Changed');
   expect(screen.getByText('จัดเก็บแล้ว')).toBeInTheDocument();

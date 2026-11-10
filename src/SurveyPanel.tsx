@@ -226,7 +226,7 @@ export default function SurveyPanel({
     }
   }
   return (
-    <section className="panel padded" aria-label="บันทึกสำรวจและกริด">
+    <section className="panel padded content-stack survey-panel" aria-label="บันทึกสำรวจและกริด">
       <h2>สำรวจ BM / Turning Point / กริดงานดิน</h2>
       <div className="operations-filters">
         <label>

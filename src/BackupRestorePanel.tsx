@@ -53,7 +53,7 @@ export default function BackupRestorePanel({ owner }: { owner: string }) {
     }
   }
   return (
-    <section className="panel padded" aria-label="กู้คืนไฟล์สำรอง JSON">
+    <section className="panel padded content-stack" aria-label="กู้คืนไฟล์สำรอง JSON">
       <h2>กู้คืนไฟล์สำรอง JSON</h2>
       <p>
         ใช้ไฟล์สำรองของบัญชีเดิม ขนาดไม่เกิน 150 MB ระบบแสดงตัวอย่างก่อนเพิ่มเฉพาะรายการที่ขาด

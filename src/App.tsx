@@ -62,18 +62,26 @@ import { clearDriveSessions, clearDriveSessionsExcept } from './driveSession';
 import { saveMaster, matchesMaster, tagNames, truckTypes } from './masterData';
 import TagFields from './TagFields';
 import TruckExcelPanel from './TruckExcelPanel';
+import PageGuide, { pageDescription } from './PageGuide';
+import { addDemoProject, demoProjectId } from './demoProject';
 const pages = [
   ['overview', 'ภาพรวม', LayoutDashboard],
-  ['projects', 'โครงการ', FolderOpen],
-  ['trips', 'บันทึกเที่ยวรถ', Truck],
   ['daily', 'งานรายวันและตรวจยอด', Truck],
+  ['trips', 'บันทึกเที่ยวรถ', Truck],
+  ['projects', 'โครงการ', FolderOpen],
   ['masters', 'ข้อมูลพื้นฐาน', Database],
   ['reports', 'รายงาน', BarChart3],
-  ['survey', 'สำรวจและคำนวณ', Calculator],
   ['finance', 'การเงินโครงการ', BarChart3],
+  ['survey', 'สำรวจและคำนวณ', Calculator],
   ['sync', 'ซิงก์และสำรองข้อมูล', RefreshCw],
   ['settings', 'การตั้งค่า', Settings],
 ] as const;
+const navGroups: Record<string, string> = {
+  overview: 'งานประจำวัน',
+  projects: 'เตรียมข้อมูล',
+  reports: 'ตรวจงานและสรุป',
+  sync: 'ดูแลข้อมูลและบัญชี',
+};
 const statusText = {
   active: 'กำลังดำเนินการ',
   draft: 'ฉบับร่าง',
@@ -131,6 +139,8 @@ export default function App({
   const [tripProject, setTripProject] = useState('');
   const [tripSoilType, setTripSoilType] = useState('');
   const [masterTagFilter, setMasterTagFilter] = useState('');
+  const [reportProject, setReportProject] = useState('');
+  const [demoBusy, setDemoBusy] = useState(false);
   const [truckTypeFilter, setTruckTypeFilter] = useState('');
   const current = useRef(data),
     writeLock = useRef(false),
@@ -167,6 +177,8 @@ export default function App({
         setCloudStatus('');
         setCloudError('');
         setData(emptyData);
+        setReportProject('');
+        setDemoBusy(false);
         setModal(null);
       }),
     [],
@@ -330,6 +342,24 @@ export default function App({
     setQuery('');
     if (ready) setError('');
     setNotice('');
+    document.documentElement.scrollTop = 0;
+  }
+  async function createDemo() {
+    if (demoBusy || writeLock.current) return;
+    setDemoBusy(true);
+    try {
+      await change((old) => addDemoProject(old, owner));
+      if (!alive.current || account.current !== owner) return;
+      setReportProject(demoProjectId);
+      navigate('reports');
+      setNotice(
+        'เปิดรายงานโครงการ DEMO แล้ว ข้อมูลสมมติแสดงตามรายการปัจจุบัน ยังไม่ยืนยันหลักฐานจริง',
+      );
+    } catch (error) {
+      setError(message(error));
+    } finally {
+      if (alive.current && account.current === owner) setDemoBusy(false);
+    }
   }
   function open(type: typeof modal, record: typeof editing = null) {
     if (!canManage && type !== 'trip') {
@@ -461,6 +491,10 @@ export default function App({
             .includes(query)),
     )
     .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+  const projectTripCounts = new Map<string, number>();
+  if (page === 'projects' || page === 'overview')
+    for (const row of reportRows(data, emptyReportFilter))
+      projectTripCounts.set(row.project, (projectTripCounts.get(row.project) ?? 0) + row.trips);
   const masterName = (id: string) => data.masters.find((m) => m.id === id)?.name ?? '—';
   const visibleMasters = data.masters.filter(
     (master) =>
@@ -538,6 +572,9 @@ export default function App({
     );
   return (
     <div className="shell">
+      <a className="skip-link" href="#main-content">
+        ข้ามไปเนื้อหาหลัก
+      </a>
       <aside className="sidebar">
         <div className="brand">
           <img className="company-logo" src={companyLogo} alt={companyName} />
@@ -547,29 +584,31 @@ export default function App({
           {pages
             .filter(([id]) => canManage || id !== 'finance')
             .map(([id, title, Icon]) => (
-              <button
-                key={id}
-                aria-label={title}
-                aria-current={page === id ? 'page' : undefined}
-                aria-describedby={
-                  id === 'sync' && syncNeedsAttention ? 'sync-attention' : undefined
-                }
-                className={page === id ? 'selected' : ''}
-                onClick={() => navigate(id)}
-              >
-                <Icon size={19} />
-                <span className="nav-label">{title}</span>
-                {id === 'trips' && pending > 0 && <span className="nav-count">{pending}</span>}
-                {id === 'sync' && syncNeedsAttention && (
-                  <span
-                    id="sync-attention"
-                    className="nav-error-dot"
-                    role="status"
-                    aria-label="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
-                    title="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
-                  />
-                )}
-              </button>
+              <div className="nav-item" key={id}>
+                {navGroups[id] && <span className="nav-group-title">{navGroups[id]}</span>}
+                <button
+                  aria-label={title}
+                  aria-current={page === id ? 'page' : undefined}
+                  aria-describedby={
+                    id === 'sync' && syncNeedsAttention ? 'sync-attention' : undefined
+                  }
+                  className={page === id ? 'selected' : ''}
+                  onClick={() => navigate(id)}
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  <span className="nav-label">{title}</span>
+                  {id === 'trips' && pending > 0 && <span className="nav-count">{pending}</span>}
+                  {id === 'sync' && syncNeedsAttention && (
+                    <span
+                      id="sync-attention"
+                      className="nav-error-dot"
+                      role="status"
+                      aria-label="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
+                      title="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
+                    />
+                  )}
+                </button>
+              </div>
             ))}
         </nav>
         <div className="sidebar-bottom">
@@ -625,20 +664,14 @@ export default function App({
             </span>
           </div>
         </header>
-        <main>
+        <main className="workspace-main" id="main-content" tabIndex={-1}>
           <div className="page-title">
             <div>
-              <span className="eyebrow">CONSTRUCTION WORKSPACE</span>
+              <span className="eyebrow">พื้นที่ทำงานของคุณ</span>
               <h1>
                 {page === 'overview' ? 'ภาพรวมการทำงาน' : pages.find((p) => p[0] === page)?.[1]}
               </h1>
-              <p>
-                {page === 'overview'
-                  ? 'ทุกความคืบหน้าหน้างาน ในพื้นที่เดียว'
-                  : page === 'sync'
-                    ? 'ตรวจสถานะซิงก์ แก้ไขข้อมูลขัดแย้ง และดาวน์โหลดข้อมูลสำรอง'
-                    : 'จัดการข้อมูลอย่างเป็นระบบ พร้อมสำหรับการทำงานหน้างาน'}
-              </p>
+              <p>{pageDescription(page)}</p>
             </div>
             {['projects', 'masters', 'trips'].includes(page) &&
               (page !== 'trips' || tripView === 'records') &&
@@ -658,6 +691,7 @@ export default function App({
                 </button>
               )}
           </div>
+          <PageGuide page={page} />
           {error && (
             <div className="alert error" role="alert">
               {error}
@@ -697,6 +731,37 @@ export default function App({
               )}
               {page === 'overview' && (
                 <>
+                  {canManage && (
+                    <section
+                      className="demo-project-card"
+                      aria-label="ข้อมูลตัวอย่างสำหรับทดลองใช้งาน"
+                    >
+                      <div>
+                        <span className="demo-tag">DEMO · ข้อมูลสมมติ</span>
+                        <h2>ลองดูหน้าจอและรายงานด้วยข้อมูลตัวอย่าง</h2>
+                        <p>
+                          ชุดข้อมูลเริ่มต้น: รถ 2 คัน · งาน 5 วัน · 80 เที่ยว · 1,200 m³ พร้อมราคา
+                          ค่าใช้จ่าย และงานสำรวจ แยกเป็นโครงการ DEMO
+                          เปลี่ยนเป็นฉบับร่างได้ที่เมนูโครงการ
+                        </p>
+                        <p className="demo-note">
+                          สร้างในพื้นที่ข้อมูลที่คุณใช้อยู่ และรอซิงก์ตามปกติ
+                          ไม่ใช่ยอดงานจริงหรือหลักฐานที่ยืนยันแล้ว
+                        </p>
+                      </div>
+                      <button
+                        className="secondary"
+                        disabled={busy || demoBusy}
+                        onClick={() => void createDemo()}
+                      >
+                        {demoBusy
+                          ? 'กำลังเตรียมข้อมูลตัวอย่าง…'
+                          : data.projects.some((p) => p.id === demoProjectId)
+                            ? 'เปิดรายงาน DEMO'
+                            : 'สร้างโครงการ DEMO และดูรายงาน'}
+                      </button>
+                    </section>
+                  )}
                   <section className="hero">
                     <div>
                       <span className="hero-tag">
@@ -794,9 +859,7 @@ export default function App({
                               <b>{p.name}</b>
                               <small>{p.location || 'ยังไม่ระบุสถานที่'}</small>
                             </span>
-                            <span className="badge">
-                              {data.trips.filter((t) => t.projectId === p.id).length} เที่ยว
-                            </span>
+                            <span className="badge">{projectTripCounts.get(p.id) ?? 0} เที่ยว</span>
                             <ArrowUpRight size={16} />
                           </button>
                         ))
@@ -847,7 +910,11 @@ export default function App({
               )}
               {page === 'reports' && (
                 <Suspense fallback={<p>กำลังเปิดรายงาน…</p>}>
-                  <ReportsPanel data={data} />
+                  <ReportsPanel
+                    key={`${owner}:${reportProject}`}
+                    data={data}
+                    initialProject={reportProject}
+                  />
                 </Suspense>
               )}
               {page === 'finance' && canManage && projectPreference.ready && (
@@ -899,7 +966,7 @@ export default function App({
                             {p.startDate || '—'} → {p.endDate || 'ยังไม่กำหนด'}
                           </p>
                           <div className="card-foot">
-                            <b>{data.trips.filter((t) => t.projectId === p.id).length} เที่ยวรถ</b>
+                            <b>{projectTripCounts.get(p.id) ?? 0} เที่ยวรถ</b>
                             <button
                               disabled={!canManage}
                               className="text-button"
@@ -1319,6 +1386,7 @@ export default function App({
                     <Field label="สถานะ">
                       <select
                         name="status"
+                        aria-label="สถานะโครงการ"
                         defaultValue={editing && 'status' in editing ? editing.status : 'active'}
                       >
                         {Object.entries(statusText).map(([key, title]) => (

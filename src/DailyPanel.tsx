@@ -224,8 +224,8 @@ export default function DailyPanel({
       </section>
     );
   return (
-    <section aria-label="งานรายวัน" className="daily-operations">
-      <h2>งานรายวัน → หลักฐาน → ตรวจยอด → ปิดวัน</h2>
+    <section aria-label="งานรายวัน" className="daily-operations content-stack">
+      <h2>ยอดรถและเที่ยวประจำวัน</h2>
       <p role="status">
         {busy ? 'กำลังบันทึกข้อมูล…' : ui.saving ? 'กำลังเก็บร่าง…' : 'เก็บร่างในเครื่องแล้ว'}
       </p>
@@ -341,6 +341,7 @@ export default function DailyPanel({
       </label>
       {!session ? (
         <button
+          className="primary"
           disabled={busy || !project}
           onClick={() => void mutate((old) => createDaily(old, project, date, owner))}
         >
@@ -580,8 +581,7 @@ export default function DailyPanel({
                     <td>{row.reportedTrips ?? 'ยังไม่กรอก'}</td>
                     <td>{row.reportedTrips === null ? '—' : row.tripCount - row.reportedTrips}</td>
                     <td>{deliveredVolume(row)}</td>
-                    <td>
-                      {verificationState(session, row)} ·{' '}
+                    <td data-status={verificationState(session, row)}>
                       {verificationLabels[verificationState(session, row)]}
                     </td>
                     <td>
@@ -712,7 +712,7 @@ export default function DailyPanel({
                   <input name="notes" defaultValue={draft?.values.notes ?? editing?.notes ?? ''} />
                 </label>
               </div>
-              <button disabled={busy} type="submit">
+              <button className="primary" disabled={busy} type="submit">
                 บันทึกยอดรถ
               </button>
               {editing && (

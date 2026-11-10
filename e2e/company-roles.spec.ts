@@ -28,7 +28,7 @@ for (const viewport of [
     await page.getByLabel('เที่ยวบันทึก', { exact: true }).fill('2');
     await page.getByLabel('เที่ยวรายงาน', { exact: true }).fill('2');
     await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
-    await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
+    await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'ยืนยันยอดทั้งวัน', exact: true }),
     ).toBeDisabled();
@@ -57,6 +57,6 @@ for (const viewport of [
     await page.goto('/e2e/company-harness.html');
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
     await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
-    await expect(page.getByRole('cell', { name: /^MATCHED / })).toBeVisible();
+    await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
     await expect(page.getByText(/เที่ยวบันทึก 2/).first()).toBeVisible();
   });

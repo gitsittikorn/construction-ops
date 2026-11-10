@@ -115,7 +115,10 @@ export default function CloudSyncPanel({
     }
   }
   return (
-    <section className="panel padded cloud-sync-panel" aria-label="ความปลอดภัยและซิงก์ข้อมูล">
+    <section
+      className="panel padded cloud-sync-panel content-stack"
+      aria-label="ความปลอดภัยและซิงก์ข้อมูล"
+    >
       <h2>ความปลอดภัยและซิงก์ข้อมูล</h2>
       <p aria-live="polite">
         {!configured
@@ -128,11 +131,13 @@ export default function CloudSyncPanel({
         รอซิงก์ {pending.length} รายการ · ขัดแย้ง {conflicts.length} รายการ
       </p>
       {configured && (
-        <button disabled={busy || !online} onClick={() => void onSync()}>
+        <button className="primary" disabled={busy || !online} onClick={() => void onSync()}>
           ซิงก์และกู้คืนจาก Cloud
         </button>
       )}
-      <button onClick={() => void download()}>ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ</button>
+      <button className="secondary" onClick={() => void download()}>
+        ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ
+      </button>
       <p>
         ข้อมูลบันทึกในอุปกรณ์ก่อนซิงก์ Cloud การล้างข้อมูลเว็บไซต์อาจทำให้ข้อมูลในเครื่องสูญหาย
         ควรดาวน์โหลดข้อมูลสำรอง JSON พร้อมไฟล์แนบสม่ำเสมอ

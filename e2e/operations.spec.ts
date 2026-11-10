@@ -154,7 +154,7 @@ test('a draft project stays visible and can be activated before selecting it in 
   await page.goto('/');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Draft site');
-  await page.getByRole('combobox', { name: 'สถานะ', exact: true }).selectOption('draft');
+  await page.getByRole('combobox', { name: 'สถานะโครงการ', exact: true }).selectOption('draft');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page
     .getByRole('navigation')
@@ -169,7 +169,7 @@ test('a draft project stays visible and can be activated before selecting it in 
   ).toHaveJSProperty('disabled', true);
   await page.getByRole('button', { name: 'จัดการสถานะโครงการ', exact: true }).click();
   await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
-  await page.getByRole('combobox', { name: 'สถานะ', exact: true }).selectOption('active');
+  await page.getByRole('combobox', { name: 'สถานะโครงการ', exact: true }).selectOption('active');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page
     .getByRole('navigation')

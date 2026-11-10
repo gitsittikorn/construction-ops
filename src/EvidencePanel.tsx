@@ -100,10 +100,10 @@ export default function EvidencePanel({
     }
   }
   return (
-    <section className="panel padded" aria-label="หลักฐานประจำรถ">
+    <section className="panel padded content-stack" aria-label="หลักฐานประจำรถ">
       <h2>หลักฐานคนขับและใบเที่ยว</h2>
       <p>
-        สถานะหลักฐาน: {evidenceStatus(files, verificationState(session, row) === 'VERIFIED')} ·{' '}
+        สถานะหลักฐาน:{' '}
         {evidenceLabels[evidenceStatus(files, verificationState(session, row) === 'VERIFIED')]}
       </p>
       <p>หลักฐานผูกกับวันที่ รถ คนขับ และยอดปัจจุบัน การแก้ยอดต้องเก็บหลักฐานชุดใหม่</p>

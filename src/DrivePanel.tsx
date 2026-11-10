@@ -514,7 +514,7 @@ export default function DrivePanel({
     }
   }
   return (
-    <section className="panel padded drive-panel">
+    <section className="panel padded drive-panel content-stack">
       {connectionPrompt && (
         <DriveConnectionDialog
           expired={connectionPrompt === 'expired'}

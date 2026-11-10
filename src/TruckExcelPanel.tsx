@@ -91,7 +91,7 @@ export default function TruckExcelPanel({
     }
   }
   return (
-    <section className="excel-panel">
+    <section className="excel-panel content-stack">
       <TruckSheetsPanel
         owner={actor}
         disabled={busy}

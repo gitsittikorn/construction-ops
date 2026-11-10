@@ -119,7 +119,7 @@ export default function FinancePanel({
     ];
   }
   return (
-    <section className="finance-panel" aria-label="การเงินโครงการ">
+    <section className="finance-panel content-stack" aria-label="การเงินโครงการ">
       <h2>เรตราคา ต้นทุน และประมาณการ</h2>
       <p>
         คำนวณใหม่ตามเที่ยวและเรตที่มีผลในวันที่ทำงาน
@@ -288,7 +288,7 @@ export default function FinancePanel({
                   เหตุผลเรตราคา
                   <input name="reason" aria-label="เหตุผลเรตราคา" required maxLength={500} />
                 </label>
-                <button>บันทึกเรตราคา</button>
+                <button className="primary">บันทึกเรตราคา</button>
               </fieldset>
             </form>
           </section>
@@ -368,7 +368,7 @@ export default function FinancePanel({
                   รายละเอียดค่าใช้จ่าย
                   <input name="reason" aria-label="รายละเอียดค่าใช้จ่าย" required maxLength={500} />
                 </label>
-                <button>บันทึกค่าใช้จ่าย</button>
+                <button className="primary">บันทึกค่าใช้จ่าย</button>
               </fieldset>
             </form>
           </section>
@@ -492,7 +492,9 @@ export default function FinancePanel({
                           placeholder="เหตุผลกลับรายการ"
                           disabled={busy || !canEdit}
                         />
-                        <button disabled={busy || !canEdit}>กลับรายการค่าใช้จ่าย</button>
+                        <button className="secondary" disabled={busy || !canEdit}>
+                          กลับรายการค่าใช้จ่าย
+                        </button>
                       </form>
                     )}
                   </td>
