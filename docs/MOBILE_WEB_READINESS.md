@@ -37,7 +37,7 @@ Semgrep **1.184.0**, pinned community rules `16b9e6d45f10649f6a531ec4838ed992437
 
 ## Handoff
 
-Release preparation includes `build:pages`, `smoke:pages`, a fail-closed `release:check`, and a manual-only artifact workflow with `contents: read` and no deployment job. See [WEB_RELEASE_PREPARATION.md](WEB_RELEASE_PREPARATION.md). Source push does not publish a website. Actual GitHub API PR creation was blocked in the prior checkpoint; retry only through supported access. No main merge, Rules/index/backend/hosting deployment, production bootstrap, MFA provider enablement or environment publication is authorized/performed here.
+Release preparation includes `build:pages`, `smoke:pages`, a fail-closed `release:check`, and a manual-only artifact workflow with `contents: read` and no deployment job. See [WEB_RELEASE_PREPARATION.md](WEB_RELEASE_PREPARATION.md). Source push does not publish a website. Source `ef2564b` and reports `fc0d34f` were pushed to `origin/feat/google-allowlist-rbac`; main remains `b5b046f`. Actual updated `gh pr create` again exited 1 with `Post "https://api.github.com/graphql": Forbidden`; no PR was created. Prepared compare link/body are in ROADMAP_PROGRESS.md; retry only after supported API access is restored. No main merge, Rules/index/backend/hosting deployment, production bootstrap, MFA provider enablement or environment publication is authorized/performed here.
 
 Existing real Google Sheets account error and Phase 1/4/8 real-service/manual acceptance remain open. Resume from actual Git/test evidence; preserve original pending data and do not rebuild the delivered allowlist, UX or demo features.
 
