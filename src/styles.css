@@ -2020,3 +2020,68 @@ header.company-header {
     grid-template-columns: 1fr;
   }
 }
+
+.session-logout {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 8px;
+}
+.record-dialog {
+  border: 0;
+  padding: 0;
+  margin: auto;
+  width: min(680px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+.record-dialog::backdrop {
+  background: #102e2466;
+  backdrop-filter: blur(3px);
+}
+.mfa-challenge {
+  padding: 24px;
+}
+.mfa-challenge .operations-actions {
+  gap: 16px;
+}
+.record-dialog > .section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
+}
+@media (max-width: 760px), (pointer: coarse) {
+  main :is(input, select, textarea),
+  .modal :is(input, select, textarea) {
+    font-size: 16px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .shell .record-dialog input:not([type='checkbox']):not([type='radio']),
+  .modal :is(button, input, select),
+  .session-logout {
+    min-height: 48px;
+  }
+  .record-dialog .section-heading button {
+    min-width: 48px;
+  }
+}
+@media (max-width: 760px) {
+  .sidebar {
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+  .workspace-main {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .record-dialog {
+    width: calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  }
+  .record-dialog form {
+    padding: 20px 16px;
+  }
+}

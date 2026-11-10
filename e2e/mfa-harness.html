@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Synthetic TOTP UI — no Google sign-in</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import TotpChallengeDialog from '/src/TotpChallengeDialog.tsx';
+      import AccountSecurityPanel from '/src/AccountSecurityPanel.tsx';
+      import '/src/styles.css';
+      // UI-only fake responses. SDK policies, backend claims and Rules have separate tests.
+      function Harness() {
+        const [open, setOpen] = React.useState(false),
+          [done, setDone] = React.useState(false);
+        const verify = async (_factor, code) => {
+          if (code !== '123456') throw { code: 'auth/invalid-verification-code' };
+        };
+        return React.createElement(
+          'main',
+          { className: 'workspace-main content-stack' },
+          React.createElement(AccountSecurityPanel, {
+            uid: 'synthetic-actor',
+            online: true,
+            api: {
+              totpEnrolled: () => false,
+              beginTotpSetup: async () => ({
+                secretKey: 'TEST_ONLY_SETUP_KEY',
+                deadline: '',
+                finish: (code) => verify('', code),
+              }),
+            },
+          }),
+          React.createElement(
+            'button',
+            {
+              onClick: () => {
+                setOpen(true);
+                setDone(false);
+              },
+            },
+            'ทดสอบหน้ากรอกรหัส',
+          ),
+          done && React.createElement('p', { role: 'status' }, 'ยืนยันสำเร็จแบบจำลอง'),
+          open &&
+            React.createElement(TotpChallengeDialog, {
+              online: true,
+              challenge: { factors: [{ uid: 'synthetic-factor', name: 'Authenticator' }], verify },
+              onComplete: () => {
+                setOpen(false);
+                setDone(true);
+              },
+              onDismiss: () => setOpen(false),
+            }),
+        );
+      }
+      createRoot(document.getElementById('root')).render(React.createElement(Harness));
+    </script>
+  </body>
+</html>

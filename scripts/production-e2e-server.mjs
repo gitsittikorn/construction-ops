@@ -10,9 +10,13 @@ for (const key of [
   'VITE_ACCESS_BACKEND_URL',
 ])
   process.env[key] = '';
-await build({ build: { outDir: 'test-results/pwa-dist', emptyOutDir: true } });
+const pages = process.argv.includes('--pages'),
+  base = pages ? '/construction-ops/' : '/',
+  outDir = pages ? 'test-results/pages-dist' : 'test-results/pwa-dist';
+await build({ base, build: { outDir, emptyOutDir: true } });
 const server = await preview({
-  build: { outDir: 'test-results/pwa-dist' },
-  preview: { host: '127.0.0.1', port: 5175, strictPort: true },
+  base,
+  build: { outDir },
+  preview: { host: '127.0.0.1', port: pages ? 5176 : 5175, strictPort: true },
 });
 process.on('SIGTERM', () => server.httpServer.close());

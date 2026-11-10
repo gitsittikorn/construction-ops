@@ -60,8 +60,10 @@ const ReportsPanel = lazy(() => import('./ReportsPanel'));
 const SurveyPanel = lazy(() => import('./SurveyPanel'));
 const FinancePanel = lazy(() => import('./FinancePanel'));
 const UserManagementPanel = lazy(() => import('./UserManagementPanel'));
+const AccountSecurityPanel = lazy(() => import('./AccountSecurityPanel'));
 import { companyName, companyLogo } from './branding';
 import LoginPage from './LoginPage';
+import RecordDialog from './RecordDialog';
 import DrivePanel from './DrivePanel';
 import DuplicateReviewPanel from './DuplicateReviewPanel';
 import BackupRestorePanel from './BackupRestorePanel';
@@ -650,14 +652,6 @@ export default function App({
               <b>{roleLabel}</b>
               <small>{configured ? 'บัญชี Google' : 'พื้นที่ทำงานในเครื่อง'}</small>
             </div>
-            {configured && (
-              <button
-                aria-label="ออกจากระบบ"
-                onClick={() => logout().catch((e) => setError(message(e)))}
-              >
-                <LogOut size={17} />
-              </button>
-            )}
           </div>
         </div>
       </aside>
@@ -684,6 +678,16 @@ export default function App({
                 timeZone: 'Asia/Bangkok',
               }).format(new Date())}
             </span>
+            {configured && (
+              <button
+                className="session-logout"
+                aria-label="ออกจากระบบ"
+                title="ออกจากระบบ"
+                onClick={() => void logout().catch((e) => setError(message(e)))}
+              >
+                <LogOut size={20} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </header>
         <main className="workspace-main" id="main-content" tabIndex={-1}>
@@ -1330,6 +1334,11 @@ export default function App({
                     </button>
                   )}
                   {onSwitchCompany && <button onClick={onSwitchCompany}>เปลี่ยนบริษัท</button>}
+                  {configured && (
+                    <Suspense fallback={<p role="status">กำลังโหลดความปลอดภัยบัญชี…</p>}>
+                      <AccountSecurityPanel key={owner} uid={actorUid(owner)} online={online} />
+                    </Suspense>
+                  )}
                   <section className="panel padded audit-panel">
                     <h2>ประวัติการเปลี่ยนแปลง</h2>
                     <p>{data.audit.length} เหตุการณ์ในเครื่อง</p>
@@ -1364,230 +1373,222 @@ export default function App({
         </main>
       </div>
       {modal && (
-        <div className="modal-backdrop">
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">WORKSPACE RECORD</span>
-                <h2 id="modal-title">
-                  {editing ? 'แก้ไข' : 'เพิ่ม'}
-                  {modal === 'project' ? 'โครงการ' : modal === 'master' ? labels[kind] : 'เที่ยวรถ'}
-                </h2>
-              </div>
-              <button aria-label="ปิดฟอร์ม" onClick={() => setModal(null)}>
-                <X />
-              </button>
+        <RecordDialog onDismiss={() => setModal(null)}>
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">WORKSPACE RECORD</span>
+              <h2 id="modal-title">
+                {editing ? 'แก้ไข' : 'เพิ่ม'}
+                {modal === 'project' ? 'โครงการ' : modal === 'master' ? labels[kind] : 'เที่ยวรถ'}
+              </h2>
             </div>
-            <form onSubmit={submit}>
-              {editing && canManage && (
-                <div>
-                  <button type="button" onClick={() => setConfirmDelete(true)}>
-                    ลบรายการโดยเก็บประวัติ
-                  </button>
-                  {confirmDelete && (
-                    <div>
-                      <p>รายการจะถูกซ่อนจากการใช้งาน โดยเก็บข้อมูลและประวัติไว้</p>
-                      <button type="button" onClick={() => void remove()}>
-                        ยืนยันลบรายการ
-                      </button>
-                      <button type="button" onClick={() => setConfirmDelete(false)}>
-                        ยกเลิกการลบ
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="form-grid">
-                {modal === 'project' ? (
-                  <>
-                    {input('name', 'ชื่อโครงการ', 'text', true)}
-                    {input('customer', 'ชื่อลูกค้า')}
-                    {input('location', 'สถานที่')}
-                    <Field label="พิกัด (Lat, Lng)">
-                      <input
-                        name="coordinates"
-                        aria-label="พิกัด (Lat, Lng)"
-                        type="text"
-                        placeholder="เช่น 13.7563, 100.5018"
-                        defaultValue={
-                          editing &&
-                          'latitude' in editing &&
-                          editing.latitude !== undefined &&
-                          editing.longitude !== undefined
-                            ? `${editing.latitude}, ${editing.longitude}`
-                            : ''
-                        }
-                      />
-                      <small>ละติจูด, ลองจิจูด คั่นด้วยเครื่องหมาย ,</small>
-                    </Field>
-                    {input('startDate', 'วันเริ่มต้น', 'date')}
-                    {input('endDate', 'วันสิ้นสุด', 'date')}
-                    <Field label="สถานะ">
-                      <select
-                        name="status"
-                        aria-label="สถานะโครงการ"
-                        defaultValue={editing && 'status' in editing ? editing.status : 'active'}
-                      >
-                        {Object.entries(statusText).map(([key, title]) => (
-                          <option key={key} value={key}>
-                            {title}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    {input('description', 'รายละเอียด')}
-                  </>
-                ) : modal === 'master' ? (
-                  <>
-                    {input(
-                      'name',
-                      kind === 'truck'
-                        ? 'ทะเบียนรถ'
-                        : kind === 'soilType'
-                          ? 'ชื่อชนิดดิน'
-                          : kind === 'tag'
-                            ? 'ชื่อแท็ก / ทีม'
-                            : 'ชื่อ',
-                      'text',
-                      true,
-                    )}
-                    {input(
-                      'detail',
-                      kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด',
-                    )}
-                    {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
-                    {kind === 'truck' && (
-                      <>
-                        {input('province', 'จังหวัดทะเบียน')}
-                        {input('phone', 'เบอร์โทร', 'tel')}
-                        {input('nickname', 'ชื่อเล่น')}
-                        <Field label="ประเภทรถ">
-                          <select
-                            name="truckType"
-                            defaultValue={
-                              editing && 'kind' in editing ? (editing.truckType ?? '') : ''
-                            }
-                          >
-                            <option value="">ไม่ระบุ</option>
-                            {Object.entries(truckTypes).map(([id, title]) => (
-                              <option value={id} key={id}>
-                                {title}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                      </>
-                    )}
-                    {kind !== 'tag' && (
-                      <TagFields
-                        masters={data.masters}
-                        record={editing && 'kind' in editing ? editing : null}
-                      />
-                    )}
-                    <Field label="สถานะ">
-                      <select
-                        name="active"
-                        defaultValue={
-                          editing && 'active' in editing ? String(editing.active) : 'true'
-                        }
-                      >
-                        <option value="true">ใช้งาน</option>
-                        <option value="false">ปิดใช้งาน</option>
-                      </select>
-                    </Field>
-                  </>
-                ) : (
-                  <>
-                    <ProjectPicker
-                      projects={data.projects}
-                      value={tripProject}
-                      onChange={setTripProject}
-                      onManage={() => {
-                        setModal(null);
-                        navigate('projects');
-                        if (!data.projects.length) open('project');
-                      }}
-                    />
-                    {(['truck', 'driver', 'source'] as const).map((type) => (
-                      <Field key={type} label={labels[type] + (type === 'truck' ? ' *' : '')}>
-                        <select
-                          aria-label={labels[type] + (type === 'truck' ? ' *' : '')}
-                          name={type + 'Id'}
-                          required={type === 'truck'}
-                          defaultValue={
-                            editing
-                              ? String(
-                                  (editing as unknown as Record<string, unknown>)[type + 'Id'] ??
-                                    '',
-                                )
-                              : ''
-                          }
-                        >
-                          <option value="">เลือก{labels[type]}</option>
-                          {data.masters
-                            .filter((m) => m.kind === type && m.active)
-                            .map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name}
-                              </option>
-                            ))}
-                        </select>
-                        {!data.masters.some((m) => m.kind === type && m.active) && (
-                          <small>
-                            {data.masters.some((m) => m.kind === type)
-                              ? `ข้อมูล${labels[type]}ถูกปิดใช้งาน เปิดใช้งานที่หน้าข้อมูลพื้นฐานก่อนเลือก`
-                              : `ยังไม่มี${labels[type]}ในบัญชีและที่อยู่เว็บนี้ เพิ่มที่หน้าข้อมูลพื้นฐาน`}
-                          </small>
-                        )}
-                      </Field>
-                    ))}
-                    {input('date', 'วันที่ทำงาน', 'date', true)}
-                    <Field label="เวลา *">
-                      <input
-                        name="time"
-                        type="time"
-                        required
-                        defaultValue={
-                          editing && 'time' in editing
-                            ? editing.time
-                            : new Intl.DateTimeFormat('en-GB', {
-                                timeZone: 'Asia/Bangkok',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }).format(new Date())
-                        }
-                      />
-                    </Field>
-                    <SoilTypePicker
-                      masters={data.masters}
-                      value={tripSoilType}
-                      onChange={setTripSoilType}
-                      previousValue={
-                        editing && 'soilType' in editing ? editing.soilType : undefined
-                      }
-                    />
-                    {input('notes', 'หมายเหตุ')}
-                  </>
+            <button aria-label="ปิดฟอร์ม" onClick={() => setModal(null)}>
+              <X />
+            </button>
+          </div>
+          <form onSubmit={submit}>
+            {editing && canManage && (
+              <div>
+                <button type="button" onClick={() => setConfirmDelete(true)}>
+                  ลบรายการโดยเก็บประวัติ
+                </button>
+                {confirmDelete && (
+                  <div>
+                    <p>รายการจะถูกซ่อนจากการใช้งาน โดยเก็บข้อมูลและประวัติไว้</p>
+                    <button type="button" onClick={() => void remove()}>
+                      ยืนยันลบรายการ
+                    </button>
+                    <button type="button" onClick={() => setConfirmDelete(false)}>
+                      ยกเลิกการลบ
+                    </button>
+                  </div>
                 )}
               </div>
-              {error && (
-                <p className="form-error" role="alert">
-                  {error}
-                </p>
+            )}
+            <div className="form-grid">
+              {modal === 'project' ? (
+                <>
+                  {input('name', 'ชื่อโครงการ', 'text', true)}
+                  {input('customer', 'ชื่อลูกค้า')}
+                  {input('location', 'สถานที่')}
+                  <Field label="พิกัด (Lat, Lng)">
+                    <input
+                      name="coordinates"
+                      aria-label="พิกัด (Lat, Lng)"
+                      type="text"
+                      placeholder="เช่น 13.7563, 100.5018"
+                      defaultValue={
+                        editing &&
+                        'latitude' in editing &&
+                        editing.latitude !== undefined &&
+                        editing.longitude !== undefined
+                          ? `${editing.latitude}, ${editing.longitude}`
+                          : ''
+                      }
+                    />
+                    <small>ละติจูด, ลองจิจูด คั่นด้วยเครื่องหมาย ,</small>
+                  </Field>
+                  {input('startDate', 'วันเริ่มต้น', 'date')}
+                  {input('endDate', 'วันสิ้นสุด', 'date')}
+                  <Field label="สถานะ">
+                    <select
+                      name="status"
+                      aria-label="สถานะโครงการ"
+                      defaultValue={editing && 'status' in editing ? editing.status : 'active'}
+                    >
+                      {Object.entries(statusText).map(([key, title]) => (
+                        <option key={key} value={key}>
+                          {title}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {input('description', 'รายละเอียด')}
+                </>
+              ) : modal === 'master' ? (
+                <>
+                  {input(
+                    'name',
+                    kind === 'truck'
+                      ? 'ทะเบียนรถ'
+                      : kind === 'soilType'
+                        ? 'ชื่อชนิดดิน'
+                        : kind === 'tag'
+                          ? 'ชื่อแท็ก / ทีม'
+                          : 'ชื่อ',
+                    'text',
+                    true,
+                  )}
+                  {input('detail', kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด')}
+                  {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
+                  {kind === 'truck' && (
+                    <>
+                      {input('province', 'จังหวัดทะเบียน')}
+                      {input('phone', 'เบอร์โทร', 'tel')}
+                      {input('nickname', 'ชื่อเล่น')}
+                      <Field label="ประเภทรถ">
+                        <select
+                          name="truckType"
+                          defaultValue={
+                            editing && 'kind' in editing ? (editing.truckType ?? '') : ''
+                          }
+                        >
+                          <option value="">ไม่ระบุ</option>
+                          {Object.entries(truckTypes).map(([id, title]) => (
+                            <option value={id} key={id}>
+                              {title}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    </>
+                  )}
+                  {kind !== 'tag' && (
+                    <TagFields
+                      masters={data.masters}
+                      record={editing && 'kind' in editing ? editing : null}
+                    />
+                  )}
+                  <Field label="สถานะ">
+                    <select
+                      name="active"
+                      defaultValue={
+                        editing && 'active' in editing ? String(editing.active) : 'true'
+                      }
+                    >
+                      <option value="true">ใช้งาน</option>
+                      <option value="false">ปิดใช้งาน</option>
+                    </select>
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <ProjectPicker
+                    projects={data.projects}
+                    value={tripProject}
+                    onChange={setTripProject}
+                    onManage={() => {
+                      setModal(null);
+                      navigate('projects');
+                      if (!data.projects.length) open('project');
+                    }}
+                  />
+                  {(['truck', 'driver', 'source'] as const).map((type) => (
+                    <Field key={type} label={labels[type] + (type === 'truck' ? ' *' : '')}>
+                      <select
+                        aria-label={labels[type] + (type === 'truck' ? ' *' : '')}
+                        name={type + 'Id'}
+                        required={type === 'truck'}
+                        defaultValue={
+                          editing
+                            ? String(
+                                (editing as unknown as Record<string, unknown>)[type + 'Id'] ?? '',
+                              )
+                            : ''
+                        }
+                      >
+                        <option value="">เลือก{labels[type]}</option>
+                        {data.masters
+                          .filter((m) => m.kind === type && m.active)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                      </select>
+                      {!data.masters.some((m) => m.kind === type && m.active) && (
+                        <small>
+                          {data.masters.some((m) => m.kind === type)
+                            ? `ข้อมูล${labels[type]}ถูกปิดใช้งาน เปิดใช้งานที่หน้าข้อมูลพื้นฐานก่อนเลือก`
+                            : `ยังไม่มี${labels[type]}ในบัญชีและที่อยู่เว็บนี้ เพิ่มที่หน้าข้อมูลพื้นฐาน`}
+                        </small>
+                      )}
+                    </Field>
+                  ))}
+                  {input('date', 'วันที่ทำงาน', 'date', true)}
+                  <Field label="เวลา *">
+                    <input
+                      name="time"
+                      type="time"
+                      required
+                      defaultValue={
+                        editing && 'time' in editing
+                          ? editing.time
+                          : new Intl.DateTimeFormat('en-GB', {
+                              timeZone: 'Asia/Bangkok',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }).format(new Date())
+                      }
+                    />
+                  </Field>
+                  <SoilTypePicker
+                    masters={data.masters}
+                    value={tripSoilType}
+                    onChange={setTripSoilType}
+                    previousValue={editing && 'soilType' in editing ? editing.soilType : undefined}
+                  />
+                  {input('notes', 'หมายเหตุ')}
+                </>
               )}
-              <div className="form-actions">
-                <span>บันทึกลงอุปกรณ์ก่อนซิงก์</span>
-                <button type="button" className="secondary" onClick={() => setModal(null)}>
-                  ยกเลิก
-                </button>
-                <button className="primary" type="submit">
-                  <Check size={17} />
-                  บันทึกข้อมูล
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+            </div>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="form-actions">
+              <span>บันทึกลงอุปกรณ์ก่อนซิงก์</span>
+              <button type="button" className="secondary" onClick={() => setModal(null)}>
+                ยกเลิก
+              </button>
+              <button className="primary" type="submit">
+                <Check size={17} />
+                บันทึกข้อมูล
+              </button>
+            </div>
+          </form>
+        </RecordDialog>
       )}
     </div>
   );

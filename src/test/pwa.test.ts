@@ -1,12 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, vi } from 'vitest';
 const script = readFileSync('public/sw.js', 'utf8');
-function harness() {
+function harness(base = '/') {
   const listeners: Record<string, (event: any) => void> = {};
   const cache = { addAll: vi.fn().mockResolvedValue(undefined), match: vi.fn(), put: vi.fn() };
   const caches = {
     open: vi.fn().mockResolvedValue(cache),
-    keys: vi.fn().mockResolvedValue(['construction-shell-old', 'another-app']),
+    keys: vi
+      .fn()
+      .mockResolvedValue([
+        'construction-shell-0011223344556677',
+        `construction-shell-${encodeURIComponent(base)}-old`,
+        'construction-shell-%2Fother%2F-old',
+        'another-app',
+      ]),
     delete: vi.fn(),
   };
   const fetch = vi.fn();
@@ -17,6 +24,7 @@ function harness() {
     skipWaiting: vi.fn(),
     clients: { claim: vi.fn() },
     location: { origin: 'https://site.test' },
+    registration: { scope: `https://site.test${base}` },
   };
   new Function('self', 'caches', 'fetch', script)(self, caches, fetch);
   return { listeners, cache, caches, fetch, self };
@@ -70,7 +78,10 @@ describe('service worker cache policy (simulated worker)', () => {
       },
     });
     await task;
-    expect(h.caches.delete).toHaveBeenCalledExactlyOnceWith('construction-shell-old');
+    expect(h.caches.delete.mock.calls.map(([key]) => key)).toEqual([
+      'construction-shell-0011223344556677',
+      'construction-shell-%2F-old',
+    ]);
     expect(h.self.clients.claim).toHaveBeenCalledOnce();
   });
   it('never intercepts cloud API calls or write requests', () => {
@@ -92,7 +103,7 @@ describe('service worker cache policy (simulated worker)', () => {
     h.cache.match.mockResolvedValue('saved-shell');
     let response: Promise<unknown> = Promise.resolve();
     h.listeners.fetch({
-      request: { url: 'https://site.test/trips', method: 'GET', mode: 'navigate' },
+      request: { url: 'https://site.test/', method: 'GET', mode: 'navigate' },
       respondWith: (value: Promise<unknown>) => {
         response = value;
       },
@@ -101,7 +112,11 @@ describe('service worker cache policy (simulated worker)', () => {
   });
   it('refreshes cached HTML after successful navigation', async () => {
     const h = harness();
-    h.fetch.mockResolvedValue({ ok: true, clone: () => 'new-shell' });
+    h.fetch.mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/html' }),
+      clone: () => 'new-shell',
+    });
     let response: Promise<unknown> = Promise.resolve();
     h.listeners.fetch({
       request: { url: 'https://site.test/', method: 'GET', mode: 'navigate' },
@@ -111,5 +126,68 @@ describe('service worker cache policy (simulated worker)', () => {
     });
     await response;
     expect(h.cache.put).toHaveBeenCalledWith('/', 'new-shell');
+  });
+  it('scopes precache, offline shell and cleanup to a Pages subpath', async () => {
+    const h = harness('/construction-ops/');
+    h.fetch.mockResolvedValue({ ok: true, json: async () => ['/construction-ops/assets/lazy.js'] });
+    let task: Promise<unknown> = Promise.resolve();
+    const waitUntil = (value: Promise<unknown>) => {
+      task = value;
+    };
+    h.listeners.install({ waitUntil });
+    await task;
+    expect(h.fetch).toHaveBeenCalledWith('/construction-ops/precache-manifest.json', {
+      cache: 'no-store',
+    });
+    expect(h.cache.addAll).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        '/construction-ops/',
+        '/construction-ops/icon-192.png',
+        '/construction-ops/assets/lazy.js',
+      ]),
+    );
+    h.listeners.activate({ waitUntil });
+    await task;
+    expect(h.caches.delete).toHaveBeenCalledExactlyOnceWith(
+      'construction-shell-%2Fconstruction-ops%2F-old',
+    );
+    h.fetch.mockRejectedValue(Error('offline'));
+    h.cache.match.mockResolvedValue('subpath-shell');
+    h.listeners.fetch({
+      request: { url: 'https://site.test/construction-ops/', method: 'GET', mode: 'navigate' },
+      respondWith: waitUntil,
+    });
+    expect(await task).toBe('subpath-shell');
+    expect(h.cache.match).toHaveBeenCalledWith('/construction-ops/');
+  });
+  it('never caches API navigation or a sibling application, or accepts manifest traversal', async () => {
+    const h = harness('/construction-ops/'),
+      respondWith = vi.fn();
+    for (const path of [
+      '/api/access/users',
+      '/construction-ops/api/access',
+      '/other/',
+      '/assets/shared.js',
+    ])
+      h.listeners.fetch({
+        request: { url: `https://site.test${path}`, method: 'GET', mode: 'navigate' },
+        respondWith,
+      });
+    expect(respondWith).not.toHaveBeenCalled();
+    for (const asset of [
+      '/assets/wrong-base.js',
+      '/construction-ops/assets/../private.js',
+      '/construction-ops/assets/%2e%2e%2fprivate.js',
+    ]) {
+      h.fetch.mockResolvedValue({ ok: true, json: async () => [asset] });
+      let task: Promise<unknown> = Promise.resolve();
+      h.listeners.install({
+        waitUntil: (value: Promise<unknown>) => {
+          task = value;
+        },
+      });
+      await expect(task).rejects.toThrow('Invalid');
+    }
+    expect(h.cache.addAll).not.toHaveBeenCalled();
   });
 });

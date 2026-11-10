@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import { companyName } from './branding';
+import TotpChallengeDialog from './TotpChallengeDialog';
+import { totpChallenge, mfaErrorMessage, type TotpChallenge } from './firebaseMfa';
 
 function loginError(error: unknown) {
   const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : '';
@@ -20,6 +22,7 @@ export default function LoginPage({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [challenge, setChallenge] = useState<TotpChallenge | null>(null);
   const pending = useRef(false);
   async function signIn() {
     if (pending.current || !online) return;
@@ -29,7 +32,18 @@ export default function LoginPage({
     try {
       await onLogin();
     } catch (error) {
-      setError(loginError(error));
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'auth/multi-factor-auth-required'
+      ) {
+        try {
+          setChallenge(totpChallenge(error));
+        } catch (failure) {
+          setError(mfaErrorMessage(failure));
+        }
+      } else setError(loginError(error));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -44,7 +58,7 @@ export default function LoginPage({
       <div className="login-scene">
         <img
           className="login-artwork"
-          src="/login-earthwork.png"
+          src={`${import.meta.env.BASE_URL}login-earthwork.png`}
           alt=""
           width={1536}
           height={1024}
@@ -83,6 +97,14 @@ export default function LoginPage({
           </p>
         )}
       </div>
+      {challenge && (
+        <TotpChallengeDialog
+          challenge={challenge}
+          online={online}
+          onComplete={() => setChallenge(null)}
+          onDismiss={() => setChallenge(null)}
+        />
+      )}
     </main>
   );
 }

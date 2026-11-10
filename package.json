@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
+    "build:pages": "tsc -b && vite build --base=/construction-ops/ --outDir=dist-pages",
     "typecheck": "tsc -b --pretty false",
-    "test": "vitest run && npm --prefix backend test",
+    "test": "vitest run && npm --prefix backend test && node --test scripts/release-config.test.mjs",
     "test:watch": "vitest",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:rules && npm run build && npm run smoke && npm run test:e2e",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:rules && npm run build && npm run smoke && npm run build:pages && npm run smoke:pages && npm run test:e2e",
     "lint": "eslint . && node --test scripts/editor-config.test.mjs",
     "lint:fix": "eslint . --fix",
     "test:rules": "node scripts/rules-test.mjs",
@@ -19,6 +20,8 @@
     "format:check": "prettier --check .",
     "clean": "node scripts/clean.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "smoke:pages": "node scripts/smoke.mjs --pages",
+    "release:check": "node scripts/release-config.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
