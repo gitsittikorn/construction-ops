@@ -26,3 +26,9 @@
 ## Approved extension checkpoint
 
 - Read `docs/APPROVED_EXTENSIONS.md` and `docs/EXTENSIONS_REPORT.md` when continuing the nine user-approved additions. Item 4 scope was answered: multiple Google accounts share company data. Read `docs/COMPANY_ACCESS.md` for the implementation checkpoint and permission matrix; preserve existing namespaces and enforce membership in Firestore/backend. All nine additions have implementation and isolated acceptance evidence (latest source `ba6ad8c`; full gate frontend 314/backend 15/rules 10/integration 10/E2E 58). Read `docs/SECURITY_SCAN_2026-11-09.md` for sealed-evidence generations, company proof identity, report references, GCM tag enforcement and actual scanner scope. Compare with current Git/source before further work; do not repeat completed features. Original roadmap real-service/manual acceptance remains open. Physical Android remains deferred.
+
+## AI model recommendations (project-level)
+
+- Read `docs/MODEL_ROUTING.md` when planning or starting a substantial task. Classify the task and its risk, and recommend an appropriate model/intelligence/speed setting without interrupting authorized implementation.
+- These recommendations **do not switch the actual Codex model or UI settings**. Never claim a model switch unless supported by a real routing capability and verified. Continue with the available model when switching is unsupported.
+- High-risk earthwork calculations, Google/Firebase/Drive/Sheets sync, account permissions and data migrations require the additional verification in `docs/MODEL_ROUTING.md`; preserve the project’s existing automated gates and evidence requirements.
