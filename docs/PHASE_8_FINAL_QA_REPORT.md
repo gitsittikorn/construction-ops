@@ -1,5 +1,11 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## PWA release update and pending originals — 2026-11-10
+
+Baseline `f074bc0`, source **`8755d76`**, existing feature branch. BUG-019 fixes newer HTML replacing an active worker's cached shell before explicit update. Before-fix browser reproduction failed at both hosting bases; focused worker test failed. Final documented cloud `npm run check` exit **0**: frontend **356**, backend **24**, release preflight **5**, Node emulator **15**, client integration **10**, Playwright **85** (2.9 minutes), editor tooling **4**. Format/lint/typecheck, root + Pages builds and HTTP smoke PASS; **61 warnings / zero errors** (59 prior + 2 fixture typing warnings), normal chunk-size warning retained. No skipped/disabled tests.
+
+Four local Chromium cases cover archived `f074bc0` worker→fixed worker and fixed→fixed release fixtures at root/Pages, failed precache/retry, waiting update, explicit offline activation and exact pending state/binary retention through reload/lazy Reports. Shared current bundles/schema limit this evidence to shell/worker lifecycle, not arbitrary historical migration, real cloud sync or Safari/iPhone acceptance. See [PWA_UPDATE_VALIDATION.md](PWA_UPDATE_VALIDATION.md). Safe cleanup and restoration of only two regenerated screenshots completed. No dependency/config/Rules/provider/production changes or deployment; source pushes only to the authorized feature branch. Original Phase 8 stays **PARTIAL** for real-service/manual/hardware acceptance.
+
 ## Latest mobile / TOTP / hosting-preparation gate — 2026-11-10
 
 Source **`ef2564b`**, baseline `2c74288`, feature branch unchanged. Full documented cloud `npm run check` exit **0**: frontend **355/355** (61 files), backend **24/24**, release preflight **5/5**, Node emulator **15/15** (13 Rules + 2 backend transactions), client integration **10/10**, E2E **81/81** (3.0 minutes), tooling **4/4**. Format/lint/typecheck, root and Pages build/HTTP smoke pass; 59 existing warnings/zero errors. Main JS chunk approximately 509.8 kB keeps its warning threshold. No tests/assertions were disabled.

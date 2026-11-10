@@ -41,3 +41,7 @@ GitHub Pages ให้บริการ HTML/JavaScript/CSS และ PWA เ�
 5. หลัง Real Acceptance ผ่านและอนุมัติการเปลี่ยน Backend แล้ว จึงพิจารณา `ACCESS_REQUIRE_ADMIN_MFA=true`. ค่านี้ตรวจ Firebase MFA claim ของ Super Admin ใน Access API ไม่ใช่การเปิด Firebase provider หรือบังคับ MFA ทุก Firestore read/offline cache แทนองค์กร
 
 Real Google/TOTP, Safari/iPhone/iPad, Home Screen/PWA และ Production acceptance ยัง **NOT VERIFIED**. WebKit download ใน Cloud ถูกปฏิเสธด้วย Domain forbidden; ผลทดสอบ Chromium แบบสัมผัสไม่แทนอุปกรณ์จริง
+
+## Pending-data PWA update gate — 2026-11-10
+
+BUG-019 is corrected in source: the active worker serves its installed shell until explicit activation, and the build hash changes with worker content. Local Chromium validation covers both hosting bases, archived `f074bc0` worker→fixed worker, failed precache/retry, offline activation and exact pending-state/original-byte retention. See [PWA_UPDATE_VALIDATION.md](PWA_UPDATE_VALIDATION.md). Shared bundles/schema in these shell-only fixtures do not certify arbitrary historical migrations or an actual hosted rollout. An already installed worker needs a normal browser update before it gains this fix; do not clear site data to force it. Real Google/MFA, Safari/iPhone/Home Screen and coordinated production release acceptance remain open. This source checkpoint authorizes no merge/deployment or production change.
