@@ -86,6 +86,10 @@ self.addEventListener('fetch', (event) => {
   )
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
+        // Keep HTML and immutable modules from the same installed release.
+        // A waiting worker owns the new shell until the user activates it.
+        const shell = await cache.match(BASE);
+        if (shell) return shell;
         try {
           const response = await fetch(event.request);
           if (response.ok && response.headers.get('content-type')?.includes('text/html'))

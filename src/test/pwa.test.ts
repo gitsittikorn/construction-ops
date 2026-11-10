@@ -110,7 +110,26 @@ describe('service worker cache policy (simulated worker)', () => {
     });
     expect(await response).toBe('saved-shell');
   });
-  it('refreshes cached HTML after successful navigation', async () => {
+  it('pins navigation to the active cached shell while a newer release may be waiting', async () => {
+    const h = harness();
+    h.cache.match.mockResolvedValue('old-shell');
+    h.fetch.mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/html' }),
+      clone: () => 'new-shell',
+    });
+    let response: Promise<unknown> = Promise.resolve();
+    h.listeners.fetch({
+      request: { url: 'https://site.test/', method: 'GET', mode: 'navigate' },
+      respondWith: (value: Promise<unknown>) => {
+        response = value;
+      },
+    });
+    expect(await response).toBe('old-shell');
+    expect(h.fetch).not.toHaveBeenCalled();
+    expect(h.cache.put).not.toHaveBeenCalled();
+  });
+  it('recovers a missing shell from a successful HTML navigation', async () => {
     const h = harness();
     h.fetch.mockResolvedValue({
       ok: true,
