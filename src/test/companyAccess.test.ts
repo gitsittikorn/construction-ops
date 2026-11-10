@@ -1,4 +1,11 @@
-import { resolveCompany, watchCompany, readCompanySelection } from '../companyAccess';
+import {
+  resolveCompany,
+  watchCompany,
+  readCompanySelection,
+  rememberCompany,
+  invalidateCompanyGrant,
+  offlineGrantLifetimeMs,
+} from '../companyAccess';
 import { openLocalDatabase, persistData } from '../storage';
 import { fixture } from './syncFixtures';
 const sdk = vi.hoisted(() => ({
@@ -108,4 +115,40 @@ it('preserves legacy offline grants while rejecting cached entries for a differe
   );
   db.close();
   expect(await readCompanySelection(uid)).toBeNull();
+});
+
+it('expires offline grants and never revives a known denial from a legacy admin timestamp', async () => {
+  const uid = crypto.randomUUID(),
+    data = fixture();
+  await persistData(uid, data);
+  await rememberCompany({ actorUid: uid, companyId: uid, role: 'owner', name: 'Company' });
+  const db = await openLocalDatabase();
+  const saved = await db.get('driveSettings', ['company-selection', uid]);
+  await db.put(
+    'driveSettings',
+    { ...saved, verifiedAt: new Date(Date.now() - offlineGrantLifetimeMs - 1000).toISOString() },
+    ['company-selection', uid],
+  );
+  db.close();
+  expect(await readCompanySelection(uid)).toBeNull();
+  await rememberCompany({ actorUid: uid, companyId: uid, role: 'owner', name: 'Company' });
+  expect(await readCompanySelection(uid)).not.toBeNull();
+  await invalidateCompanyGrant(uid);
+  expect(await readCompanySelection(uid)).toBeNull();
+  const { loadData } = await import('../storage');
+  expect((await loadData(uid)).trips).toEqual(data.trips);
+  await rememberCompany({ actorUid: uid, companyId: uid, role: 'owner', name: 'Company' });
+  expect(await readCompanySelection(uid)).not.toBeNull();
+});
+
+it('fails closed for a policy company when the trusted backend is not configured', async () => {
+  sdk.get
+    .mockResolvedValueOnce(found({ uid: 'worker', role: 'operator', enabled: true }))
+    .mockResolvedValueOnce(
+      found({ ownerUid: 'company', name: 'Policy', accessPolicy: 'allowlist-v1' }),
+    );
+  await expect(resolveCompany('worker', 'company')).rejects.toHaveProperty(
+    'code',
+    'permission-denied',
+  );
 });

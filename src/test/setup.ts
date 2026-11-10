@@ -14,6 +14,7 @@ const isolatedVariables = [
   'VITE_FIREBASE_APP_ID',
   'VITE_GOOGLE_CLIENT_ID',
   'VITE_DRIVE_BACKEND_URL',
+  'VITE_ACCESS_BACKEND_URL',
 ];
 for (const name of isolatedVariables) {
   vi.stubEnv(name, '');

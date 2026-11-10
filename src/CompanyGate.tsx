@@ -7,16 +7,19 @@ import {
   rememberCompany,
   readCompanySelection,
   watchCompany,
+  invalidateCompanyGrant,
   type ResolvedCompany,
 } from './companyAccess';
 import { cacheOwner, setWorkspaceSession } from './workspaceIdentity';
 import { connectionMessage } from './async';
+import { accessBackendConfigured, listAccessCompanies } from './accessBackend';
 export default function CompanyGate() {
   const [user, setUser] = useState<{ uid: string; email: string } | null>(null),
     [scope, setScope] = useState<ResolvedCompany | null>(null),
     [busy, setBusy] = useState(configured),
     [error, setError] = useState(''),
     [offline, setOffline] = useState(false);
+  const [companies, setCompanies] = useState<{ companyId: string; name: string }[]>([]);
   const generation = useRef(0),
     currentUid = useRef(''),
     alive = useRef(false);
@@ -49,6 +52,7 @@ export default function CompanyGate() {
       setScope(null);
       setUser(identity ? { uid, email: identity.email ?? '' } : null);
       setError('');
+      setCompanies([]);
       if (!uid) {
         setBusy(false);
         return;
@@ -57,14 +61,26 @@ export default function CompanyGate() {
       void readCompanySelection(uid)
         .then(async (cached) => {
           try {
-            const next = await resolveCompany(uid, cached?.companyId ?? uid);
+            let company = cached?.companyId ?? uid;
+            if (!cached && accessBackendConfigured) {
+              const available = await listAccessCompanies();
+              if (!active || epoch !== generation.current) return;
+              setCompanies(available);
+              if (available.length > 1) return;
+              if (available.length === 1) company = available[0].companyId;
+            }
+            const next = await resolveCompany(uid, company);
             if (active && epoch === generation.current) activate(next);
           } catch (error) {
             const code =
               error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
             if (active && epoch === generation.current) {
               if (cached && (!navigator.onLine || code === 'unavailable')) activate(cached, true);
-              else setError(connectionMessage(error));
+              else {
+                if (cached && code === 'permission-denied')
+                  void invalidateCompanyGrant(uid).catch(() => {});
+                setError(connectionMessage(error));
+              }
             }
           }
         })
@@ -94,6 +110,8 @@ export default function CompanyGate() {
           generation.current++;
           setWorkspaceSession(null);
           setScope(null);
+          setBusy(false);
+          void invalidateCompanyGrant(scope.actorUid).catch(() => {});
           setError('สิทธิ์บริษัทถูกปิด กรุณาติดต่อเจ้าของ ข้อมูลที่ค้างยังเก็บไว้ในเครื่อง');
         }
       },
@@ -102,8 +120,11 @@ export default function CompanyGate() {
           const code =
             error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
           if (code === 'permission-denied') {
+            generation.current++;
+            void invalidateCompanyGrant(scope.actorUid).catch(() => {});
             setWorkspaceSession(null);
             setScope(null);
+            setBusy(false);
           }
           setError(connectionMessage(error));
         }
@@ -114,7 +135,66 @@ export default function CompanyGate() {
       unsubscribe();
     };
   }, [scope]);
-  if (!configured) return <App />;
+  useEffect(() => {
+    if (!scope) return;
+    let active = true;
+    const reconnect = () => {
+      const uid = scope.actorUid,
+        epoch = ++generation.current;
+      setBusy(true);
+      void resolveCompany(uid, scope.companyId)
+        .then((next) => {
+          if (active && currentUid.current === uid && epoch === generation.current) {
+            activate(next);
+            setError('');
+          }
+        })
+        .catch((error) => {
+          if (!active || epoch !== generation.current) return;
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            error.code === 'permission-denied'
+          ) {
+            void invalidateCompanyGrant(uid).catch(() => {});
+            setWorkspaceSession(null);
+            setScope(null);
+          }
+          setError(connectionMessage(error));
+        })
+        .finally(() => {
+          if (active && epoch === generation.current) setBusy(false);
+        });
+    };
+    const expire = setInterval(() => {
+      if (!navigator.onLine)
+        void readCompanySelection(scope.actorUid)
+          .then((cached) => {
+            if (active && !cached) {
+              setWorkspaceSession(null);
+              setScope(null);
+              setError('สิทธิ์ออฟไลน์หมดอายุ กรุณาเชื่อมต่อเพื่อตรวจสิทธิ์ใหม่ ข้อมูลค้างยังอยู่');
+            }
+          })
+          .catch(() => {});
+    }, 60000);
+    window.addEventListener('online', reconnect);
+    return () => {
+      active = false;
+      clearInterval(expire);
+      window.removeEventListener('online', reconnect);
+    };
+  }, [scope]);
+  if (!configured)
+    return import.meta.env.PROD && import.meta.env.VITE_ALLOW_LOCAL_DEMO !== 'true' ? (
+      <main className="panel padded" role="alert">
+        <h1>ยังไม่ได้ตั้งค่าการเข้าสู่ระบบ</h1>
+        <p>กรุณาให้ผู้ดูแลตั้งค่า Firebase และ Google ก่อนเปิดใช้งานระบบ ข้อมูลเดิมยังถูกเก็บไว้</p>
+      </main>
+    ) : (
+      <App />
+    );
   if (!user && !busy) return <LoginPage onLogin={login} online={navigator.onLine} />;
   if (scope)
     return (
@@ -145,13 +225,39 @@ export default function CompanyGate() {
             รหัสผู้ใช้ของคุณ: <strong>{user.uid}</strong>
           </p>
           <p>
-            ส่งรหัสผู้ใช้นี้ให้เจ้าของเพิ่มเป็นสมาชิก
-            แล้วนำรหัสบริษัทจากเจ้าของมาเปิดข้อมูลชุดเดียวกัน
+            {accessBackendConfigured
+              ? 'ผู้ดูแลสูงสุดต้องเพิ่มอีเมล Google ของคุณในรายการอนุญาตก่อนเข้าใช้งาน หากมีหลายบริษัทให้เลือกบริษัทด้านล่าง'
+              : 'ให้เจ้าของตรวจสิทธิ์และรหัสบริษัทสำหรับบัญชี Google นี้'}
           </p>
         </>
       )}
       {busy && <p role="status">กำลังตรวจสิทธิ์บริษัท…</p>}
       {error && <p role="alert">{error}</p>}
+      {companies.map((company) => (
+        <button
+          key={company.companyId}
+          disabled={busy}
+          onClick={() => {
+            if (!user) return;
+            const uid = user.uid,
+              epoch = ++generation.current;
+            setBusy(true);
+            setError('');
+            void resolveCompany(uid, company.companyId)
+              .then((next) => {
+                if (epoch === generation.current && currentUid.current === uid) activate(next);
+              })
+              .catch((error) => {
+                if (epoch === generation.current) setError(connectionMessage(error));
+              })
+              .finally(() => {
+                if (epoch === generation.current) setBusy(false);
+              });
+          }}
+        >
+          เปิดบริษัท {company.name}
+        </button>
+      ))}
       <form
         onSubmit={(event) => {
           event.preventDefault();

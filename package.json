@@ -13,7 +13,7 @@
     "lint": "eslint . && node --test scripts/editor-config.test.mjs",
     "lint:fix": "eslint . --fix",
     "test:rules": "node scripts/rules-test.mjs",
-    "test:emulator": "node --test rules-test/*.test.mjs && vitest run --config vitest.emulator.config.ts",
+    "test:emulator": "node --test rules-test/*.test.mjs backend/emulator-test/*.test.mjs && vitest run --config vitest.emulator.config.ts",
     "preview": "vite preview --host 127.0.0.1",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

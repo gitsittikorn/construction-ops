@@ -84,6 +84,7 @@ export default function CloudSyncPanel({
   failure,
   onSync,
   onResolve,
+  readOnly = false,
 }: {
   owner: string;
   data: Data;
@@ -94,6 +95,7 @@ export default function CloudSyncPanel({
   failure?: string;
   onSync: () => Promise<void>;
   onResolve: (key: string, choice: 'local' | 'remote') => Promise<void>;
+  readOnly?: boolean;
 }) {
   const [error, setError] = useState('');
   const entries = Object.entries(data.sync?.entries ?? {});
@@ -177,12 +179,15 @@ export default function CloudSyncPanel({
               หากต้องแก้ยอดให้เพิ่มเรตฉบับใหม่หรือรายการกลับพร้อมเหตุผล
             </p>
           ) : (
-            <button disabled={busy || !online} onClick={() => void onResolve(key, 'local')}>
+            <button
+              disabled={readOnly || busy || !online}
+              onClick={() => void onResolve(key, 'local')}
+            >
               เก็บฉบับในเครื่องแล้วส่งใหม่
             </button>
           )}
           <button
-            disabled={busy || !online || !entry.conflict?.remote}
+            disabled={readOnly || busy || !online || !entry.conflict?.remote}
             onClick={() => void onResolve(key, 'remote')}
           >
             ใช้ฉบับ Cloud

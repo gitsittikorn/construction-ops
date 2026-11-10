@@ -72,3 +72,15 @@ it('blocks forged verification/state changes and retains data from a previous hi
   expect((await loadData(operator)).projects).toEqual([]);
   expect((await loadData(manager)).projects[0].name).toBe('Manager pending');
 });
+
+it('viewer reads never grant domain edits, demo creation, evidence writes or conflict resolution', async () => {
+  const viewer = cacheOwner({ actorUid: 'reader', companyId: 'company', role: 'viewer' }),
+    data = fixture();
+  expect(() => assertCompanyMutation(data, data, viewer)).not.toThrow();
+  for (const key of ['projects', 'masters', 'trips'] as const)
+    expect(() => assertCompanyMutation(data, { ...data, [key]: [] }, viewer)).toThrow('ดูข้อมูล');
+  const { addDemoProject } = await import('../demoProject');
+  expect(() => addDemoProject(data, viewer)).toThrow('ผู้จัดการ');
+  const { saveEvidence } = await import('../evidence');
+  await expect(saveEvidence(viewer, 'day', 'row', 'driver-photo', [])).rejects.toThrow('ดูข้อมูล');
+});

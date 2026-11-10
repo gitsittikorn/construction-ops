@@ -1,15 +1,17 @@
-export type CompanyRole = 'owner' | 'manager' | 'operator';
+export type CompanyRole = 'owner' | 'manager' | 'operator' | 'viewer';
 export interface CompanyScope {
   companyId: string;
   actorUid: string;
   role: CompanyRole;
+  accessPolicy?: 'allowlist-v1';
+  accessRole?: 'super_admin' | 'admin' | 'staff' | 'viewer';
 }
 const prefix = 'company-v1:';
 let activeScope: CompanyScope | null = null;
 export function cacheOwner(scope: CompanyScope): string {
   if (
     ![scope.companyId, scope.actorUid].every((id) => id && id.length <= 128 && !id.includes('/')) ||
-    !['owner', 'manager', 'operator'].includes(scope.role)
+    !['owner', 'manager', 'operator', 'viewer'].includes(scope.role)
   )
     throw Error('รหัสบริษัทหรือสิทธิ์ไม่ถูกต้อง');
   return scope.companyId === scope.actorUid && scope.role === 'owner'
@@ -38,7 +40,8 @@ export function ownerScope(owner: string): CompanyScope {
 export const companyId = (owner: string) => ownerScope(owner).companyId;
 export const actorUid = (owner: string) => ownerScope(owner).actorUid;
 export const companyRole = (owner: string) => ownerScope(owner).role;
-export const managesBusiness = (owner: string) => companyRole(owner) !== 'operator';
+export const managesBusiness = (owner: string) => ['owner', 'manager'].includes(companyRole(owner));
+export const recordsBusiness = (owner: string) => companyRole(owner) !== 'viewer';
 export function setWorkspaceSession(scope: CompanyScope | null) {
   activeScope = scope ? { ...scope } : null;
 }

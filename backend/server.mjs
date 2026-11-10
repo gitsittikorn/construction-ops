@@ -6,6 +6,9 @@ import { createApp } from './app.mjs';
 import { createDriveService } from './driveService.mjs';
 import { createTokenVault } from './tokenVault.mjs';
 import { companyAuthorization } from './companyAuthorization.mjs';
+import { createAccessService } from './accessService.mjs';
+import { createAccessStore } from './accessStore.mjs';
+import { accessPolicy } from './accessModel.mjs';
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -28,6 +31,11 @@ for (const origin of allowedOrigins) {
 }
 initializeApp({ credential: applicationDefault(), projectId });
 const db = getFirestore();
+const accessService = createAccessService({
+  store: createAccessStore(db),
+  auth: getAuth(),
+  requireAdminMfa: process.env.ACCESS_REQUIRE_ADMIN_MFA === 'true',
+});
 const collection = db.collection('_driveCredentials');
 const store = {
   async get(uid) {
@@ -77,12 +85,22 @@ const service = createDriveService({
 const app = createApp({
   service,
   allowedOrigins,
+  accessService,
+  verifyIdentity: (token) => getAuth().verifyIdToken(token, true),
   async verifyUser(token, companyId) {
     const user = await getAuth().verifyIdToken(token, true);
     const data = async (ref) => {
       const snapshot = await ref.get();
       return snapshot.exists ? snapshot.data() : null;
     };
+    const company = companyId || user.uid;
+    if (typeof company !== 'string' || !company || company.length > 128 || company.includes('/'))
+      return { ...user, enabled: false };
+    const profile = await data(db.collection('companies').doc(company));
+    if (profile?.accessPolicy === accessPolicy) {
+      const grant = await accessService.authorize(user, company);
+      return { ...user, enabled: grant.role !== 'viewer' };
+    }
     const enabled = await companyAuthorization(user.uid, companyId, {
       admin: (uid) => data(db.collection('admins').doc(uid)),
       company: (id) => data(db.collection('companies').doc(id)),

@@ -368,3 +368,24 @@ it('preserves partial acknowledgements and the durable queue when authentication
   expect(remote.get('masters/truck')!.operationId).toBe(operation);
   expect((await loadData(owner)).trips[0].syncStatus).toBe('synced');
 });
+
+it('viewer reconnect pulls authorized data without pushing or discarding pending records', async () => {
+  const { cacheOwner } = await import('../workspaceIdentity');
+  const owner = cacheOwner({ actorUid: 'reader', companyId: 'company', role: 'viewer' });
+  await persistData(owner, fixture());
+  await updateData(owner, (data) => data);
+  const before = await loadData(owner),
+    { transport } = memoryTransport();
+  await synchronize(owner, transport);
+  expect(transport.authorize).toHaveBeenCalled();
+  expect(transport.pull).toHaveBeenCalled();
+  expect(transport.push).not.toHaveBeenCalled();
+  expect((await loadData(owner)).trips).toEqual(before.trips);
+  const after = await loadData(owner);
+  expect(Object.values(after.sync!.entries).every((entry) => entry.status === 'pending')).toBe(
+    true,
+  );
+  await expect(resolveConflict(owner, 'trips/trip', 'local', transport)).rejects.toThrow(
+    'ดูข้อมูล',
+  );
+});

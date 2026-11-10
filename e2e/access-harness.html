@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Isolated access-management UI fixture</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import UserManagementPanel from '/src/UserManagementPanel.tsx';
+      import { accessErrorMessage } from '/src/accessBackend.ts';
+      import '/src/styles.css';
+      // Synthetic identity and intercepted test API only. This fixture neither
+      // signs into Google nor changes application authorization in production.
+      const requested = new URLSearchParams(location.search).get('role');
+      const role = ['manager', 'operator', 'viewer'].includes(requested) ? requested : 'owner';
+      const scope = {
+        actorUid: 'company',
+        companyId: 'company',
+        role,
+        accessPolicy: 'allowlist-v1',
+      };
+      async function call(path, body = {}) {
+        const response = await fetch(`/api/access/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        if (!response.ok) throw Error(accessErrorMessage(data.error));
+        return data;
+      }
+      const api = {
+        list: (_company, search = '', after = '') => call('users/list', { search, after }),
+        save: (_company, input) => call('users/save', input),
+        audit: () => call('audit'),
+      };
+      createRoot(document.getElementById('root')).render(
+        React.createElement(
+          'main',
+          { className: 'workspace-main' },
+          React.createElement(UserManagementPanel, { scope, online: true, api }),
+        ),
+      );
+    </script>
+  </body>
+</html>

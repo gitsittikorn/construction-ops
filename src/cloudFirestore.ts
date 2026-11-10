@@ -1,4 +1,11 @@
-import { actorUid, companyId, companyRole } from './workspaceIdentity';
+import {
+  actorUid,
+  companyId,
+  companyRole,
+  getWorkspaceSession,
+  recordsBusiness,
+  managesBusiness,
+} from './workspaceIdentity';
 import {
   collection,
   doc,
@@ -37,7 +44,9 @@ export async function authorizeCloud(owner: string) {
   const role = companyRole(owner);
   const admin = await bounded(
     getDocFromServer(
-      role === 'owner'
+      role === 'owner' &&
+        companyId(owner) === actorUid(owner) &&
+        !getWorkspaceSession()?.accessPolicy
         ? doc(db, 'admins', actorUid(owner))
         : doc(db, 'companies', companyId(owner), 'members', actorUid(owner)),
     ),
@@ -46,7 +55,7 @@ export async function authorizeCloud(owner: string) {
   if (
     !admin.exists() ||
     admin.data().enabled !== true ||
-    (role !== 'owner' && admin.data().role !== role)
+    ((role !== 'owner' || getWorkspaceSession()?.accessPolicy) && admin.data().role !== role)
   )
     throw Object.assign(
       Error(
@@ -84,6 +93,7 @@ export async function pushCloudRecord(
   kind: EntityCollection,
   entry: SyncEntry,
 ): Promise<CloudRecord> {
+  if (!recordsBusiness(owner)) throw Error('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถส่งข้อมูลขึ้น Cloud');
   const db = ownerDatabase(owner),
     desired = entry.desired;
   validateCloudRecord(kind, desired);
@@ -145,7 +155,7 @@ export async function pullCloud(owner: string, cursors: SyncState['cursors']): P
           orderBy(documentId()),
         ]
       : [orderBy(documentId())];
-    if (kind === 'workspaces' && companyRole(owner) === 'operator')
+    if (kind === 'workspaces' && !managesBusiness(owner))
       constraints.unshift(where('payload.recordType', 'in', ['daily', 'evidence', 'survey']));
     let after: QueryConstraint[] = [];
     for (;;) {

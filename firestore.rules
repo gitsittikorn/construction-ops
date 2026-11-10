@@ -1,22 +1,39 @@
 rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
-  function companyOwner(uid) { return request.auth != null && request.auth.uid == uid && activeOwner(uid); }
+  function policyCompany(uid) { return exists(/databases/$(database)/documents/companies/$(uid)) && get(/databases/$(database)/documents/companies/$(uid)).data.get('accessPolicy','') == 'allowlist-v1'; }
+  function googleIdentity() { return request.auth.token.get('email_verified',false) == true && request.auth.token.get('firebase',{}).get('sign_in_provider','') == 'google.com'; }
+  function policyRole(uid) {
+   let m=get(/databases/$(database)/documents/companies/$(uid)/members/$(request.auth.uid)).data;
+   let a=get(/databases/$(database)/documents/companies/$(uid)/authorized_users/$(m.grantId)).data;
+   let role={'super_admin':'owner','admin':'manager','staff':'operator','viewer':'viewer'}.get(a.role,'');
+   return googleIdentity() && m.uid == request.auth.uid && m.enabled == true && a.uid == request.auth.uid && a.email == request.auth.token.email.lower() && a.status == 'enabled' && a.role == m.accessRole && role == m.role ? role : '';
+  }
   function activeOwner(uid) { return exists(/databases/$(database)/documents/admins/$(uid)) && get(/databases/$(database)/documents/admins/$(uid)).data.enabled == true; }
-  function member(uid) { return request.auth != null && activeOwner(uid) && exists(/databases/$(database)/documents/companies/$(uid)) && get(/databases/$(database)/documents/companies/$(uid)).data.ownerUid == uid && exists(/databases/$(database)/documents/companies/$(uid)/members/$(request.auth.uid)) && get(/databases/$(database)/documents/companies/$(uid)/members/$(request.auth.uid)).data.enabled == true && get(/databases/$(database)/documents/companies/$(uid)/members/$(request.auth.uid)).data.role in ['manager','operator']; }
-  function owner(uid) { return companyOwner(uid) || member(uid); }
-  function manages(uid) { return companyOwner(uid) || (member(uid) && get(/databases/$(database)/documents/companies/$(uid)/members/$(request.auth.uid)).data.role == 'manager'); }
+  function legacyRole(uid) {
+   let m=get(/databases/$(database)/documents/companies/$(uid)/members/$(request.auth.uid)).data;
+   return get(/databases/$(database)/documents/companies/$(uid)).data.ownerUid == uid && m.uid == request.auth.uid && m.enabled == true && m.role in ['manager','operator'] ? m.role : '';
+  }
+  function grantedRole(uid) { return request.auth == null || !activeOwner(uid) ? '' : policyCompany(uid) ? policyRole(uid) : request.auth.uid == uid ? 'owner' : legacyRole(uid); }
+  function companyOwner(uid) { return grantedRole(uid) == 'owner'; }
+  function owner(uid) { return grantedRole(uid) in ['owner','manager','operator','viewer']; }
+  function member(uid) { return owner(uid); }
+  function manages(uid) { return grantedRole(uid) in ['owner','manager']; }
+  function canWrite(uid) { return grantedRole(uid) in ['owner','manager','operator']; }
   match /companies/{companyId} {
    allow get: if owner(companyId);
    allow list, delete: if false;
-   allow create: if companyOwner(companyId) && validCompany() && request.resource.data.createdAt == request.resource.data.updatedAt;
-   allow update: if companyOwner(companyId) && validCompany() && request.resource.data.createdAt == resource.data.createdAt;
-   function validCompany() { let d=request.resource.data; return d.keys().hasAll(['ownerUid','name','createdAt','updatedAt']) && d.keys().hasOnly(['ownerUid','name','createdAt','updatedAt']) && d.ownerUid == companyId && d.name is string && d.name.size() > 0 && d.name.size() <= 200 && d.createdAt is string && d.updatedAt is string; }
+   allow create: if companyOwner(companyId) && !('accessPolicy' in request.resource.data) && validCompany() && request.resource.data.createdAt == request.resource.data.updatedAt;
+   allow update: if companyOwner(companyId) && request.resource.data.get('accessPolicy','') == resource.data.get('accessPolicy','') && validCompany() && request.resource.data.createdAt == resource.data.createdAt;
+   function validCompany() { let d=request.resource.data; return d.keys().hasAll(['ownerUid','name','createdAt','updatedAt']) && d.keys().hasOnly(['ownerUid','name','createdAt','updatedAt','accessPolicy']) && d.ownerUid == companyId && d.name is string && d.name.size() > 0 && d.name.size() <= 200 && d.createdAt is string && d.updatedAt is string; }
    match /audit/{eventId} { allow read: if companyOwner(companyId); allow create: if companyOwner(companyId) && request.resource.data.actor == request.auth.uid && request.resource.data.at == request.time && request.resource.data.action in ['company-save','member-save'] && request.resource.data.keys().hasOnly(['actor','action','at','before','after']); allow update, delete: if false; }
+   match /authorized_users/{emailKey} { allow get: if companyOwner(companyId) || (member(companyId) && resource.data.uid == request.auth.uid && resource.data.email == request.auth.token.email.lower()); allow list: if companyOwner(companyId); allow write: if false; }
+   match /audit_logs/{eventId} { allow read: if companyOwner(companyId); allow write: if false; }
+   match /access_control/{documentId} { allow read, write: if false; }
    match /members/{memberId} {
     allow get: if request.auth != null && (request.auth.uid == memberId || companyOwner(companyId));
     allow list: if companyOwner(companyId);
-    allow create, update: if companyOwner(companyId) && exists(/databases/$(database)/documents/companies/$(companyId)) && memberId != companyId && validMember();
+    allow create, update: if !policyCompany(companyId) && companyOwner(companyId) && exists(/databases/$(database)/documents/companies/$(companyId)) && memberId != companyId && validMember();
     allow delete: if false;
     function validMember() { let d=request.resource.data; return d.keys().hasAll(['uid','name','role','enabled','updatedAt']) && d.keys().hasOnly(['uid','name','role','enabled','updatedAt']) && d.uid == memberId && d.name is string && d.name.size() > 0 && d.name.size() <= 200 && d.role in ['manager','operator'] && d.enabled is bool && d.updatedAt is string; }
    }
@@ -26,8 +43,8 @@ service cloud.firestore {
    function supported() { return kind in ['projects', 'masters', 'trips', 'workspaces']; }
    allow get: if supported() && owner(uid) && (kind != 'workspaces' || manages(uid) || resource == null || resource.data.payload.recordType in ['daily','evidence','survey']);
    allow list: if supported() && owner(uid) && (kind != 'workspaces' || manages(uid) || resource.data.payload.recordType in ['daily','evidence','survey']);
-   allow create: if supported() && owner(uid) && validEnvelope() && request.resource.data.revision == 1 && (manages(uid) || operatorCreate());
-   allow update: if supported() && owner(uid) && validEnvelope() && workspaceTransition() && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.operationId != resource.data.get('operationId', '') && (manages(uid) || operatorUpdate());
+   allow create: if supported() && canWrite(uid) && validEnvelope() && request.resource.data.revision == 1 && (manages(uid) || operatorCreate());
+   allow update: if supported() && canWrite(uid) && validEnvelope() && workspaceTransition() && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.operationId != resource.data.get('operationId', '') && (manages(uid) || operatorUpdate());
    allow delete: if false;
    function openEvidence(p) { let day=get(/databases/$(database)/documents/users/$(uid)/workspaces/$(p.body.sessionId)).data.payload; return day.recordType == 'daily' && day.projectId == p.projectId && day.body.state in ['open','reopened']; }
    function operatorCreate() { let p=request.resource.data.payload; return request.resource.data.deletedAt == null && (kind == 'trips' || (kind == 'workspaces' && (p.recordType == 'daily' ? p.body.state == 'open' && p.body.verifications.size() == 0 && p.body.closures.size() == 0 : p.recordType == 'evidence' && openEvidence(p)))); }
@@ -85,7 +102,7 @@ service cloud.firestore {
    allow delete: if false;
    function validClaim() { return request.resource.data.keys().hasOnly(['entityId','active']) && request.resource.data.entityId is string && request.resource.data.active is bool && existsAfter(/databases/$(database)/documents/users/$(uid)/masters/$(request.resource.data.entityId)); }
   }
-  match /users/{uid}/audit/{eventId} { allow read: if owner(uid); allow create: if owner(uid) && request.resource.data.actor == request.auth.uid && request.resource.data.at == request.time; allow update, delete: if false; }
+  match /users/{uid}/audit/{eventId} { allow read: if owner(uid); allow create: if canWrite(uid) && request.resource.data.actor == request.auth.uid && request.resource.data.at == request.time; allow update, delete: if false; }
   match /users/{uid}/driveFolders/{key} {
    allow read: if owner(uid);
    allow create: if manages(uid) && (
@@ -96,12 +113,12 @@ service cloud.firestore {
   }
   match /users/{uid}/evidenceFolders/{key} {
    allow read: if owner(uid);
-   allow create: if owner(uid) && request.resource.data.keys().hasAll(['id','parentId','name']) && request.resource.data.keys().hasOnly(['id','parentId','name']) && request.resource.data.id is string && request.resource.data.id.size() > 0 && request.resource.data.parentId is string && request.resource.data.parentId.size() > 0 && request.resource.data.name is string && request.resource.data.name.size() <= 500;
+   allow create: if canWrite(uid) && request.resource.data.keys().hasAll(['id','parentId','name']) && request.resource.data.keys().hasOnly(['id','parentId','name']) && request.resource.data.id is string && request.resource.data.id.size() > 0 && request.resource.data.parentId is string && request.resource.data.parentId.size() > 0 && request.resource.data.name is string && request.resource.data.name.size() <= 500;
    allow update, delete: if false;
   }
   match /users/{uid}/documents/{documentId} {
    allow read: if owner(uid);
-   allow create: if owner(uid) && request.resource.data.keys().hasAll(['id','owner','projectId','tripId','fileId','folderId','name','mimeType','size','createdAt','status','uploadedAt']) && request.resource.data.keys().hasOnly(['id','owner','projectId','tripId','fileId','folderId','name','mimeType','size','createdAt','status','uploadedAt','evidenceId','driverId','truckId','workDate','category']) && request.resource.data.id == documentId && request.resource.data.owner == uid && request.resource.data.projectId is string && request.resource.data.projectId.size() > 0 && request.resource.data.tripId is string && request.resource.data.fileId is string && request.resource.data.fileId.size() > 0 && request.resource.data.folderId is string && request.resource.data.folderId.size() > 0 && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 1024 && request.resource.data.mimeType is string && request.resource.data.mimeType.matches('^(image/.*|application/pdf)$') && request.resource.data.size is int && request.resource.data.size > 0 && request.resource.data.size <= 104857600 && request.resource.data.createdAt is string && request.resource.data.status == 'synced' && request.resource.data.uploadedAt == request.time && (!('evidenceId' in request.resource.data) || (request.resource.data.evidenceId is string && request.resource.data.driverId is string && request.resource.data.truckId is string && request.resource.data.workDate is string && request.resource.data.workDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.category in ['driver-photo','signature','trip-slip']));
+   allow create: if canWrite(uid) && request.resource.data.keys().hasAll(['id','owner','projectId','tripId','fileId','folderId','name','mimeType','size','createdAt','status','uploadedAt']) && request.resource.data.keys().hasOnly(['id','owner','projectId','tripId','fileId','folderId','name','mimeType','size','createdAt','status','uploadedAt','evidenceId','driverId','truckId','workDate','category']) && request.resource.data.id == documentId && request.resource.data.owner == uid && request.resource.data.projectId is string && request.resource.data.projectId.size() > 0 && request.resource.data.tripId is string && request.resource.data.fileId is string && request.resource.data.fileId.size() > 0 && request.resource.data.folderId is string && request.resource.data.folderId.size() > 0 && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 1024 && request.resource.data.mimeType is string && request.resource.data.mimeType.matches('^(image/.*|application/pdf)$') && request.resource.data.size is int && request.resource.data.size > 0 && request.resource.data.size <= 104857600 && request.resource.data.createdAt is string && request.resource.data.status == 'synced' && request.resource.data.uploadedAt == request.time && (!('evidenceId' in request.resource.data) || (request.resource.data.evidenceId is string && request.resource.data.driverId is string && request.resource.data.truckId is string && request.resource.data.workDate is string && request.resource.data.workDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.category in ['driver-photo','signature','trip-slip']));
    allow update, delete: if false;
   }
   match /{document=**} { allow read, write: if false; }

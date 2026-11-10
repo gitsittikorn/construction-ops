@@ -1,4 +1,4 @@
-import { managesBusiness } from './workspaceIdentity';
+import { managesBusiness, recordsBusiness } from './workspaceIdentity';
 import { useRef, useState, type FormEvent } from 'react';
 import type { Data, Master } from './models';
 import type { DailyRow } from './workspaceModels';
@@ -52,7 +52,7 @@ export default function DailyPanel({
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [evidenceRow, setEvidenceRow] = useState(''),
-    [busy, setBusy] = useState(false),
+    [working, setBusy] = useState(false),
     [driveVisible, setDriveVisible] = useState(false),
     [copyPreview, setCopyPreview] = useState<ReturnType<typeof duplicatePreview> | null>(null),
     [truckFilter, setTruckFilter] = useState(''),
@@ -60,6 +60,7 @@ export default function DailyPanel({
     [historyState, setHistoryState] = useState('');
   const lock = useRef(false),
     draftId = useRef(crypto.randomUUID());
+  const busy = working || !recordsBusiness(owner);
   const lastTap = useRef({ key: '', at: 0 });
   const session = dailySessions(data).find((s) => s.id === sessionId(project, date));
   const rows = session?.body.rows ?? [];
@@ -599,7 +600,9 @@ export default function DailyPanel({
                       >
                         −1
                       </button>
-                      <button onClick={() => edit(row)}>แก้ไข {name(row.truckId)}</button>
+                      <button disabled={busy} onClick={() => edit(row)}>
+                        แก้ไข {name(row.truckId)}
+                      </button>
                       <button onClick={() => setEvidenceRow(row.id)}>
                         หลักฐาน {name(row.truckId)}
                       </button>

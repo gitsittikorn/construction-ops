@@ -3,6 +3,7 @@ import type { Data } from './models';
 import type { DailySession, DailyRow, EvidenceCategory } from './workspaceModels';
 import { evidenceFor, verificationState, dailyRowVolume } from './daily';
 import { saveEvidence, evidenceStatus, storageWarning } from './evidence';
+import { recordsBusiness } from './workspaceIdentity';
 import { listUploads, type UploadRecord } from './uploads';
 import SignaturePad from './SignaturePad';
 import { connectionMessage } from './async';
@@ -33,7 +34,7 @@ export default function EvidencePanel({
   const [selected, setSelected] = useState<File[]>([]),
     [category, setCategory] = useState<EvidenceCategory>('driver-photo'),
     [uploads, setUploads] = useState<UploadRecord[]>([]),
-    [busy, setBusy] = useState(false),
+    [working, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [warning, setWarning] = useState('');
@@ -41,6 +42,7 @@ export default function EvidencePanel({
     owner,
     files: {},
   });
+  const busy = working || !recordsBusiness(owner);
   useEffect(() => {
     let alive = true;
     const refresh = () => {

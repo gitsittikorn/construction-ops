@@ -1,5 +1,13 @@
 import { assertCompanyMutation } from './companyPermissions';
-import { actorUid, cacheOwner, companyRole, type CompanyScope } from './workspaceIdentity';
+import {
+  actorUid,
+  cacheOwner,
+  companyRole,
+  managesBusiness,
+  recordsBusiness,
+  type CompanyScope,
+} from './workspaceIdentity';
+import { accessRoleLabels } from './accessBackend';
 import CompanyMembersPanel from './CompanyMembersPanel';
 import { useProjectPreference } from './useProjectPreference';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -22,6 +30,7 @@ import {
   Download,
   X,
   LogOut,
+  Users,
 } from 'lucide-react';
 import type { Data, Project, Master, Trip } from './models';
 import { emptyData } from './models';
@@ -50,6 +59,7 @@ const DailyPanel = lazy(() => import('./DailyPanel'));
 const ReportsPanel = lazy(() => import('./ReportsPanel'));
 const SurveyPanel = lazy(() => import('./SurveyPanel'));
 const FinancePanel = lazy(() => import('./FinancePanel'));
+const UserManagementPanel = lazy(() => import('./UserManagementPanel'));
 import { companyName, companyLogo } from './branding';
 import LoginPage from './LoginPage';
 import DrivePanel from './DrivePanel';
@@ -74,6 +84,7 @@ const pages = [
   ['finance', 'การเงินโครงการ', BarChart3],
   ['survey', 'สำรวจและคำนวณ', Calculator],
   ['sync', 'ซิงก์และสำรองข้อมูล', RefreshCw],
+  ['users', 'ผู้ใช้งานและสิทธิ์', Users],
   ['settings', 'การตั้งค่า', Settings],
 ] as const;
 const navGroups: Record<string, string> = {
@@ -129,13 +140,17 @@ export default function App({
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
   const projectPreference = useProjectPreference(owner, data.projects);
-  const canManage = companyRole(owner) !== 'operator';
-  const roleLabel =
-    companyRole(owner) === 'owner'
+  const canManage = managesBusiness(owner);
+  const canRecord = recordsBusiness(owner);
+  const roleLabel = workspace?.accessRole
+    ? accessRoleLabels[workspace.accessRole]
+    : companyRole(owner) === 'owner'
       ? 'เจ้าของกิจการ'
       : companyRole(owner) === 'manager'
         ? 'ผู้จัดการ'
-        : 'พนักงานบันทึกข้อมูล';
+        : companyRole(owner) === 'viewer'
+          ? 'ผู้ดูข้อมูลเท่านั้น'
+          : 'พนักงานบันทึกข้อมูล';
   const [tripProject, setTripProject] = useState('');
   const [tripSoilType, setTripSoilType] = useState('');
   const [masterTagFilter, setMasterTagFilter] = useState('');
@@ -315,6 +330,10 @@ export default function App({
     return () => window.clearTimeout(timer);
   }, [localOperations, owner, online, ready]);
   async function resolve(key: string, choice: 'local' | 'remote') {
+    if (!canRecord) {
+      setCloudError('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถแก้ข้อมูลขัดแย้งได้');
+      return;
+    }
     if (!alive.current || syncLock.current || !owner || !online) return;
     syncLock.current = true;
     setBusy(true);
@@ -362,6 +381,10 @@ export default function App({
     }
   }
   function open(type: typeof modal, record: typeof editing = null) {
+    if (!canRecord) {
+      setError('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถบันทึกหรือแก้ไขข้อมูลได้');
+      return;
+    }
     if (!canManage && type !== 'trip') {
       setError('พนักงานดูข้อมูลนี้ได้ การแก้ไขต้องให้ผู้จัดการดำเนินการ');
       return;
@@ -582,7 +605,12 @@ export default function App({
         <span className="nav-caption">พื้นที่ทำงาน</span>
         <nav>
           {pages
-            .filter(([id]) => canManage || id !== 'finance')
+            .filter(
+              ([id]) =>
+                (canManage || id !== 'finance') &&
+                (id !== 'users' ||
+                  (workspace?.role === 'owner' && workspace.accessPolicy === 'allowlist-v1')),
+            )
             .map(([id, title, Icon]) => (
               <div className="nav-item" key={id}>
                 {navGroups[id] && <span className="nav-group-title">{navGroups[id]}</span>}
@@ -619,13 +647,7 @@ export default function App({
           <div className="profile">
             <span>AD</span>
             <div>
-              <b>
-                {companyRole(owner) === 'owner'
-                  ? 'เจ้าของกิจการ'
-                  : companyRole(owner) === 'manager'
-                    ? 'ผู้จัดการ'
-                    : 'พนักงานบันทึกข้อมูล'}
-              </b>
+              <b>{roleLabel}</b>
               <small>{configured ? 'บัญชี Google' : 'พื้นที่ทำงานในเครื่อง'}</small>
             </div>
             {configured && (
@@ -673,7 +695,8 @@ export default function App({
               </h1>
               <p>{pageDescription(page)}</p>
             </div>
-            {['projects', 'masters', 'trips'].includes(page) &&
+            {canRecord &&
+              ['projects', 'masters', 'trips'].includes(page) &&
               (page !== 'trips' || tripView === 'records') &&
               (canManage || !['projects', 'masters'].includes(page)) && (
                 <button
@@ -716,6 +739,7 @@ export default function App({
               {page === 'sync' && (
                 <>
                   <CloudSyncPanel
+                    readOnly={!canRecord}
                     owner={owner}
                     data={data}
                     configured={configured}
@@ -773,7 +797,7 @@ export default function App({
                         ด้วยข้อมูลที่พร้อมกว่า
                       </h2>
                       <p>ติดตามโครงการ บันทึกเที่ยวรถ และดูความคืบหน้าของวันนี้</p>
-                      <button onClick={() => open('trip')}>
+                      <button disabled={!canRecord} onClick={() => open('trip')}>
                         บันทึกเที่ยวรถแรกของวัน <ArrowUpRight size={17} />
                       </button>
                     </div>
@@ -1216,6 +1240,7 @@ export default function App({
                                 <button
                                   className="text-button"
                                   aria-label={`แก้ไขเที่ยวรถ ${t.time}`}
+                                  disabled={!canRecord}
                                   onClick={() => open('trip', t)}
                                 >
                                   แก้ไข
@@ -1239,6 +1264,13 @@ export default function App({
                 </>
               )}
               {page === 'survey' && <Calculation />}
+              {page === 'users' &&
+                workspace?.role === 'owner' &&
+                workspace.accessPolicy === 'allowlist-v1' && (
+                  <Suspense fallback={<p>กำลังเปิดรายชื่อผู้ใช้งาน…</p>}>
+                    <UserManagementPanel key={`${owner}:users`} scope={workspace} online={online} />
+                  </Suspense>
+                )}
               {page === 'settings' && (
                 <div className="settings-grid">
                   <section className="panel padded">
@@ -1289,7 +1321,14 @@ export default function App({
                       online={online}
                     />
                   )}
-                  {workspace?.role === 'owner' && <CompanyMembersPanel scope={workspace} />}
+                  {workspace?.role === 'owner' && !workspace.accessPolicy && (
+                    <CompanyMembersPanel scope={workspace} />
+                  )}
+                  {workspace?.role === 'owner' && workspace.accessPolicy === 'allowlist-v1' && (
+                    <button className="secondary" onClick={() => navigate('users')}>
+                      เปิดหน้าผู้ใช้งานและสิทธิ์
+                    </button>
+                  )}
                   {onSwitchCompany && <button onClick={onSwitchCompany}>เปลี่ยนบริษัท</button>}
                   <section className="panel padded audit-panel">
                     <h2>ประวัติการเปลี่ยนแปลง</h2>

@@ -2003,3 +2003,20 @@ header.company-header {
     min-height: 48px;
   }
 }
+.access-user-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.access-user-fields .operations-actions {
+  grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+  .access-user-fields {
+    grid-template-columns: 1fr;
+  }
+}

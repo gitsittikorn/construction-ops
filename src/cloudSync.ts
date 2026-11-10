@@ -13,6 +13,7 @@ import {
 } from './syncModel';
 import { validateCloudRecord } from './cloudValidation';
 import type { Data } from './models';
+import { recordsBusiness } from './workspaceIdentity';
 
 export class CloudConflict extends Error {
   constructor(public remote: CloudRecord | null) {
@@ -107,6 +108,7 @@ export async function resolveConflict(
   transport: CloudTransport,
   active: () => boolean = () => true,
 ) {
+  if (!recordsBusiness(owner)) throw Error('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถแก้ข้อมูลขัดแย้งได้');
   await transport.authorize(owner);
   if (!active()) throw Error('บัญชีเปลี่ยนแล้ว');
   const snapshot = (await loadData(owner)).sync?.entries[key];
@@ -207,6 +209,10 @@ export async function synchronize(
         status('กำลังกู้คืนข้อมูลอ้างอิงเอกสารจาก Cloud');
         await transport.restoreDocuments(owner);
         assertActive();
+      }
+      if (!recordsBusiness(owner)) {
+        status('ตรวจข้อมูลจาก Cloud แล้ว สิทธิ์ดูข้อมูลเท่านั้น คิวเดิมยังถูกเก็บไว้');
+        return;
       }
       status('กำลังส่งข้อมูลที่รอซิงก์');
       for (const collection of collections) {

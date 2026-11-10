@@ -7,6 +7,7 @@ for (const key of [
   'VITE_FIREBASE_APP_ID',
   'VITE_GOOGLE_CLIENT_ID',
   'VITE_DRIVE_BACKEND_URL',
+  'VITE_ACCESS_BACKEND_URL',
 ])
   process.env[key] = '';
 const server = await createServer({ server: { host: '127.0.0.1', port: 5174, strictPort: true } });

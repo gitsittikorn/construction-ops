@@ -5,6 +5,8 @@ import { ApiError } from './driveService.mjs';
 export function createApp({
   service,
   verifyUser,
+  verifyIdentity,
+  accessService,
   allowedOrigins,
   now = Date.now,
   requestBudget = { limit: 60, windowMs: 60000, capacity: 1000 },
@@ -24,7 +26,7 @@ export function createApp({
     next();
   });
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'construction-ops-backend' }));
-  app.use('/api/drive', (req, _res, next) => {
+  app.use(['/api/drive', '/api/access'], (req, _res, next) => {
     if (!allowedOrigins.includes(req.get('origin')))
       return next(new ApiError(403, 'origin_denied'));
     next();
@@ -37,18 +39,22 @@ export function createApp({
     }),
   );
   app.use(express.json({ limit: '8kb' }));
-  app.use('/api/drive', async (req, res, next) => {
+  app.use(['/api/drive', '/api/access'], async (req, res, next) => {
+    const accessRequest = req.originalUrl.startsWith('/api/access');
+    if (accessRequest && (!accessService || !verifyIdentity)) throw new ApiError(404, 'not_found');
     if (req.get('x-requested-with') !== 'XMLHttpRequest') throw new ApiError(403, 'csrf_denied');
     const bearer = req.get('authorization')?.match(/^Bearer (\S+)$/)?.[1];
     if (!bearer) throw new ApiError(401, 'unauthorized');
     let user;
     try {
-      user = await verifyUser(bearer, req.get('x-company-id'));
+      user = accessRequest
+        ? await verifyIdentity(bearer)
+        : await verifyUser(bearer, req.get('x-company-id'));
     } catch {
       throw new ApiError(401, 'unauthorized');
     }
     if (!user?.uid || !user.email || !user.email_verified) throw new ApiError(401, 'unauthorized');
-    if (!user.enabled) throw new ApiError(403, 'forbidden');
+    if (!accessRequest && !user.enabled) throw new ApiError(403, 'forbidden');
     const timestamp = now();
     for (const [uid, budget] of budgets) if (budget.resetAt <= timestamp) budgets.delete(uid);
     const budget = budgets.get(user.uid);
@@ -76,6 +82,21 @@ export function createApp({
     res.locals.user = user;
     next();
   });
+  app.post('/api/access/companies', async (_req, res) =>
+    res.json(await accessService.companies(res.locals.user)),
+  );
+  app.post('/api/access/session', async (req, res) =>
+    res.json(await accessService.session(res.locals.user, req.get('x-company-id'))),
+  );
+  app.post('/api/access/users/list', async (req, res) =>
+    res.json(await accessService.list(res.locals.user, req.get('x-company-id'), req.body)),
+  );
+  app.post('/api/access/users/save', async (req, res) =>
+    res.json(await accessService.save(res.locals.user, req.get('x-company-id'), req.body)),
+  );
+  app.post('/api/access/audit', async (req, res) =>
+    res.json(await accessService.audits(res.locals.user, req.get('x-company-id'))),
+  );
   app.post('/api/drive/exchange', async (req, res) => {
     if (typeof req.body?.code !== 'string' || !req.body.code.trim() || req.body.code.length > 4096)
       throw new ApiError(400, 'invalid_request');
