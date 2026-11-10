@@ -2,8 +2,13 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { devDiagnosticsPlugin } from './devDiagnosticsPlugin';
 import { precachePlugin } from './precachePlugin';
+
 export default defineConfig({
+  // GitHub Pages
+  base: '/construction-ops/',
+
   plugins: [react(), devDiagnosticsPlugin(), precachePlugin()],
+
   test: {
     // Bound jsdom concurrency to avoid resource contention and flaky UI timeouts.
     maxWorkers: 2,
@@ -13,6 +18,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
   },
+
   build: {
     rollupOptions: {
       output: {
