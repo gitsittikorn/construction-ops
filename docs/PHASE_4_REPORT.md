@@ -1,5 +1,9 @@
 # Phase 4 — Private original restoration
 
+## OAuth project-switch regression gate — 2026-11-11
+
+BUG-020 prevents browser token reuse across OAuth applications/transports without touching IndexedDB originals or Drive mappings. Local personal-client authorization uses the existing direct path pending backend/grant review (ENV-005/BUG-021). Windows `npm.cmd run check` **exit 0**: frontend **381**, backend **15**, Rules **11**, integration **10**, E2E **71** (5.6 minutes), tooling **4**; all prior restoration, denied/truncated-original and offline/pending preservation tests remain enabled. Format/lint/typecheck/build/smoke PASS, no skipped tests. Cleanup **exit 0** and prior screenshots restored. [Concrete handoff](PERSONAL_OAUTH_SWITCH_2026-11-11.md); actual personal-client access to old-app Drive files/refresh grants remains NOT VERIFIED. No cloud records, keys or originals deleted and no phase-completion claim.
+
 Date: 2026-11-07 (Asia/Bangkok). Status: PARTIAL — isolated original-restoration implementation gate PASS; real-service/device acceptance NOT VERIFIED.
 
 ## Work resumed

@@ -1,5 +1,9 @@
 # Phase 1 audit and regression report
 
+## Personal OAuth browser-session gate — 2026-11-11
+
+BUG-020 scopes browser authorization to OAuth client/backend, retaining original contexts while requiring a new connection after a project switch. Local ignored settings now use the user-supplied personal client through the existing direct flow; no remote backend change. Windows `npm.cmd run check` **exit 0**: frontend **381**, backend **15**, Rules **11**, integration **10**, E2E **71** (5.6 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. [Detailed handoff](PERSONAL_OAUTH_SWITCH_2026-11-11.md). Actual unauthenticated GIS popup requested the supplied client; real consent/token/branding and backend grant migration remain NOT VERIFIED/OPEN. Cleanup exit **0**, original generated screenshots restored, user data preserved. Original real-service phase acceptance remains open.
+
 ## Google Sheets tab discovery gate — 2026-11-11
 
 BUG-019 replaces the hardcoded Trucks range with current-URL file/tab selection and safe schema discovery. Windows `npm.cmd run check` **exit 0**: frontend **378**, backend **15**, Rules **11**, emulator integration **10**, E2E **71** (4.2 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. New browser provider mocks verify input URL/gid, Thai source tab, confirmation, pending storage and saved selection after reload; unit tests cover malformed/ambiguous/denied/oversized input and atomic preference rollback. [Detailed report](SHEETS_TAB_DISCOVERY_2026-11-11.md). Exact supplied remote file requires authentication (anonymous HTTP 401); authenticated Google import remains NOT VERIFIED. Real-service/manual Phase 1 acceptance stays open; Android deferred. Cleanup exit **0**, prior screenshots restored, no real records/cloud permissions/deployment changed.

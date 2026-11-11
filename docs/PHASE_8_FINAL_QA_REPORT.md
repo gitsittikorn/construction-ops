@@ -1,5 +1,9 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## OAuth project and cached-authorization gate — 2026-11-11
+
+BUG-020 local session fix and personal-client configuration: Windows `npm.cmd run check` **exit 0**, frontend **381**, backend **15**, Rules **11**, integration **10**, E2E **71** (5.6 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. Targeted session/Drive/identity/UI suite **60/60** and a later same-context reload assertion are included in the full gate. Actual unauthenticated Google popup used the supplied client; sign-in/consent, branding, real APIs/devices and backend/grant migration remain NOT VERIFIED or OPEN (ENV-005/BUG-021). [Detailed handoff](PERSONAL_OAUTH_SWITCH_2026-11-11.md). Cleanup **exit 0**, pre-test screenshots restored; no production deployment, credential deletion or overall phase completion.
+
 ## Google Sheets discovery regression gate — 2026-11-11
 
 BUG-019 full Windows `npm.cmd run check` **exit 0**: frontend **378**, backend **15**, Rules **11**, emulator integration **10**, E2E **71** (4.2 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. Current-URL/gid discovery, ambiguous-table rejection and atomic per-account preference rollback are covered; all existing asset/PWA/pending-original regressions remain enabled. [Detailed report](SHEETS_TAB_DISCOVERY_2026-11-11.md). Real Google/Firebase/Drive/Sheets and hardware are not inferred from mocks/emulator. `npm.cmd run clean` exit **0**, prior generated screenshots restored; no push/deployment or overall phase-completion claim.

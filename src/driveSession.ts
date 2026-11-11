@@ -3,7 +3,13 @@
   expiresAt: number;
 }
 const sessions = new Map<string, DriveSession>();
-const storageKey = 'construction-ops.drive-session';
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+const backend = (import.meta.env.VITE_DRIVE_BACKEND_URL ?? '').replace(/\/$/, '');
+// A token from another OAuth application or transport cannot establish this connection.
+// Retain the old key/other contexts untouched so configuration changes never erase them.
+const storageKey = clientId
+  ? `construction-ops.drive-session:${encodeURIComponent(clientId)}:${encodeURIComponent(backend)}`
+  : 'construction-ops.drive-session';
 // Tab-scoped credentials survive reloads, but are never stored in localStorage.
 function readStored(): { owner: string; session: DriveSession } | null {
   try {

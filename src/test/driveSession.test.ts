@@ -69,3 +69,68 @@ it('continues in memory when session storage is blocked', () => {
     read.mockRestore();
   }
 });
+
+it('requires fresh authorization after switching OAuth clients without deleting the old connection', async () => {
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'config-test-company.apps.googleusercontent.com');
+  vi.resetModules();
+  const company = await import('../driveSession');
+  company.saveDriveSession('owner', { token: 'company-token', expiresAt: Date.now() + 60000 });
+  try {
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'config-test-personal.apps.googleusercontent.com');
+    vi.resetModules();
+    const personal = await import('../driveSession');
+    expect(personal.getDriveSession('owner')).toBeNull();
+    personal.saveDriveSession('owner', { token: 'personal-token', expiresAt: Date.now() + 60000 });
+    expect(personal.getDriveSession('owner')?.token).toBe('personal-token');
+    vi.resetModules();
+    const reloadedPersonal = await import('../driveSession');
+    expect(reloadedPersonal.getDriveSession('owner')?.token).toBe('personal-token');
+    reloadedPersonal.clearDriveSessions();
+    personal.clearDriveSessions();
+    expect(company.getDriveSession('owner')?.token).toBe('company-token');
+  } finally {
+    company.clearDriveSessions();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  }
+});
+
+it('separates direct and backend tokens for the same OAuth client while retaining the previous context', async () => {
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'config-test-transport.apps.googleusercontent.com');
+  vi.stubEnv('VITE_DRIVE_BACKEND_URL', 'https://backend.example');
+  vi.resetModules();
+  const backend = await import('../driveSession');
+  backend.saveDriveSession('owner', { token: 'backend-token', expiresAt: Date.now() + 60000 });
+  try {
+    vi.stubEnv('VITE_DRIVE_BACKEND_URL', '');
+    vi.resetModules();
+    const direct = await import('../driveSession');
+    expect(direct.getDriveSession('owner')).toBeNull();
+    expect(backend.getDriveSession('owner')?.token).toBe('backend-token');
+    direct.clearDriveSessions();
+  } finally {
+    backend.clearDriveSessions();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  }
+});
+
+it('does not trust an unbound legacy token when an OAuth client is configured', async () => {
+  const legacy = JSON.stringify({
+    owner: 'owner',
+    session: { token: 'legacy-token', expiresAt: Date.now() + 60000 },
+  });
+  sessionStorage.setItem('construction-ops.drive-session', legacy);
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'config-test-legacy.apps.googleusercontent.com');
+  vi.resetModules();
+  const current = await import('../driveSession');
+  try {
+    expect(current.getDriveSession('owner')).toBeNull();
+    expect(sessionStorage.getItem('construction-ops.drive-session')).toBe(legacy);
+  } finally {
+    current.clearDriveSessions();
+    sessionStorage.removeItem('construction-ops.drive-session');
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  }
+});
