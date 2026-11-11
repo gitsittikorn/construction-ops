@@ -4,13 +4,15 @@
 
 Current user task: the entered Google URL reaches a missing `Trucks` range error. Baseline `7de0e34`; initial tree clean. Input file-ID propagation was correct, but the adapter hardcoded the tab. BUG-019 is corrected locally with metadata/header discovery, explicit gid, quoted/clamped ranges, unambiguous populated-table selection, source-tab notice and atomic per-account file/tab preferences. Legacy preference/reader interfaces and all pending/original data are preserved. Details: [SHEETS_TAB_DISCOVERY_2026-11-11.md](SHEETS_TAB_DISCOVERY_2026-11-11.md).
 
+Validated source checkpoint **`d93c24b314aac3b366328f476365975b598b5df1`**, local commit only. Final full-tree formatting and staged whitespace checks passed; no remote push or deployment.
+
 Changed files: src/truckSheets.ts, src/TruckSheetsPanel.tsx, their two existing unit suites, new src/test/truckSheetDiscovery.test.ts, e2e/truck-sheets-harness.html and e2e/truck-sheets.spec.ts; README, BUG_TRACKER, this checkpoint, Phase 1/8 reports and the detailed report. No environment, credentials, dependency/lockfile, cloud permission or real operational records changed.
 
 Actual final `npm.cmd run check`, **exit 0**: frontend **378/378**, backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **71/71** (4.2 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. Initial browser-only import typecheck failure was fixed and included in the full gate; targeted unit **49/49** and browser **2/2** runs are documented. Mock Google providers are separate from emulator and real services. `npm.cmd run clean` **exit 0**; restored the two pre-test Phase 2 screenshots. Localhost updated module HTTP **200**; server retained.
 
 Real-service boundary: anonymous read of the user's exact Google file returns **401**; no private contents were obtained. The supplied URL/error is user-reported evidence, not an authenticated API PASS. Actual Google sheet titles/content and signed-in import remain **NOT VERIFIED**, and original real-service phase acceptance stays open. Physical Android/tablet remains deferred. No push/deploy or phase-completion claim.
 
-Next: refresh the existing localhost tab with Ctrl+F5, paste the same URL and import. The success notice names the tab/count before confirmation. If several populated tables are found, open the intended tab in Google Sheets and paste its URL containing gid. If a real error persists, inspect that exact message/stage without clearing storage, collecting tokens, renaming/writing the Google file or widening sharing permissions. A local source checkpoint hash will be recorded after commit.
+Next: refresh the existing localhost tab with Ctrl+F5, paste the same URL and import. The success notice names the tab/count before confirmation. If several populated tables are found, open the intended tab in Google Sheets and paste its URL containing gid. If a real error persists, inspect that exact message/stage without clearing storage, collecting tokens, renaming/writing the Google file or widening sharing permissions.
 
 ## Local branding and import fixes checkpoint — 2026-11-11
 
