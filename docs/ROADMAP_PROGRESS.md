@@ -1,5 +1,23 @@
 # Roadmap progress — Construction Ops
 
+## Local branding and import fixes checkpoint — 2026-11-11
+
+User task: restore missing login artwork/logo; correct truck Excel reading and the Drive denial encountered before Sheets reading. Baseline `f0bb5deec2e35352a896ed9d2a279b2079168b78`. Initial uncommitted BUG_TRACKER/ROADMAP_PROGRESS localhost notes were preserved. Application fixes are validated locally; real Google acceptance remains open. Full details: [LOCAL_IMPORT_FIXES_2026-11-11.md](LOCAL_IMPORT_FIXES_2026-11-11.md).
+
+Changed source: vite.config.ts, src/branding.ts, LoginPage.tsx, main.tsx, drive.ts, googleSheetsAuth.ts, TruckSheetsPanel.tsx, truckExcel.ts; public/manifest.webmanifest, public/sw.js, precachePlugin.ts, scripts/smoke.mjs, playwright.config.ts. Regression changes: branding/Google identity/Sheets panel/Excel/worker unit tests, new asset-paths E2E, renamed/ambiguous truck Excel E2E and existing production PWA URLs. Documentation: README, this checkpoint, BUG_TRACKER, Phase 1/8 reports and detailed report. No credentials, environment, dependencies/lockfiles, real records or original files changed.
+
+Actual `npm.cmd run check` **exit 0**: frontend **354**, backend **15**, Rules **11**, emulator integration **10**, E2E **69** (4.4 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. Real supplied Excel read-only parser and isolated Edge preview: **64 rows, zero errors**; confirmation not clicked. Local page/logo/artwork HTTP **200**. `npm.cmd run clean` **exit 0**; restored the two pre-test Phase 2 screenshots. No push/deployment or full phase-completion claim.
+
+Next: refresh the existing `localhost:5173` tab, review artwork/logo and preview the original Excel file. Confirm import only after reviewing the 64 proposed entries. Retry Sheets using the signed-in Google account and grant requested identity/Sheets permissions; current actual Google consent, API enablement and file access remain **NOT VERIFIED**. If a Sheets-specific error persists, inspect its actual stage/message without collecting tokens or clearing browser storage. Existing real-service acceptance/physical-device prerequisites remain open; Android deferred. The local development server is retained. A source checkpoint hash follows after local commit.
+
+## Localhost session checkpoint — 2026-11-11
+
+User request: start localhost only. Baseline/latest commit `f0bb5deec2e35352a896ed9d2a279b2079168b78`; initial working tree clean. Started `npm.cmd run dev -- --port 5173 --strictPort`; server retained at `http://localhost:5173/construction-ops/`. HTTP verification: page, React entry, CSS and Vite client all **200**. No application source, configuration, credentials or user data changed. Session documentation changes: this file and BUG_TRACKER.md.
+
+`npm.cmd run check` exited **1**: format/lint/typecheck/build PASS, tooling **4/4**, frontend **330/330**, backend **15/15**, Rules **11/11**, emulator integration **10/10**; lint has 59 warnings and zero errors. Production smoke **FAIL**, root logo request 404 with configured subpath; see **BUG-015**. E2E **NOT RUN** because the gate stopped at smoke. No tests disabled. Real Firebase/Google/Drive/Sheets and physical devices **NOT VERIFIED**; Android acceptance remains deferred. This is a localhost startup checkpoint, not a completed phase or cloud acceptance.
+
+Next action: use the running local URL for desktop review. For a subsequent production validation task, review application/PWA/test asset paths for the configured base, fix BUG-015, then rerun the full gate. Existing real-service acceptance prerequisites remain in their dated reports; no push/deploy or phase commit was performed. `npm.cmd run clean` exited **0**, `git diff --check` passed and the local page still returned **200** afterward. The development server and existing data are retained.
+
 ## Current delivery priority — Desktop web first
 
 ผู้ใช้กำหนดให้รีวิวฟีเจอร์บนเว็บ/เดสก์ท็อปก่อน และเลื่อน physical Android acceptance ออกไป ไม่ต้องรอ Android เพื่อเปิดดู desktop features. คงสถานะ hardware เป็น deferred/NOT VERIFIED โดยไม่อ้างว่า PASS. Real Firebase/Drive integration เป็นงานแยกที่ยังจำเป็นสำหรับ login/sync/upload/restore จริงบน desktop. ดู DESKTOP_REVIEW.md สำหรับ workflow, local mode และข้อจำกัดการเผยแพร่เว็บ ไม่ได้ deploy จากการ push GitHub โดยอัตโนมัติ

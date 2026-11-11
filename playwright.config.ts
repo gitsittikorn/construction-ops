@@ -21,7 +21,7 @@ export default defineConfig({
     },
     {
       command: 'node scripts/production-e2e-server.mjs',
-      url: 'http://127.0.0.1:5175',
+      url: 'http://127.0.0.1:5175/construction-ops/',
       reuseExistingServer: false,
       timeout: 60000,
     },

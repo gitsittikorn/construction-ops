@@ -83,7 +83,7 @@ test('truck details, team tags, XLSX export and reviewed import work together in
         'ใช้งาน',
       ],
     ],
-    { sheet: 'Trucks' },
+    { sheet: 'รถบรรทุก' },
   ).toBuffer();
   await page.getByLabel('นำเข้ารถ Excel (.xlsx)', { exact: true }).setInputFiles({
     name: 'trucks.xlsx',
@@ -149,4 +149,27 @@ test('an invalid XLSX reports an error without importing any records', async ({ 
   });
   await expect(page.getByRole('alert')).toContainText('อ่านไฟล์ Excel ไม่สำเร็จ');
   await expect(page.getByRole('button', { name: 'ยืนยันนำเข้ารถ', exact: true })).toHaveCount(0);
+});
+
+test('ambiguous renamed truck sheets require an explicit selection and never enable import', async ({
+  page,
+}) => {
+  const data = [truckHeaders, ['', '81-9001', '', 'หกล้อ', '0812345678', '', '', 6, '', 'ใช้งาน']];
+  const buffer = await writeExcel([
+    { sheet: 'Fleet A', data },
+    { sheet: 'Fleet B', data },
+  ]).toBuffer();
+  await page.goto('/');
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
+    .click();
+  await page.getByLabel('นำเข้ารถ Excel (.xlsx)', { exact: true }).setInputFiles({
+    name: 'ambiguous.xlsx',
+    buffer,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  await expect(page.getByRole('alert')).toContainText('พบหลายชีตข้อมูลรถ');
+  await expect(page.getByRole('button', { name: 'ยืนยันนำเข้ารถ', exact: true })).toHaveCount(0);
+  await expect(page.getByText('81-9001', { exact: true })).toHaveCount(0);
 });

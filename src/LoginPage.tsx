@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { companyName } from './branding';
+import { companyName, loginArtwork } from './branding';
 
 function loginError(error: unknown) {
   const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : '';
@@ -44,7 +44,7 @@ export default function LoginPage({
       <div className="login-scene">
         <img
           className="login-artwork"
-          src="/login-earthwork.png"
+          src={loginArtwork}
           alt=""
           width={1536}
           height={1024}

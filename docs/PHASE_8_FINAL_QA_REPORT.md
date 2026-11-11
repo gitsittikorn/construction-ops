@@ -1,5 +1,9 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Hosted-subpath and import regression gate — 2026-11-11
+
+BUG-015/016 fix local/production base handling for logo, login artwork, manifest, scoped worker and precache. Production smoke and PWA browser tests now exercise `/construction-ops/`, including real image decoding and offline/pending-original preservation. Windows `npm.cmd run check` exit **0**: frontend **354/354**, backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **69/69** (4.4 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 lint warnings/zero errors. No skipped tests. Includes truck Excel and Google identity regressions; [detailed report](LOCAL_IMPORT_FIXES_2026-11-11.md). `npm.cmd run clean` exit **0** and the two regenerated historical screenshots restored. Real Google/Firebase/Drive/Sheets, physical devices and production hosting remain NOT VERIFIED or deferred; no deployment performed and no original phase gate declared complete.
+
 ## Latest novice UX / DEMO gate — 2026-11-10
 
 Source `222ab69`, baseline `48adc66` (application `aec9592`). Final cloud `npm run check` exit **0**: frontend **330/330** (57 files), backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **67/67** (2.5 minutes); tooling **4/4**, formatting/lint/typecheck/build/HTTP smoke PASS. 59 lint warnings/zero errors; no skipped/disabled tests or unhandled rejections. Full evidence, initial failure/retest history and screenshots: [UX_UI_REPORT.md](UX_UI_REPORT.md). Upstream model-routing documentation merged afterward as `7a5fd71` with no application changes.

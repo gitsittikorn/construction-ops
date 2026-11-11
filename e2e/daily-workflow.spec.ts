@@ -610,7 +610,7 @@ test('production PWA caches lazy assets and preserves pending data through offli
 }) => {
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(error.message));
-  await page.goto('http://127.0.0.1:5175');
+  await page.goto('http://127.0.0.1:5175/construction-ops/');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -639,7 +639,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   page,
   context,
 }) => {
-  await page.goto('http://127.0.0.1:5175');
+  await page.goto('http://127.0.0.1:5175/construction-ops/');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;

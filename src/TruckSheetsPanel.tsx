@@ -1,7 +1,8 @@
 import { workspaceMatches } from './workspaceIdentity';
 import { useEffect, useRef, useState } from 'react';
 import { getSessionIdentity } from './firebase';
-import { loadGoogleIdentity, requestDriveToken, verifyDriveAccount } from './drive';
+import { loadGoogleIdentity } from './drive';
+import { requestSheetsToken, verifySheetsAccount } from './googleSheetsAuth';
 import {
   loadTruckSheet,
   saveTruckSheet,
@@ -66,10 +67,15 @@ export default function TruckSheetsPanel({
       if (!user || !workspaceMatches(owner, user.uid))
         throw Error('กรุณาเข้าสู่ระบบ Google ก่อนนำเข้าจากชีต');
       await loadGoogleIdentity();
-      const auth = await requestDriveToken(user.email, [
+      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
+        return;
+      const auth = await requestSheetsToken(
+        user.email,
         prepare ? sheetsWriteScope : sheetsReadScope,
-      ]);
-      await verifyDriveAccount(auth.token, user.email);
+      );
+      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
+        return;
+      await verifySheetsAccount(auth.token, user.email);
       if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
         return;
       if (prepare) {

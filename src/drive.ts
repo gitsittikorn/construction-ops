@@ -34,6 +34,7 @@ interface GoogleIdentity {
         client_id: string;
         scope: string;
         hint: string;
+        include_granted_scopes: boolean;
         callback: (response: TokenResponse) => void;
         error_callback: () => void;
       }) => OAuthClient;
@@ -105,22 +106,40 @@ export function requestDriveToken(
     });
     return withDeadline(code, 90000, 'รอการอนุญาต Google Drive นานเกินไป').then(exchangeDriveCode);
   }
+  return requestGoogleToken(email, [driveScope, ...additionalScopes], 'Google Drive');
+}
+export function requestGoogleToken(email: string, scopes: string[], service: string) {
+  if (!driveConfigured || !window.google)
+    return Promise.reject(Error(`${service} ยังไม่พร้อม กรุณาตรวจสอบ Client ID และการเชื่อมต่อ`));
   return withDeadline(
     new Promise<{ token: string; expiresAt: number }>((resolve, reject) => {
       const client = window.google!.accounts.oauth2.initTokenClient({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        scope: [driveScope, ...additionalScopes].join(' '),
+        scope: scopes.join(' '),
         hint: email,
+        include_granted_scopes: false,
         callback: (response) => {
           if (
             response.error ||
             !response.access_token ||
-            ![driveScope, ...additionalScopes].every((scope) =>
-              response.scope?.split(' ').includes(scope),
+            !scopes.every((scope) =>
+              response.scope
+                ?.split(' ')
+                .map((value) =>
+                  value === 'email' ? 'https://www.googleapis.com/auth/userinfo.email' : value,
+                )
+                .includes(scope),
             ) ||
-            !response.expires_in
+            !Number.isFinite(Number(response.expires_in)) ||
+            Number(response.expires_in) <= 60
           ) {
-            reject(Error(oauthFailure(response.error)));
+            reject(
+              Error(
+                response.error === 'origin_mismatch'
+                  ? oauthFailure(response.error)
+                  : `ไม่ได้รับสิทธิ์ ${service} ครบ กรุณาเชื่อมต่อและอนุญาตสิทธิ์ที่ร้องขอ`,
+              ),
+            );
             return;
           }
           resolve({
@@ -133,7 +152,7 @@ export function requestDriveToken(
       client.requestAccessToken({ prompt: '' });
     }),
     90000,
-    'รอการอนุญาต Google Drive นานเกินไป กรุณาปิดหน้าต่างเดิมแล้วกดเชื่อมต่ออีกครั้ง',
+    `รอการอนุญาต ${service} นานเกินไป กรุณาปิดหน้าต่างเดิมแล้วกดเชื่อมต่ออีกครั้ง`,
   );
 }
 const base = 'https://www.googleapis.com/drive/v3';

@@ -8,14 +8,17 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   verify: vi.fn(),
   prepare: vi.fn(),
+  identity: { uid: 'owner', email: 'a@example.com' },
 }));
 vi.mock('../firebase', () => ({
-  getSessionIdentity: () => ({ uid: 'owner', email: 'a@example.com' }),
+  getSessionIdentity: () => mocks.identity,
 }));
 vi.mock('../drive', () => ({
   loadGoogleIdentity: async () => {},
-  requestDriveToken: mocks.auth,
-  verifyDriveAccount: mocks.verify,
+}));
+vi.mock('../googleSheetsAuth', () => ({
+  requestSheetsToken: mocks.auth,
+  verifySheetsAccount: mocks.verify,
 }));
 vi.mock('../truckSheets', async (original) => ({
   ...(await original<typeof import('../truckSheets')>()),
@@ -26,6 +29,7 @@ vi.mock('../truckSheets', async (original) => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.identity = { uid: 'owner', email: 'a@example.com' };
   mocks.auth.mockResolvedValue({ token: 'token' });
   mocks.verify.mockResolvedValue(undefined);
   mocks.save.mockResolvedValue(undefined);
@@ -43,9 +47,10 @@ it('requests read scope and sends rows to preview without persisting vehicle dat
   });
   fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
   await waitFor(() => expect(onRows).toHaveBeenCalledWith(rows));
-  expect(mocks.auth).toHaveBeenCalledWith('a@example.com', [
+  expect(mocks.auth).toHaveBeenCalledWith(
+    'a@example.com',
     'https://www.googleapis.com/auth/spreadsheets.readonly',
-  ]);
+  );
   expect(mocks.save).toHaveBeenCalledWith('owner', 'abc');
   expect(screen.getByRole('link')).toHaveAttribute(
     'href',
@@ -79,9 +84,10 @@ it('defaults to the user template and prepares headers without importing vehicle
   );
   fireEvent.click(screen.getByRole('button', { name: 'สร้างหัวคอลัมน์ในชีต' }));
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('เตรียมชีต Trucks'));
-  expect(mocks.auth).toHaveBeenCalledWith('a@example.com', [
+  expect(mocks.auth).toHaveBeenCalledWith(
+    'a@example.com',
     'https://www.googleapis.com/auth/spreadsheets',
-  ]);
+  );
   expect(mocks.prepare).toHaveBeenCalledWith(
     'token',
     '1_DHAvNEMXyeVbFhc9Am13o8b_gu4AhOSCQljTUq6jzA',
@@ -95,4 +101,43 @@ it('reports failed header preparation without claiming completion', async () => 
   fireEvent.click(screen.getByRole('button', { name: 'สร้างหัวคอลัมน์ในชีต' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('ไม่มีสิทธิ์แก้ไข');
   expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it('stops before reading, preparing or remembering a sheet when account verification fails', async () => {
+  mocks.verify.mockRejectedValue(
+    Error('กรุณาเชื่อม Google Sheets ด้วยบัญชีเดียวกับที่เข้าสู่ระบบ'),
+  );
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('บัญชีเดียวกับที่เข้าสู่ระบบ');
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect(mocks.prepare).not.toHaveBeenCalled();
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(onRows).not.toHaveBeenCalled();
+});
+
+it('does not verify or read the old account after the signed in user changes during consent', async () => {
+  let finish!: (value: { token: string }) => void;
+  mocks.auth.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  await waitFor(() => expect(mocks.auth).toHaveBeenCalledOnce());
+  mocks.identity = { uid: 'other', email: 'other@example.com' };
+  finish({ token: 'old-token' });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' })).toBeEnabled(),
+  );
+  expect(mocks.verify).not.toHaveBeenCalled();
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(onRows).not.toHaveBeenCalled();
 });

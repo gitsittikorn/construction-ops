@@ -1,7 +1,7 @@
 import { validateWorkbookArchive } from './workbookSafety';
 import type { SheetData } from 'write-excel-file/universal';
 import type { Master } from './models';
-import { truckHeaders, parseTruckRows } from './truckImport';
+import { truckHeaders, legacyTruckHeaders, parseTruckRows } from './truckImport';
 import { tagNames, truckTypes } from './masterData';
 const textCell = (value: string) => ({ value, type: String, format: '@' });
 const header = () =>
@@ -100,10 +100,33 @@ export async function readTruckWorkbook(input: ArrayBuffer) {
   if (input.byteLength > 5 * 1024 * 1024) throw Error('ไฟล์ต้องมีขนาดไม่เกิน 5 MB');
   validateWorkbookArchive(input);
   try {
-    const { readSheet } = await import('read-excel-file/universal');
-    return parseTruckRows(await readSheet(input, 'Trucks'));
+    const {
+      default: readWorkbook,
+      readSheet,
+      SheetNotFoundError,
+    } = await import('read-excel-file/universal');
+    try {
+      return parseTruckRows(await readSheet(input, 'Trucks'));
+    } catch (error) {
+      if (!(error instanceof SheetNotFoundError)) throw error;
+    }
+    // A renamed data sheet is safe only when its schema identifies one unambiguous table.
+    // Examples and reference sheets must never become operational records.
+    const sheets = (await readWorkbook(input)).filter(
+      ({ sheet, data }) =>
+        !['examples', 'instructions', 'tags'].includes(sheet.toLowerCase()) &&
+        legacyTruckHeaders.every((header) =>
+          data[0]?.some((cell) => typeof cell === 'string' && cell.trim() === header),
+        ),
+    );
+    if (sheets.length > 1)
+      throw Error('พบหลายชีตข้อมูลรถ กรุณาตั้งชื่อชีตที่ต้องการนำเข้าเป็น Trucks');
+    if (!sheets.length)
+      throw Error('ไม่พบชีตข้อมูลรถที่มีหัวคอลัมน์ครบ กรุณาใช้ชีต Trucks ตามไฟล์ตัวอย่าง');
+    return parseTruckRows(sheets[0].data);
   } catch (error) {
-    if (error instanceof Error && /คอลัมน์|หัวตาราง|1,000|ทะเบียน/.test(error.message)) throw error;
+    if (error instanceof Error && /คอลัมน์|หัวตาราง|1,000|ทะเบียน|หลายชีต/.test(error.message))
+      throw error;
     throw Error('อ่านไฟล์ Excel ไม่สำเร็จ กรุณาใช้ .xlsx ที่มีชีต Trucks ตามไฟล์ตัวอย่าง');
   }
 }

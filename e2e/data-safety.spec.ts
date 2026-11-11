@@ -58,7 +58,7 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   page,
   context,
 }) => {
-  await page.goto('http://127.0.0.1:5175');
+  await page.goto('http://127.0.0.1:5175/construction-ops/');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -86,7 +86,7 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.close();
   const restarted = await context.newPage();
-  await restarted.goto('http://127.0.0.1:5175');
+  await restarted.goto('http://127.0.0.1:5175/construction-ops/');
   await expect(restarted.getByText('P1 offline site', { exact: true })).toBeVisible();
   await restarted
     .getByRole('navigation')

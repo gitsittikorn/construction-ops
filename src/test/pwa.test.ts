@@ -1,12 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, vi } from 'vitest';
 const script = readFileSync('public/sw.js', 'utf8');
-function harness() {
+function harness(base = '/') {
   const listeners: Record<string, (event: any) => void> = {};
   const cache = { addAll: vi.fn().mockResolvedValue(undefined), match: vi.fn(), put: vi.fn() };
   const caches = {
     open: vi.fn().mockResolvedValue(cache),
-    keys: vi.fn().mockResolvedValue(['construction-shell-old', 'another-app']),
+    keys: vi
+      .fn()
+      .mockResolvedValue([
+        'construction-shell-old',
+        'construction-shell-%2Fother%2F-old',
+        'another-app',
+      ]),
     delete: vi.fn(),
   };
   const fetch = vi.fn();
@@ -16,12 +22,54 @@ function harness() {
     },
     skipWaiting: vi.fn(),
     clients: { claim: vi.fn() },
-    location: { origin: 'https://site.test' },
+    location: { origin: 'https://site.test', href: `https://site.test${base}sw.js` },
   };
   new Function('self', 'caches', 'fetch', script)(self, caches, fetch);
   return { listeners, cache, caches, fetch, self };
 }
 describe('service worker cache policy (simulated worker)', () => {
+  it('caches the hosted subpath and leaves sibling applications and root requests alone', async () => {
+    const h = harness('/construction-ops/');
+    h.fetch.mockResolvedValue({ ok: true, json: async () => ['/construction-ops/assets/lazy.js'] });
+    let task: Promise<unknown> = Promise.resolve();
+    h.listeners.install({
+      waitUntil: (value: Promise<unknown>) => {
+        task = value;
+      },
+    });
+    await task;
+    expect(h.fetch).toHaveBeenCalledWith('/construction-ops/precache-manifest.json', {
+      cache: 'no-store',
+    });
+    expect(h.cache.addAll).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        '/construction-ops/',
+        '/construction-ops/company-logo.jpg',
+        '/construction-ops/login-earthwork.png',
+        '/construction-ops/assets/lazy.js',
+      ]),
+    );
+    h.listeners.activate({
+      waitUntil: (value: Promise<unknown>) => {
+        task = value;
+      },
+    });
+    await task;
+    expect(h.caches.delete).not.toHaveBeenCalled();
+    const respondWith = vi.fn();
+    h.listeners.fetch({
+      request: { url: 'https://site.test/', method: 'GET', mode: 'navigate' },
+      respondWith,
+    });
+    expect(respondWith).not.toHaveBeenCalled();
+    h.fetch.mockResolvedValue({ ok: true, json: async () => ['/assets/wrong-root.js'] });
+    h.listeners.install({
+      waitUntil: (value: Promise<unknown>) => {
+        task = value;
+      },
+    });
+    await expect(task).rejects.toThrow('Invalid');
+  });
   it('preloads every build asset and activates an update only on an explicit message', async () => {
     const h = harness();
     h.fetch.mockResolvedValue({ ok: true, json: async () => ['/assets/lazy.js'] });

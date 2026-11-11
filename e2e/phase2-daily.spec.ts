@@ -151,7 +151,7 @@ test('P2 production PWA daily pending transactions and draft survive an offline 
   page,
   context,
 }) => {
-  await page.goto('http://127.0.0.1:5175');
+  await page.goto('http://127.0.0.1:5175/construction-ops/');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
