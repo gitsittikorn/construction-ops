@@ -7,7 +7,9 @@ export class ApiError extends Error {
   }
 }
 
-export function createDriveService({ store, google, vault, now = Date.now }) {
+export function createDriveService({ clientId, store, google, vault, now = Date.now }) {
+  if (typeof clientId !== 'string' || !clientId.trim() || clientId !== clientId.trim())
+    throw Error('A configured OAuth client is required');
   const pending = new Map();
   // Serialize credential changes per user so renewal cannot undo a disconnect.
   async function locked(uid, operation) {
@@ -27,7 +29,16 @@ export function createDriveService({ store, google, vault, now = Date.now }) {
       credentials.expiry_date <= now() + 60000
     )
       throw new ApiError(503, 'service_unavailable');
-    return { token: credentials.access_token, expiresAt: credentials.expiry_date - 60000 };
+    return {
+      token: credentials.access_token,
+      expiresAt: credentials.expiry_date - 60000,
+      clientId,
+    };
+  }
+  function boundCredentials(record, uid) {
+    const credentials = vault.open(uid, record);
+    if (credentials.oauth_client_id !== clientId) throw new ApiError(409, 'reconnect_required');
+    return credentials;
   }
   function requireScope(credentials) {
     if (!credentials.scope?.split(' ').includes(driveScope))
@@ -54,15 +65,15 @@ export function createDriveService({ store, google, vault, now = Date.now }) {
   return {
     exchange(user, code, origin) {
       return run(user.uid, async () => {
-        const credentials = await google.exchange(code, origin);
+        const credentials = { ...(await google.exchange(code, origin)), oauth_client_id: clientId };
         requireScope(credentials);
         const email = await google.email(credentials);
         if (!email || email.toLowerCase() !== user.email.toLowerCase())
           throw new ApiError(403, 'account_mismatch');
-        if (!credentials.refresh_token) {
-          const previous = await store.get(user.uid);
-          if (previous) credentials.refresh_token = vault.open(user.uid, previous).refresh_token;
-        }
+        const record = await store.get(user.uid);
+        // A misplaced or unbound record must remain intact for reviewed recovery.
+        const previous = record ? boundCredentials(record, user.uid) : null;
+        if (!credentials.refresh_token) credentials.refresh_token = previous?.refresh_token;
         if (!credentials.refresh_token) throw new ApiError(409, 'reconnect_required');
         const session = publicSession(credentials);
         await store.put(user.uid, vault.seal(user.uid, credentials));
@@ -75,7 +86,7 @@ export function createDriveService({ store, google, vault, now = Date.now }) {
         async () => {
           const record = await store.get(user.uid);
           if (!record) throw new ApiError(409, 'reconnect_required');
-          let credentials = vault.open(user.uid, record);
+          let credentials = boundCredentials(record, user.uid);
           requireScope(credentials);
           if (force || !credentials.access_token || credentials.expiry_date <= now() + 120000) {
             const updated = await google.refresh(credentials.refresh_token);
@@ -84,6 +95,7 @@ export function createDriveService({ store, google, vault, now = Date.now }) {
               ...updated,
               refresh_token: updated.refresh_token || credentials.refresh_token,
               scope: updated.scope || credentials.scope,
+              oauth_client_id: clientId,
             };
             requireScope(credentials);
             publicSession(credentials);

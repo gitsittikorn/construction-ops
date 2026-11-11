@@ -1,10 +1,13 @@
 # Construction Ops backend — Render บัญชีใหม่
 
 ใช้ Render บัญชีของงานก่อสร้าง และ Google Cloud/Firebase โปรเจกต์เดิม
-`khok-kloi-backhoe-engineering` ใช้ Client ID, secret และ encryption key เดิมที่เตรียมแล้ว
+`khok-kloi-backhoe-engineering` ใช้ Web OAuth client สำหรับ Drive ที่ตรงกับ frontend
+และ Client Secret ของ client นั้น ส่วน encryption key ต้องคงค่าเดิม
 
 Backend ตรวจ Firebase ID token พร้อมการถอนสิทธิ์ และ `admins/{uid}.enabled == true` ทุกคำขอ
-เก็บ credentials เข้ารหัส AES-256-GCM แยก UID ใน Firestore `_driveCredentials`
+เก็บ credentials เข้ารหัส AES-256-GCM แยก UID และ OAuth client ที่
+`_driveCredentials/{uid}/oauthClients/{sha256(clientId)}` โดยเก็บ Client ID ภายในข้อมูลเข้ารหัสด้วย
+เอกสารเดิม `_driveCredentials/{uid}` และสิทธิ์ของ client อื่นยังคงอยู่ ไม่ถูกนำมาใช้แทนสิทธิ์ใหม่
 Firestore rules ปัจจุบันปิดการเข้าถึง collection นี้จาก frontend แล้ว
 
 ## 1. เตรียม source
@@ -43,13 +46,13 @@ Credential นี้ใช้กับ Firebase Admin ฝั่ง backend ไ�
 
 ## 4. Environment และ Secret File
 
-Environment → Add from .env → คัดลอกเนื้อหาจาก `backend/.env.local` เพื่อเพิ่มสี่ค่าที่เตรียมไว้:
+Environment → เพิ่มค่าจากแหล่งเก็บ credentials อย่างปลอดภัย โดยใช้คู่ของ Web client สำหรับ Drive:
 
 ```dotenv
-GOOGLE_OAUTH_CLIENT_ID=<ค่าจาก backend/.env.local>
-GOOGLE_OAUTH_CLIENT_SECRET=<ค่าจาก backend/.env.local>
+GOOGLE_OAUTH_CLIENT_ID=<ตรงกับ VITE_GOOGLE_CLIENT_ID ของ frontend>
+GOOGLE_OAUTH_CLIENT_SECRET=<Client Secret ของ Web client ด้านบน>
 CONSTRUCTION_FIREBASE_PROJECT_ID=khok-kloi-backhoe-engineering
-DRIVE_TOKEN_ENCRYPTION_KEY=<ค่าจาก backend/.env.local>
+DRIVE_TOKEN_ENCRYPTION_KEY=<คงค่า encryption key เดิมใน Render>
 ```
 
 เพิ่มอีกสามค่า:
@@ -72,7 +75,7 @@ Environment → Secret Files → Add Secret File:
 ให้เพิ่มไฟล์แล้ว deploy อีกครั้ง ไม่ต้องสร้าง service ใหม่
 ห้ามใส่ secret ใน `VITE_*` และเก็บ `DRIVE_TOKEN_ENCRYPTION_KEY` เดิมไว้หลังเริ่มเข้ารหัส token
 
-## 5. Google client เดิม
+## 5. Google client สำหรับ Drive
 
 เปิด [Google Auth Platform Clients](https://console.cloud.google.com/auth/clients?project=khok-kloi-backhoe-engineering)
 เลือก Web client ที่ตรงกับ `GOOGLE_OAUTH_CLIENT_ID`
@@ -126,7 +129,8 @@ local ต้อง restart Vite ส่วน production ต้อง build แ�
 ทดสอบ encryption, UID isolation, account matching, refresh, provider errors, disconnect,
 Firebase identity, CORS และ CSRF ด้วย provider จำลอง
 คู่ Client ID/secret เคยตรวจ client authentication กับ Google แล้ว
-แต่ยังไม่ได้ทดสอบ consent/refresh token ของผู้ใช้จริง หรือ deploy ไป Render บัญชีใหม่
+เป็นหลักฐานเก่าของคู่เดิม ไม่ยืนยันคู่ใหม่ที่ผู้ใช้ตั้งใน Render
+ยังไม่ได้ทดสอบ consent/refresh token ของผู้ใช้จริงหรือ deploy รุ่นแก้ BUG-021
 
 Render Free พักเครื่องเมื่อไม่มี request 15 นาที การเรียกครั้งแรกอาจรอประมาณหนึ่งนาที
 ไม่ต้องเปิดเครื่องรอต่ออายุทุกชั่วโมง เมื่อกลับมาใช้งาน backend จะขอ access token ใหม่
@@ -140,6 +144,14 @@ Render ระบุ Free สำหรับทดลอง/งานส่วน
 [Google code model](https://developers.google.com/identity/oauth2/web/guides/use-code-model),
 [Refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration),
 [Render Free](https://render.com/docs/free)
+
+## OAuth client migration — 2026-11-11
+
+BUG-021 uses additive storage: the backend never reads, overwrites or deletes legacy parent credentials. Switching clients selects another SHA-256-namespaced child document and requires fresh authorization. The encrypted payload must match the configured client before returning access, refreshing or reusing a refresh grant. Misplaced/unbound child records are rejected and retained for reviewed recovery. AES-GCM key, format and UID authentication are unchanged.
+
+Disconnect and `invalid_grant` invalidation affect only the authenticated user's current client child document. Legacy/other-client records and Google grants are untouched. Existing per-process serialization remains; distributed multi-instance locking is not added.
+
+Session/exchange responses include public `clientId`; the updated frontend requires a match with `VITE_GOOGLE_CLIENT_ID`. An old or mismatched backend cannot establish a connection. Deploy the reviewed backend before enabling its URL on the updated frontend. No additional env variable, Rules allowance, index or key rotation is required. See [DRIVE_OAUTH_BINDING_2026-11-11.md](../docs/DRIVE_OAUTH_BINDING_2026-11-11.md) for validation and deployment prerequisites.
 
 ## Request limits
 

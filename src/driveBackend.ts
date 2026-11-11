@@ -9,15 +9,17 @@ export class DriveBackendError extends Error {
     super(
       code === 'reconnect_required'
         ? 'กรุณาเชื่อมต่อ Google Drive ใหม่เพื่ออนุญาตการต่ออายุอัตโนมัติ'
-        : code === 'account_mismatch'
-          ? 'กรุณาใช้บัญชี Drive เดียวกับ Firebase'
-          : code === 'unauthorized'
-            ? 'กรุณาเข้าสู่ระบบ Firebase ใหม่'
-            : code === 'forbidden'
-              ? 'บัญชีนี้ยังไม่มีสิทธิ์ใช้งาน backend'
-              : code === 'rate_limited'
-                ? 'เรียกใช้งานบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
-                : 'ติดต่อ backend ไม่สำเร็จ กรุณาลองใหม่ ไฟล์ยังอยู่ในเครื่อง',
+        : code === 'oauth_client_mismatch'
+          ? 'Client ID ของเว็บกับ backend ไม่ตรงกัน กรุณาตรวจสอบการตั้งค่าและรุ่นที่ deploy'
+          : code === 'account_mismatch'
+            ? 'กรุณาใช้บัญชี Drive เดียวกับ Firebase'
+            : code === 'unauthorized'
+              ? 'กรุณาเข้าสู่ระบบ Firebase ใหม่'
+              : code === 'forbidden'
+                ? 'บัญชีนี้ยังไม่มีสิทธิ์ใช้งาน backend'
+                : code === 'rate_limited'
+                  ? 'เรียกใช้งานบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+                  : 'ติดต่อ backend ไม่สำเร็จ กรุณาลองใหม่ ไฟล์ยังอยู่ในเครื่อง',
     );
   }
 }
@@ -83,6 +85,11 @@ async function call(path: string, body?: object, method = 'POST'): Promise<unkno
     data.expiresAt <= Date.now()
   )
     throw new DriveBackendError('invalid_response');
+  if (
+    !import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    data.clientId !== import.meta.env.VITE_GOOGLE_CLIENT_ID
+  )
+    throw new DriveBackendError('oauth_client_mismatch');
   return { token: data.token, expiresAt: data.expiresAt } satisfies DriveSession;
 }
 export const restoreDriveConnection = (force = false) =>

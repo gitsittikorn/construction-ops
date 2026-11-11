@@ -4,6 +4,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { OAuth2Client } from 'google-auth-library';
 import { createApp } from './app.mjs';
 import { createDriveService } from './driveService.mjs';
+import { createDriveCredentialStore } from './driveCredentialStore.mjs';
 import { createTokenVault } from './tokenVault.mjs';
 import { companyAuthorization } from './companyAuthorization.mjs';
 
@@ -28,19 +29,7 @@ for (const origin of allowedOrigins) {
 }
 initializeApp({ credential: applicationDefault(), projectId });
 const db = getFirestore();
-const collection = db.collection('_driveCredentials');
-const store = {
-  async get(uid) {
-    const snapshot = await collection.doc(uid).get();
-    return snapshot.exists ? snapshot.data() : null;
-  },
-  async put(uid, data) {
-    await collection.doc(uid).set(data);
-  },
-  async remove(uid) {
-    await collection.doc(uid).delete();
-  },
-};
+const store = createDriveCredentialStore(db, clientId);
 function client(redirectUri) {
   return new OAuth2Client({
     clientId,
@@ -70,6 +59,7 @@ const google = {
   },
 };
 const service = createDriveService({
+  clientId,
   store,
   google,
   vault: createTokenVault(required('DRIVE_TOKEN_ENCRYPTION_KEY')),

@@ -6,6 +6,7 @@ import { createDriveService, driveScope } from '../driveService.mjs';
 import { createApp } from '../app.mjs';
 
 const user = { uid: 'owner-a', email: 'owner@example.com', email_verified: true, enabled: true };
+const clientId = 'current.apps.googleusercontent.com';
 function setup() {
   const now = 1000000;
   const records = new Map();
@@ -41,7 +42,7 @@ function setup() {
       records.delete(uid);
     },
   };
-  const service = createDriveService({ store, google, vault, now: () => now });
+  const service = createDriveService({ clientId, store, google, vault, now: () => now });
   return { now, records, vault, calls, credentials, google, store, service };
 }
 test('vault encrypts credentials with fresh nonces and authenticates the owner and ciphertext', () => {
@@ -59,9 +60,11 @@ test('exchange verifies account, encrypts persistent credentials and returns onl
   assert.deepEqual(await s.service.exchange(user, 'auth-code', 'https://app.example.com'), {
     token: 'access-secret',
     expiresAt: s.now + 3540000,
+    clientId,
   });
   assert.ok(!JSON.stringify([...s.records.values()]).includes('refresh-secret'));
   const restarted = createDriveService({
+    clientId,
     store: s.store,
     google: s.google,
     vault: s.vault,
@@ -69,6 +72,78 @@ test('exchange verifies account, encrypts persistent credentials and returns onl
   });
   assert.equal((await restarted.session(user)).token, 'access-secret');
   assert.equal(s.calls.refresh, 0);
+  assert.equal(s.vault.open(user.uid, s.records.get(user.uid)).oauth_client_id, clientId);
+});
+
+test('service refuses to start without a configured OAuth client', () => {
+  const s = setup();
+  for (const value of [undefined, '', '   '])
+    assert.throws(() => createDriveService({ ...s, clientId: value }), /OAuth client/);
+});
+
+test('legacy and other-client grants are never returned or refreshed, even when still valid', async () => {
+  for (const oauth_client_id of [undefined, 'previous.apps.googleusercontent.com']) {
+    const s = setup();
+    const original = s.vault.seal(user.uid, { ...s.credentials, oauth_client_id });
+    s.records.set(user.uid, original);
+    for (const force of [false, true])
+      await assert.rejects(s.service.session(user, force), {
+        status: 409,
+        code: 'reconnect_required',
+      });
+    assert.equal(s.calls.refresh, 0);
+    assert.deepEqual(s.records.get(user.uid), original);
+  }
+});
+
+test('exchange cannot borrow or overwrite legacy and other-client refresh grants', async () => {
+  for (const oauth_client_id of [undefined, 'previous.apps.googleusercontent.com']) {
+    const s = setup();
+    const original = s.vault.seal(user.uid, { ...s.credentials, oauth_client_id });
+    s.records.set(user.uid, original);
+    for (const refreshToken of [undefined, 'fresh-refresh']) {
+      s.credentials.refresh_token = refreshToken;
+      await assert.rejects(s.service.exchange(user, 'code', 'https://app.example.com'), {
+        status: 409,
+        code: 'reconnect_required',
+      });
+      assert.deepEqual(s.records.get(user.uid), original);
+    }
+    assert.equal(s.calls.refresh, 0);
+  }
+});
+
+test('OAuth attribution is sealed locally and cannot be replaced by provider payloads', async () => {
+  const s = setup();
+  s.credentials.oauth_client_id = 'untrusted.apps.googleusercontent.com';
+  await s.service.exchange(user, 'code', 'https://app.example.com');
+  s.google.refresh = async () => ({
+    access_token: 'renewed',
+    expiry_date: s.now + 7200000,
+    oauth_client_id: 'untrusted.apps.googleusercontent.com',
+  });
+  assert.equal((await s.service.session(user, true)).clientId, clientId);
+  assert.equal(s.vault.open(user.uid, s.records.get(user.uid)).oauth_client_id, clientId);
+});
+
+test('queued disconnect waits for renewal and cannot be undone by its late result', async () => {
+  const s = setup();
+  await s.service.exchange(user, 'code', 'https://app.example.com');
+  let finish;
+  const started = Promise.withResolvers();
+  s.google.refresh = () => {
+    started.resolve();
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  };
+  const renewing = s.service.session(user, true);
+  await started.promise;
+  const disconnecting = s.service.disconnect(user);
+  finish({ access_token: 'renewed', expiry_date: s.now + 7200000 });
+  await Promise.all([renewing, disconnecting]);
+  assert.equal(s.records.size, 0);
+  await assert.rejects(s.service.session(user), { code: 'reconnect_required' });
 });
 test('exchange refuses another Google account and partial consent without saving tokens', async () => {
   const s = setup();

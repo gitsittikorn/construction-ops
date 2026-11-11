@@ -1,5 +1,9 @@
 # Phase 4 — Private original restoration
 
+## Backend OAuth binding regression — 2026-11-11
+
+BUG-021 fixed on baseline `978a1ae`: client-scoped encrypted storage retains legacy parents, encrypted attribution/frontend matching prevent cross-app reuse, and matching fresh grants retain restart/renewal. Full Windows `npm.cmd run check` **exit 0**: frontend **383/383**, backend **20/20**, Node Rules/storage emulator **14/14**, frontend emulator integration **10/10**, E2E **71/71** (3.6 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors. Cleanup exit **0**, two generated Phase 2 images restored. [Detailed evidence](DRIVE_OAUTH_BINDING_2026-11-11.md). Original operational data/pending bytes/mappings retained. No new real Google/Firebase/Render/restore acceptance or deployment; Android deferred.
+
 ## OAuth project-switch regression gate — 2026-11-11
 
 BUG-020 prevents browser token reuse across OAuth applications/transports without touching IndexedDB originals or Drive mappings. Local personal-client authorization uses the existing direct path pending backend/grant review (ENV-005/BUG-021). Windows `npm.cmd run check` **exit 0**: frontend **381**, backend **15**, Rules **11**, integration **10**, E2E **71** (5.6 minutes), tooling **4**; all prior restoration, denied/truncated-original and offline/pending preservation tests remain enabled. Format/lint/typecheck/build/smoke PASS, no skipped tests. Cleanup **exit 0** and prior screenshots restored. [Concrete handoff](PERSONAL_OAUTH_SWITCH_2026-11-11.md); actual personal-client access to old-app Drive files/refresh grants remains NOT VERIFIED. No cloud records, keys or originals deleted and no phase-completion claim.

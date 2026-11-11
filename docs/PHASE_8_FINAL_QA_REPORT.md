@@ -1,5 +1,9 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Backend OAuth binding gate — 2026-11-11
+
+BUG-021 fixed on baseline `978a1ae`: additive client/UID isolation, encrypted attribution and frontend rejection of mismatched/old backend responses. Legacy originals/key, operational data and pending bytes retained. Full Windows `npm.cmd run check` **exit 0**: frontend **383/383**, backend **20/20**, Node Rules/storage emulator **14/14**, frontend emulator integration **10/10**, E2E **71/71** (3.6 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors. Cleanup exit **0**, two generated Phase 2 images restored. [Commands, negative-test diagnosis and rollout prerequisites](DRIVE_OAUTH_BINDING_2026-11-11.md). Production services/device/manual acceptance remains separate and NOT VERIFIED; Android deferred. No environment edit, push or deployment.
+
 ## OAuth project and cached-authorization gate — 2026-11-11
 
 BUG-020 local session fix and personal-client configuration: Windows `npm.cmd run check` **exit 0**, frontend **381**, backend **15**, Rules **11**, integration **10**, E2E **71** (5.6 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. Targeted session/Drive/identity/UI suite **60/60** and a later same-context reload assertion are included in the full gate. Actual unauthenticated Google popup used the supplied client; sign-in/consent, branding, real APIs/devices and backend/grant migration remain NOT VERIFIED or OPEN (ENV-005/BUG-021). [Detailed handoff](PERSONAL_OAUTH_SWITCH_2026-11-11.md). Cleanup **exit 0**, pre-test screenshots restored; no production deployment, credential deletion or overall phase completion.

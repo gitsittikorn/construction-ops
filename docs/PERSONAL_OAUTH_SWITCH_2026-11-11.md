@@ -1,5 +1,9 @@
 # Personal Google OAuth project switch — 2026-11-11
 
+## Later backend correction — 2026-11-11
+
+The user created a dedicated personal Web client after losing the auto-created client's secret. The user independently selected its public ID in ignored `.env.local` and reports entering the new pair in Render. Read-only comparison confirms the local selection and still-inactive backend URL; remote settings are NOT VERIFIED. Firebase's auto-created client is preserved. BUG-021 is now fixed in local source with additive client-scoped storage/sealed attribution and frontend backend-client validation; legacy credentials/key and operational/pending data remain unchanged. Full gate: frontend **383**, backend **20**, Node Rules/storage emulator **14**, frontend emulator integration **10**, E2E **71**, tooling **4**, exit **0**; cleanup exit **0**. No push/deploy or actual user consent was performed. See [current implementation evidence and exact rollout steps](DRIVE_OAUTH_BINDING_2026-11-11.md). Earlier OPEN/missing-client notes below are historical; remote rollout/fresh authorization and real-file acceptance remain prerequisites to re-enabling the backend URL.
+
 Baseline `83914fa`; initial modified files were the immediately preceding ENV-005 diagnosis notes in BUG_TRACKER.md and ROADMAP_PROGRESS.md. The user supplied the personal project's public Web OAuth Client ID and asked to use `khok-kloi-backhoe-engineering` rather than the company consent application. Recommendation remains 6 Astra / High / Standard for account/configuration review; no actual model switch is claimed.
 
 ## Local correction and evidence

@@ -12,6 +12,25 @@ const response = (data: unknown, status = 200) =>
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+
+it.each([undefined, 'previous.apps.googleusercontent.com'])(
+  'rejects backend sessions with missing or mismatched OAuth client attribution (%s)',
+  async (clientId) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () =>
+        response({
+          token: 'previous-app-access',
+          expiresAt: Date.now() + 3600000,
+          clientId,
+        }),
+      ),
+    );
+    const { restoreDriveConnection, exchangeDriveCode } = await import('../driveBackend');
+    for (const operation of [() => restoreDriveConnection(), () => exchangeDriveCode('new-code')])
+      await expect(operation()).rejects.toMatchObject({ code: 'oauth_client_mismatch' });
+  },
+);
 beforeEach(() => {
   vi.resetModules();
   vi.stubEnv('VITE_DRIVE_BACKEND_URL', 'https://backend.example.com');
@@ -26,7 +45,9 @@ afterEach(() => {
 });
 it('authenticates session renewal using Firebase, includes CSRF header and sends no static API key', async () => {
   const session = { token: 'access', expiresAt: Date.now() + 3600000 };
-  const fetch = vi.fn().mockResolvedValue(response(session));
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(response({ ...session, clientId: 'test.apps.googleusercontent.com' }));
   vi.stubGlobal('fetch', fetch);
   const { restoreDriveConnection } = await import('../driveBackend');
   await expect(restoreDriveConnection(true)).resolves.toEqual(session);
@@ -59,9 +80,13 @@ it('uses GIS code flow and exchanges only the authorization code with the backen
       },
     },
   };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(response({ token: 'access', expiresAt: Date.now() + 3600000 }));
+  const fetch = vi.fn().mockResolvedValue(
+    response({
+      token: 'access',
+      expiresAt: Date.now() + 3600000,
+      clientId: 'test.apps.googleusercontent.com',
+    }),
+  );
   vi.stubGlobal('fetch', fetch);
   const { requestDriveToken } = await import('../drive');
   const pending = requestDriveToken('owner@example.com');
@@ -147,9 +172,13 @@ it('shows a safe retry message when the backend throttles requests', async () =>
 it('sends the selected company while authenticating only the actual member UID', async () => {
   const { setWorkspaceSession } = await import('../workspaceIdentity');
   setWorkspaceSession({ actorUid: 'owner', companyId: 'company', role: 'operator' });
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(response({ token: 'member-own-access', expiresAt: Date.now() + 3600000 }));
+  const fetch = vi.fn().mockResolvedValue(
+    response({
+      token: 'member-own-access',
+      expiresAt: Date.now() + 3600000,
+      clientId: 'test.apps.googleusercontent.com',
+    }),
+  );
   vi.stubGlobal('fetch', fetch);
   try {
     const { restoreDriveConnection } = await import('../driveBackend');
