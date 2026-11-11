@@ -22,9 +22,9 @@ vi.mock('../googleSheetsAuth', () => ({
 }));
 vi.mock('../truckSheets', async (original) => ({
   ...(await original<typeof import('../truckSheets')>()),
-  loadTruckSheet: async () => '',
+  loadTruckSheetSelection: async () => ({ id: '' }),
   saveTruckSheet: mocks.save,
-  readTruckSheet: mocks.read,
+  readTruckSheetSource: mocks.read,
   prepareTruckSheet: mocks.prepare,
 }));
 beforeEach(() => {
@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 it('requests read scope and sends rows to preview without persisting vehicle data', async () => {
   const rows = parseTruckRows([truckHeaders, ['', '81-0001', '', '0812345678', '', 6, '', '', '']]);
-  mocks.read.mockResolvedValue(rows);
+  mocks.read.mockResolvedValue({ rows, title: 'รถบรรทุก', sheetId: 17 });
   const onRows = vi.fn(),
     onBusy = vi.fn();
   render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={onBusy} />);
@@ -51,10 +51,12 @@ it('requests read scope and sends rows to preview without persisting vehicle dat
     'a@example.com',
     'https://www.googleapis.com/auth/spreadsheets.readonly',
   );
-  expect(mocks.save).toHaveBeenCalledWith('owner', 'abc');
+  expect(mocks.read).toHaveBeenCalledWith('token', 'abc', undefined);
+  expect(mocks.save).toHaveBeenCalledWith('owner', 'abc', 17);
+  expect(screen.getByRole('status')).toHaveTextContent('อ่านจากแท็บ “รถบรรทุก” จำนวน 1 รายการ');
   expect(screen.getByRole('link')).toHaveAttribute(
     'href',
-    'https://docs.google.com/spreadsheets/d/abc/edit',
+    'https://docs.google.com/spreadsheets/d/abc/edit#gid=17',
   );
   expect(onBusy.mock.calls).toEqual([[true], [false]]);
 });
@@ -70,6 +72,36 @@ it('shows read errors and never forwards or remembers failed data', async () => 
   expect(await screen.findByRole('alert')).toHaveTextContent('ชีตไม่มีสิทธิ์อ่าน');
   expect(onRows).not.toHaveBeenCalled();
   expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it('passes the current URL file and gid to the reader instead of the default link', async () => {
+  const rows = parseTruckRows([truckHeaders, ['', '81-0001', '', '0812345678', '', 6, '', '', '']]);
+  mocks.read.mockResolvedValue({ rows, title: 'Selected tab', sheetId: 0 });
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.change(screen.getByRole('textbox'), {
+    target: { value: 'https://docs.google.com/spreadsheets/d/changed_file/edit#gid=0' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  await waitFor(() => expect(onRows).toHaveBeenCalledWith(rows));
+  expect(mocks.read).toHaveBeenCalledExactlyOnceWith('token', 'changed_file', 0);
+  expect(mocks.save).toHaveBeenCalledWith('owner', 'changed_file', 0);
+});
+
+it('does not authorize or read an invalid tab selector', async () => {
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.change(screen.getByRole('textbox'), {
+    target: { value: 'https://docs.google.com/spreadsheets/d/changed_file/edit#gid=bad' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('gid');
+  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(onRows).not.toHaveBeenCalled();
 });
 it('defaults to the user template and prepares headers without importing vehicles', async () => {
   const onRows = vi.fn();

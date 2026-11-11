@@ -4,11 +4,11 @@ import { getSessionIdentity } from './firebase';
 import { loadGoogleIdentity } from './drive';
 import { requestSheetsToken, verifySheetsAccount } from './googleSheetsAuth';
 import {
-  loadTruckSheet,
+  loadTruckSheetSelection,
   saveTruckSheet,
-  spreadsheetId,
+  spreadsheetSelection,
   spreadsheetUrl,
-  readTruckSheet,
+  readTruckSheetSource,
   sheetsReadScope,
   sheetsWriteScope,
   defaultTruckSheetId,
@@ -39,11 +39,12 @@ export default function TruckSheetsPanel({
     setLink('');
     setSaved('');
     setError('');
-    void loadTruckSheet(owner)
-      .then((id) => {
+    void loadTruckSheetSelection(owner)
+      .then(({ id, sheetId }) => {
         if (generation.current === current) {
-          setSaved(id || defaultTruckSheetId);
-          setLink(spreadsheetUrl(id || defaultTruckSheetId));
+          const url = spreadsheetUrl(id || defaultTruckSheetId, sheetId);
+          setSaved(url);
+          setLink(url);
         }
       })
       .catch((e: Error) => {
@@ -62,7 +63,7 @@ export default function TruckSheetsPanel({
     onBusy(true);
     const current = generation.current;
     try {
-      const id = spreadsheetId(link);
+      const { id, sheetId } = spreadsheetSelection(link);
       const user = getSessionIdentity();
       if (!user || !workspaceMatches(owner, user.uid))
         throw Error('กรุณาเข้าสู่ระบบ Google ก่อนนำเข้าจากชีต');
@@ -84,18 +85,21 @@ export default function TruckSheetsPanel({
           return;
         await saveTruckSheet(owner, id);
         if (generation.current !== current) return;
-        setSaved(id);
+        setSaved(spreadsheetUrl(id));
         setNotice('เตรียมชีต Trucks และหัวคอลัมน์ครบแล้ว กดเปิดชีตข้อมูลรถเพื่อกรอกข้อมูล');
         return;
       }
-      const rows = await readTruckSheet(auth.token, id);
+      const source = await readTruckSheetSource(auth.token, id, sheetId);
       if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
         return;
-      await saveTruckSheet(owner, id);
+      await saveTruckSheet(owner, id, source.sheetId);
       if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
         return;
-      setSaved(id);
-      onRows(rows);
+      setSaved(spreadsheetUrl(id, source.sheetId));
+      setNotice(
+        `อ่านจากแท็บ “${source.title}” จำนวน ${source.rows.length} รายการ กรุณาตรวจรายการก่อนยืนยัน`,
+      );
+      onRows(source.rows);
     } catch (e) {
       if (generation.current === current) setError((e as Error).message);
     } finally {
@@ -120,8 +124,9 @@ export default function TruckSheetsPanel({
         />
       </label>
       <p>
-        ใช้ชีต Trucks รองรับหัวคอลัมน์ 10 ช่องรวมชื่อเล่น และไฟล์เดิม 9 ช่อง
-        ตั้งทะเบียนและเบอร์โทรเป็นข้อความธรรมดา ระบบอ่านชีตเมื่อกดปุ่ม
+        อ่านจากไฟล์ในช่องลิงก์ ระบบค้นหาแท็บที่มีหัวคอลัมน์ข้อมูลรถโดยไม่บังคับชื่อ Trucks
+        หากมีหลายแท็บ ให้เปิดแท็บที่ต้องการแล้วคัดลอกลิงก์ที่มี gid มาวาง รองรับหัวคอลัมน์ 10
+        ช่องรวมชื่อเล่น และไฟล์เดิม 9 ช่อง ตั้งทะเบียนและเบอร์โทรเป็นข้อความธรรมดา
         และบันทึกข้อมูลรถเมื่อยืนยันรายการเท่านั้น
       </p>
       <div className="drive-actions">
@@ -140,7 +145,7 @@ export default function TruckSheetsPanel({
           นำเข้าจาก Google Sheets
         </button>
         {saved && (
-          <a href={spreadsheetUrl(saved)} target="_blank" rel="noopener noreferrer">
+          <a href={saved} target="_blank" rel="noopener noreferrer">
             เปิดชีตข้อมูลรถ
           </a>
         )}

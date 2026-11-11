@@ -1,5 +1,9 @@
 # Phase 1 audit and regression report
 
+## Google Sheets tab discovery gate — 2026-11-11
+
+BUG-019 replaces the hardcoded Trucks range with current-URL file/tab selection and safe schema discovery. Windows `npm.cmd run check` **exit 0**: frontend **378**, backend **15**, Rules **11**, emulator integration **10**, E2E **71** (4.2 minutes), tooling **4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. New browser provider mocks verify input URL/gid, Thai source tab, confirmation, pending storage and saved selection after reload; unit tests cover malformed/ambiguous/denied/oversized input and atomic preference rollback. [Detailed report](SHEETS_TAB_DISCOVERY_2026-11-11.md). Exact supplied remote file requires authentication (anonymous HTTP 401); authenticated Google import remains NOT VERIFIED. Real-service/manual Phase 1 acceptance stays open; Android deferred. Cleanup exit **0**, prior screenshots restored, no real records/cloud permissions/deployment changed.
+
 ## Local branding and import regression gate — 2026-11-11
 
 Baseline `f0bb5de`; BUG-016/017 local fixes restore asset paths and permit an unambiguous renamed truck data sheet. BUG-018 removes Sheets' Drive preflight dependency while retaining verified same-account identity checks. Actual supplied workbook: 64 valid rows in parser and isolated Edge preview, no confirmation or real workspace write. Windows `npm.cmd run check` exit **0**: frontend **354**, backend **15**, Rules **11**, emulator integration **10**, E2E **69**, tooling **4**; format/lint/typecheck/build/smoke PASS. No skipped tests. Detailed scope and evidence: [LOCAL_IMPORT_FIXES_2026-11-11.md](LOCAL_IMPORT_FIXES_2026-11-11.md). Real Google/Firebase/Drive/Sheets acceptance remains open; physical Android/tablet deferred. This does not close the original real-service phase gate.

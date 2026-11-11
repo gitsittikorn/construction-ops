@@ -22,12 +22,58 @@ export function spreadsheetId(input: string): string {
     'กรุณาใส่ลิงก์ Google Sheets เช่น https://docs.google.com/spreadsheets/d/รหัสชีต/edit',
   );
 }
-export const spreadsheetUrl = (id: string) =>
-  `https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/edit`;
-export async function saveTruckSheet(owner: string, id: string) {
+export function spreadsheetSelection(input: string) {
+  const id = spreadsheetId(input);
+  const url = new URL(input.trim());
+  const fragment = new URLSearchParams(url.hash.slice(1)).get('gid');
+  const query = url.searchParams.get('gid');
+  const value = fragment ?? query;
+  if (value === null) return { id, sheetId: undefined };
+  const sheetId = Number(value);
+  if (
+    !/^\d+$/.test(value) ||
+    !Number.isSafeInteger(sheetId) ||
+    sheetId > 2147483647 ||
+    (fragment !== null && query !== null && Number(fragment) !== Number(query))
+  )
+    throw Error('รหัสแท็บ gid ในลิงก์ไม่ถูกต้อง กรุณาคัดลอกลิงก์จากแท็บที่ต้องการ');
+  return { id, sheetId };
+}
+export const spreadsheetUrl = (id: string, sheetId?: number) =>
+  `https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/edit${sheetId === undefined ? '' : `#gid=${sheetId}`}`;
+export async function saveTruckSheet(owner: string, id: string, sheetId?: number) {
   const database = await openLocalDatabase();
   try {
-    await database.put('driveSettings', id, `truck-sheet:${owner}`);
+    const transaction = database.transaction('driveSettings', 'readwrite');
+    try {
+      await transaction.store.put(id, `truck-sheet:${owner}`);
+      if (sheetId === undefined) await transaction.store.delete(`truck-sheet-tab:${owner}`);
+      else await transaction.store.put(sheetId, `truck-sheet-tab:${owner}`);
+      await transaction.done;
+    } catch (error) {
+      try {
+        transaction.abort();
+      } catch {
+        /* It may already have aborted. */
+      }
+      await transaction.done.catch(() => {});
+      throw error;
+    }
+  } finally {
+    database.close();
+  }
+}
+export async function loadTruckSheetSelection(owner: string) {
+  const database = await openLocalDatabase();
+  try {
+    const transaction = database.transaction('driveSettings', 'readonly');
+    const id = (await transaction.store.get(`truck-sheet:${owner}`)) ?? '';
+    const sheetId = await transaction.store.get(`truck-sheet-tab:${owner}`);
+    await transaction.done;
+    return {
+      id,
+      sheetId: Number.isSafeInteger(sheetId) && sheetId >= 0 ? (sheetId as number) : undefined,
+    };
   } finally {
     database.close();
   }
@@ -166,46 +212,135 @@ export async function prepareTruckSheet(token: string, id: string) {
     });
   await call(`${base}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
 }
-export async function readTruckSheet(token: string, id: string) {
+interface SheetTab {
+  sheetId: number;
+  title: string;
+  sheetType?: string;
+  gridProperties?: { rowCount?: number; columnCount?: number };
+}
+interface SheetValues {
+  values?: unknown[][];
+}
+const referenceTab = (title: string) =>
+  ['examples', 'instructions', 'tags'].includes(title.trim().toLowerCase());
+function truckRange(tab: SheetTab, header = false) {
+  const column = Math.min(26, tab.gridProperties?.columnCount ?? 26);
+  const row = header ? 1 : Math.min(1002, tab.gridProperties?.rowCount ?? 1002);
+  return `'${tab.title.replace(/'/g, "''")}'!A1:${String.fromCharCode(64 + column)}${row}`;
+}
+export async function readTruckSheetSource(token: string, id: string, sheetId?: number) {
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw Error('รหัส Google Sheets ไม่ถูกต้อง');
-  let response: Response;
-  try {
-    response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent("'Trucks'!A1:Z1002")}?valueRenderOption=UNFORMATTED_VALUE`,
-      {
+  if (sheetId !== undefined && (!Number.isSafeInteger(sheetId) || sheetId < 0))
+    throw Error('รหัสแท็บ gid ไม่ถูกต้อง');
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}`;
+  let received = 0;
+  async function get<T>(path: string): Promise<T> {
+    let response: Response;
+    try {
+      response = await fetch(base + path, {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(30000),
-      },
-    );
-  } catch {
-    throw Error('อ่าน Google Sheets ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่');
+      });
+    } catch {
+      throw Error('อ่าน Google Sheets ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่');
+    }
+    if (!response.ok)
+      throw Error(
+        response.status === 401
+          ? 'สิทธิ์ Google Sheets หมดอายุ กรุณากดนำเข้าและเชื่อมต่อใหม่'
+          : response.status === 403
+            ? 'Google Sheets ไม่อนุญาต: เปิด Google Sheets API ใน Google Cloud โปรเจกต์เดียวกับ OAuth Client ID และอนุญาตสิทธิ์อ่านชีต'
+            : response.status === 404
+              ? 'ไม่พบชีตหรือบัญชีนี้ไม่มีสิทธิ์อ่าน กรุณาตรวจลิงก์และการแชร์'
+              : response.status === 400
+                ? 'อ่านช่วงข้อมูลไม่สำเร็จ กรุณาตรวจแท็บในลิงก์แล้วลองใหม่'
+                : `Google Sheets ตอบกลับผิดพลาด (${response.status}) กรุณาลองใหม่`,
+      );
+    const body = await response.text();
+    received += new TextEncoder().encode(body).byteLength;
+    if (received > 5 * 1024 * 1024) throw Error('ข้อมูลชีตต้องไม่เกิน 5 MB');
+    try {
+      const payload = JSON.parse(body);
+      if (!payload || typeof payload !== 'object') throw Error();
+      return payload as T;
+    } catch {
+      throw Error('Google Sheets ส่งข้อมูลไม่ถูกต้อง');
+    }
   }
-  if (!response.ok)
-    throw Error(
-      response.status === 401
-        ? 'สิทธิ์ Google Sheets หมดอายุ กรุณากดนำเข้าและเชื่อมต่อใหม่'
-        : response.status === 403
-          ? 'Google Sheets ไม่อนุญาต: เปิด Google Sheets API ใน Google Cloud โปรเจกต์เดียวกับ OAuth Client ID และอนุญาตสิทธิ์อ่านชีต'
-          : response.status === 404
-            ? 'ไม่พบชีตหรือบัญชีนี้ไม่มีสิทธิ์อ่าน กรุณาตรวจลิงก์และการแชร์'
-            : response.status === 400
-              ? 'ไม่พบชีต Trucks หรือช่วงข้อมูลไม่ถูกต้อง กรุณาคงชื่อชีต Trucks'
-              : `Google Sheets ตอบกลับผิดพลาด (${response.status}) กรุณาลองใหม่`,
-    );
-  const body = await response.text();
-  if (body.length > 5 * 1024 * 1024) throw Error('ข้อมูลชีตต้องไม่เกิน 5 MB');
-  let payload: { values?: unknown[][] };
-  try {
-    payload = JSON.parse(body);
-  } catch {
-    throw Error('Google Sheets ส่งข้อมูลไม่ถูกต้อง');
-  }
+  const metadata = await get<{ sheets?: { properties?: SheetTab }[] }>('?fields=sheets.properties');
   if (
-    payload.values !== undefined &&
-    (!Array.isArray(payload.values) || !payload.values.every(Array.isArray))
+    !Array.isArray(metadata.sheets) ||
+    metadata.sheets.some(
+      (tab) =>
+        !tab?.properties ||
+        typeof tab.properties.title !== 'string' ||
+        !tab.properties.title ||
+        !Number.isSafeInteger(tab.properties.sheetId) ||
+        tab.properties.sheetId < 0,
+    )
   )
     throw Error('Google Sheets ส่งข้อมูลไม่ถูกต้อง');
-  const rows = parseTruckRows(payload.values ?? []);
-  if (!rows.length) throw Error('ไม่มีข้อมูลรถในชีต Trucks กรุณากรอกข้อมูลก่อนนำเข้า');
-  return rows;
+  let tabs = metadata.sheets
+    .map((tab) => tab.properties!)
+    .filter((tab) => (!tab.sheetType || tab.sheetType === 'GRID') && !referenceTab(tab.title));
+  if (sheetId !== undefined) tabs = tabs.filter((tab) => tab.sheetId === sheetId);
+  if (!tabs.length) throw Error('ไม่พบแท็บข้อมูลรถตามลิงก์ กรุณาเลือกแท็บข้อมูลและคัดลอกลิงก์ใหม่');
+  if (tabs.length > 50) throw Error('มีแท็บจำนวนมาก กรุณาคัดลอกลิงก์จากแท็บข้อมูลรถให้มี gid');
+  for (const tab of tabs) {
+    const grid = tab.gridProperties;
+    if (
+      grid &&
+      [grid.rowCount, grid.columnCount].some(
+        (value) => value !== undefined && (!Number.isSafeInteger(value) || value < 1),
+      )
+    )
+      throw Error('Google Sheets ส่งข้อมูลช่วงตารางไม่ถูกต้อง');
+  }
+  async function batch(selected: SheetTab[], header: boolean) {
+    const params = new URLSearchParams({
+      valueRenderOption: 'UNFORMATTED_VALUE',
+      majorDimension: 'ROWS',
+    });
+    selected.forEach((tab) => params.append('ranges', truckRange(tab, header)));
+    const payload = await get<{ spreadsheetId?: string; valueRanges?: SheetValues[] }>(
+      `/values:batchGet?${params}`,
+    );
+    if (
+      (payload.spreadsheetId !== undefined && payload.spreadsheetId !== id) ||
+      !Array.isArray(payload.valueRanges) ||
+      payload.valueRanges.length !== selected.length ||
+      payload.valueRanges.some(
+        (range) =>
+          !range ||
+          (range.values !== undefined &&
+            (!Array.isArray(range.values) || !range.values.every(Array.isArray))),
+      )
+    )
+      throw Error('Google Sheets ส่งข้อมูลไม่ถูกต้อง');
+    return payload.valueRanges.map((range) => range.values ?? []);
+  }
+  const headers = await batch(tabs, true);
+  tabs = tabs.filter((_, index) =>
+    legacyTruckHeaders.every((header) =>
+      headers[index][0]?.some((cell) => typeof cell === 'string' && cell.trim() === header),
+    ),
+  );
+  if (!tabs.length)
+    throw Error('ไม่พบแท็บข้อมูลรถที่มีหัวคอลัมน์ครบ กรุณาตรวจหัวตารางในไฟล์ตามลิงก์');
+  const tables = await batch(tabs, false);
+  const populated = tabs
+    .map((tab, index) => ({ tab, data: tables[index] }))
+    .filter(({ data }) =>
+      data
+        .slice(1)
+        .some((row) => row.some((cell) => cell !== null && cell !== undefined && cell !== '')),
+    );
+  if (!populated.length) throw Error('ไม่มีข้อมูลรถในแท็บที่เลือก กรุณากรอกข้อมูลก่อนนำเข้า');
+  if (populated.length > 1)
+    throw Error('พบหลายแท็บข้อมูลรถ กรุณาเปิดแท็บที่ต้องการแล้วคัดลอกลิงก์ที่มี gid มาวาง');
+  const { tab, data } = populated[0];
+  return { rows: parseTruckRows(data), title: tab.title, sheetId: tab.sheetId };
+}
+export async function readTruckSheet(token: string, id: string, sheetId?: number) {
+  return (await readTruckSheetSource(token, id, sheetId)).rows;
 }

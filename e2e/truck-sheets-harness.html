@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Truck Sheets import test harness</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React, { useEffect, useState } from 'react';
+      import { createRoot } from 'react-dom/client';
+      import TruckExcelPanel from '/src/TruckExcelPanel.tsx';
+      import { loadData, updateData } from '/src/storage.ts';
+      import '/src/styles.css';
+      function Harness() {
+        const [data, setData] = useState(null);
+        useEffect(() => {
+          void loadData('sheet-owner').then(setData);
+        }, []);
+        return data
+          ? React.createElement(TruckExcelPanel, {
+              data,
+              visibleTrucks: data.masters.filter((item) => item.kind === 'truck'),
+              actor: 'sheet-owner',
+              onChange: async (change) => {
+                setData(await updateData('sheet-owner', change));
+              },
+            })
+          : React.createElement('p', null, 'Loading test workspace');
+      }
+      createRoot(document.getElementById('root')).render(React.createElement(Harness));
+    </script>
+  </body>
+</html>

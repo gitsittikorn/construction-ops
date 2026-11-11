@@ -1,5 +1,13 @@
 # Bug tracker
 
+## BUG-019 — Sheets reader hardcodes the Trucks tab despite the URL — 2026-11-11
+
+**FIXED in local source; authenticated real-file acceptance OPEN.** Final Windows `npm.cmd run check` **exit 0**: frontend **378/378** (60 files), backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **71/71** (4.2 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors, no skipped tests. Two new browser tests prove current-input file selection, Thai tab discovery, gid, preview/confirmation, pending storage and preference reload with isolated provider mocks. Detailed evidence: [SHEETS_TAB_DISCOVERY_2026-11-11.md](SHEETS_TAB_DISCOVERY_2026-11-11.md).
+
+**Medium / Phase 1 Sheets import**, baseline `7de0e34`. The user reports `ไม่พบชีต Trucks หรือช่วงข้อมูลไม่ถูกต้อง กรุณาคงชื่อชีต Trucks` after importing the supplied Google URL. The panel passes the input's spreadsheet ID correctly, but the adapter hardcodes `'Trucks'!A1:Z1002`, ignores URL `gid` and does not inspect actual tab titles/grid dimensions. The previous renamed-sheet correction applied only to XLSX. A read-only anonymous request to the supplied file returns **401**; actual authenticated tab contents remain unexamined.
+
+Correction: inspect metadata from the entered file, discover schema-matching data tabs, follow explicit `gid`, escape titles, clamp ranges to grid dimensions and reject ambiguous populated tabs. Skip example/reference tabs and empty template tabs; retain preview/confirmation and pending storage. Remember file/tab preferences atomically per account with legacy string-ID compatibility. Regression tests cover URL propagation, Thai/apostrophe titles, gid zero/missing/invalid, multiple tabs, no headers, status/size/row errors, account isolation and preference rollback. Browser provider mocks remain separate from real Google evidence.
+
 ## Local assets and import regressions — 2026-11-11
 
 Final validation: Windows `npm.cmd run check`, **exit 0**, frontend **354/354**, backend **15/15**, Rules **11/11**, emulator integration **10/10**, E2E **69/69** (4.4 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 lint warnings/zero errors. No skipped tests. Details: [LOCAL_IMPORT_FIXES_2026-11-11.md](LOCAL_IMPORT_FIXES_2026-11-11.md).
