@@ -36,3 +36,5 @@ Actual strict-port negative check: a second `npm.cmd run dev` exited **1** with 
 ## Exact next actions and limits
 
 Use **http://127.0.0.1:5173/** consistently and review restored master categories/Sync. Preserve the external backup and legacy database. Verify the three historical Drive files separately. Original full real-service/manual acceptance remains open and physical Android is deferred/**NOT VERIFIED**. No destructive reset, hard deletion, encryption-key rotation, OAuth revocation, environment publication, source push or deployment was performed. This is a data-repair/prevention milestone, not completion of an original roadmap phase.
+
+Validated local source/documentation commit: **`31dfcaf`**. Final post-clean formatting/whitespace checks exit 0 and review server HTTP 200; repeated real server reads retain the complete 97-record result. Hash checkpoint is documentation only; no additional application changes after the passing full gate.
