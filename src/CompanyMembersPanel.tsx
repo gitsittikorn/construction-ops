@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { useEffect, useRef, useState } from 'react';
 import type { CompanyScope } from './workspaceIdentity';
 import {
@@ -99,10 +100,10 @@ export default function CompanyMembersPanel({ scope }: { scope: CompanyScope }) 
         </label>
         <label className="field">
           สิทธิ์สมาชิก
-          <select name="role" aria-label="สิทธิ์สมาชิก">
+          <SearchableSelect name="role" aria-label="สิทธิ์สมาชิก">
             <option value="operator">พนักงานบันทึกข้อมูล</option>
             <option value="manager">ผู้จัดการ</option>
-          </select>
+          </SearchableSelect>
         </label>
         <button disabled={busy}>เพิ่มหรือเปิดสิทธิ์สมาชิก</button>
       </form>

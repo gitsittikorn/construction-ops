@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { useState } from 'react';
 import type { Data, Master } from './models';
 import { demoProjectId } from './demoProjectInfo';
@@ -51,7 +52,7 @@ export default function ReportsPanel({
     return (
       <label>
         {label}
-        <select aria-label={label} value={filter[key]} onChange={(e) => set(key, e.target.value)}>
+        <SearchableSelect aria-label={label} value={filter[key]} onChange={(e) => set(key, e.target.value)}>
           <option value="">ทั้งหมด</option>
           {data.masters
             .filter((m) => m.kind === kind)
@@ -60,7 +61,7 @@ export default function ReportsPanel({
                 {m.name}
               </option>
             ))}
-        </select>
+        </SearchableSelect>
       </label>
     );
   }
@@ -76,7 +77,7 @@ export default function ReportsPanel({
       <div className="operations-filters">
         <label>
           รูปแบบรายงาน
-          <select
+          <SearchableSelect
             aria-label="รูปแบบรายงาน"
             value={type}
             onChange={(e) => {
@@ -89,11 +90,11 @@ export default function ReportsPanel({
                 {label}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </label>
         <label>
           โครงการรายงาน
-          <select
+          <SearchableSelect
             aria-label="โครงการรายงาน"
             value={filter.project}
             onChange={(e) => set('project', e.target.value)}
@@ -104,7 +105,7 @@ export default function ReportsPanel({
                 {p.name}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </label>
         <label>
           ตั้งแต่วันที่
@@ -152,7 +153,7 @@ export default function ReportsPanel({
           {master('source', 'กรองแหล่งดิน', 'source')}
           <label>
             การยืนยัน
-            <select
+            <SearchableSelect
               aria-label="การยืนยันรายงาน"
               value={filter.verification}
               onChange={(e) => set('verification', e.target.value)}
@@ -160,7 +161,7 @@ export default function ReportsPanel({
               <option value="">ทั้งหมด</option>
               <option value="verified">ยืนยันแล้ว</option>
               <option value="pending">รอตรวจ</option>
-            </select>
+            </SearchableSelect>
           </label>
         </div>
       </details>

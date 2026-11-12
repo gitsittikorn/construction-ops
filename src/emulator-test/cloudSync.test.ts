@@ -15,6 +15,8 @@ import { firestoreTransport } from '../cloudFirestore';
 import { synchronize, resolveConflict } from '../cloudSync';
 import { loadData, persistData, updateData } from '../storage';
 import { emptyData } from '../models';
+import { saveMaster, saveTruckWithDriver } from '../masterData';
+import { saveSoilPrice, priceHistory } from '../soilPrices';
 import { fixture, project, truck, trip } from '../test/syncFixtures';
 import { deleteRecord } from '../deletion';
 import {
@@ -65,6 +67,82 @@ beforeEach(async () => {
   session.db = environment.authenticatedContext(session.owner).firestore() as unknown as Firestore;
 });
 afterEach(() => vi.unstubAllGlobals());
+it('restores offline fleet links and every immutable source-price event after shuffled sync and independent-device writes', async () => {
+  const owner = session.owner;
+  let source = fixture();
+  source = saveMaster(source, { ...truck, id: 'soil', name: 'ดินถม', kind: 'soilType' }, owner);
+  source = saveMaster(
+    source,
+    { ...truck, id: 'source', name: 'แหล่งหนึ่ง', kind: 'source' },
+    owner,
+  );
+  source = saveTruckWithDriver(source, { ...truck, phone: '0812345678' }, owner, 'สมชาย');
+  source = saveSoilPrice(
+    source,
+    { soilId: 'soil', sourceId: 'source', amount: '120.50', unit: 'm3', note: 'first' },
+    owner,
+  );
+  source = saveSoilPrice(
+    source,
+    { soilId: 'soil', sourceId: 'source', amount: '130.25', unit: 'm3', note: 'second' },
+    owner,
+  );
+  source.masters.reverse();
+  await persistData(owner, source);
+  await synchronize(owner, firestoreTransport);
+  let saved = await loadData(owner);
+  expect(
+    Object.values(saved.sync!.entries).every((entry) => entry.status === 'synced' && !entry.error),
+  ).toBe(true);
+  const driverId = saved.masters.find((item) => item.id === 'truck')!.driverId;
+  expect(saved.masters.find((item) => item.id === driverId)?.name).toBe('สมชาย');
+  const deviceB = structuredClone(saved);
+  await updateData(owner, (old) =>
+    saveSoilPrice(
+      old,
+      { soilId: 'soil', sourceId: 'source', amount: '140.10', unit: 'm3', note: 'device A' },
+      owner,
+    ),
+  );
+  await synchronize(owner, firestoreTransport);
+  await persistData(owner, deviceB);
+  await updateData(owner, (old) =>
+    saveSoilPrice(
+      old,
+      {
+        soilId: 'soil',
+        sourceId: 'source',
+        amount: '150.20',
+        unit: 'trip',
+        note: 'device B offline',
+      },
+      owner,
+    ),
+  );
+  await synchronize(owner, firestoreTransport);
+  await synchronize(owner, firestoreTransport);
+  const originalDB = indexedDB;
+  vi.stubGlobal('indexedDB', new IDBFactory());
+  try {
+    await synchronize(owner, firestoreTransport);
+    saved = await loadData(owner);
+    const history = priceHistory(
+      saved,
+      saved.masters.find((item) => item.id === 'soil')!,
+      'source',
+    );
+    expect(history).toHaveLength(4);
+    expect(new Set(history.map((entry) => entry.satang))).toEqual(
+      new Set([12050, 13025, 14010, 15020]),
+    );
+    expect(saved.masters.find((item) => item.id === 'truck')?.driverId).toBe(driverId);
+    expect(Object.values(saved.sync!.entries).every((entry) => entry.status === 'synced')).toBe(
+      true,
+    );
+  } finally {
+    vi.stubGlobal('indexedDB', originalDB);
+  }
+});
 it('P2 daily trip snapshots survive retry, duplicate day, a concurrent-device conflict and clean-device restore', async () => {
   const owner = session.owner,
     data = fixture();

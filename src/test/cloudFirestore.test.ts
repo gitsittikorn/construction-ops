@@ -106,6 +106,22 @@ it('uses transactional uniqueness claims to reject duplicate truck plates across
     active: true,
   });
 });
+it('claims a driver atomically with a plate and refuses an already assigned driver before any writes', async () => {
+  const data = fixture();
+  data.masters[0] = { ...data.masters[0], driverId: 'driver' };
+  const entry = prepareSync(data, data).sync!.entries['masters/truck'];
+  sdk.get.mockImplementation(async (ref: string) =>
+    ref.endsWith('/driver-driver') ? found({ entityId: 'another-truck', active: true }) : missing(),
+  );
+  await expect(pushCloudRecord('admin', 'masters', entry)).rejects.toThrow('มีรถประจำ');
+  expect(sdk.set).not.toHaveBeenCalled();
+  sdk.get.mockResolvedValue(missing());
+  await pushCloudRecord('admin', 'masters', entry);
+  expect(sdk.set).toHaveBeenCalledWith('users/admin/uniqueKeys/driver-driver', {
+    entityId: 'truck',
+    active: true,
+  });
+});
 it('paginates initial restore and uses a conservative timestamp before switching to incremental queries', async () => {
   const rows = Array.from({ length: 200 }, (_, i) => {
     const id = `p-${i}`,

@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { useEffect, useRef, useState } from 'react';
 import type { Data } from './models';
 import type { FinanceRate, ProjectExpense, RateSide } from './financeModels';
@@ -129,7 +130,7 @@ export default function FinancePanel({
       <div className="operations-filters">
         <label>
           โครงการการเงิน
-          <select
+          <SearchableSelect
             aria-label="โครงการการเงิน"
             value={project}
             disabled={busy}
@@ -146,7 +147,7 @@ export default function FinancePanel({
                 {p.status === 'active' ? '' : ' (อ่านอย่างเดียว)'}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </label>
         <label>
           การเงินตั้งแต่วันที่
@@ -229,7 +230,7 @@ export default function FinancePanel({
               <fieldset disabled={busy || !canEdit}>
                 <label className="field">
                   ประเภทเรต
-                  <select
+                  <SearchableSelect
                     aria-label="ประเภทเรต"
                     value={side}
                     onChange={(event) => setSide(event.target.value as RateSide)}
@@ -239,12 +240,12 @@ export default function FinancePanel({
                         {label}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 {side !== 'revenue' && (
                   <label className="field">
                     รถหรือคนขับสำหรับเรต
-                    <select key={side} name="partyId" aria-label="รถหรือคนขับสำหรับเรต">
+                    <SearchableSelect key={side} name="partyId" aria-label="รถหรือคนขับสำหรับเรต">
                       <option value="">เรตทั่วไป</option>
                       {data.masters
                         .filter((m) => m.kind === side)
@@ -253,7 +254,7 @@ export default function FinancePanel({
                             {m.name}
                           </option>
                         ))}
-                    </select>
+                    </SearchableSelect>
                   </label>
                 )}
                 <label className="field">
@@ -268,10 +269,10 @@ export default function FinancePanel({
                 </label>
                 <label className="field">
                   หน่วยราคา
-                  <select name="unit" aria-label="หน่วยราคา">
+                  <SearchableSelect name="unit" aria-label="หน่วยราคา">
                     <option value="trip">บาทต่อเที่ยว</option>
                     <option value="m3">บาทต่อ m³</option>
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="field">
                   ราคา บาท
@@ -333,17 +334,17 @@ export default function FinancePanel({
                 </label>
                 <label className="field">
                   หมวดค่าใช้จ่าย
-                  <select name="category" aria-label="หมวดค่าใช้จ่าย">
+                  <SearchableSelect name="category" aria-label="หมวดค่าใช้จ่าย">
                     {Object.entries(categoryLabels).map(([key, label]) => (
                       <option key={key} value={key}>
                         {label}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="field">
                   รถของค่าใช้จ่าย
-                  <select name="truckId" aria-label="รถของค่าใช้จ่าย">
+                  <SearchableSelect name="truckId" aria-label="รถของค่าใช้จ่าย">
                     <option value="">ค่าใช้จ่ายโครงการ</option>
                     {data.masters
                       .filter((m) => m.kind === 'truck')
@@ -352,7 +353,7 @@ export default function FinancePanel({
                           {m.name}
                         </option>
                       ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="field">
                   จำนวนค่าใช้จ่าย บาท

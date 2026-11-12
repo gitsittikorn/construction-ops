@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { workspaceMatches } from './workspaceIdentity';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Upload, RefreshCw, Link, Download, Unplug } from 'lucide-react';
@@ -625,7 +626,7 @@ export default function DrivePanel({
           />
           <label className="field">
             <span>ผูกกับเที่ยวรถ (ไม่บังคับ)</span>
-            <select name="tripId" key={project}>
+            <SearchableSelect name="tripId" key={project}>
               <option value="">เอกสารระดับโครงการ</option>
               {trips
                 .filter((t) => t.projectId === project)
@@ -634,7 +635,7 @@ export default function DrivePanel({
                     {t.date} {t.time} · {t.id.slice(0, 8)}
                   </option>
                 ))}
-            </select>
+            </SearchableSelect>
           </label>
           <label className="field">
             <span>เลือกรูปภาพ / PDF *</span>

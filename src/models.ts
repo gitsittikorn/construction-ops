@@ -16,7 +16,7 @@ export interface Project extends Base {
   description: string;
 }
 export interface Master extends Base {
-  kind: 'truck' | 'driver' | 'source' | 'customer' | 'soilType' | 'tag';
+  kind: 'truck' | 'driver' | 'source' | 'customer' | 'soilType' | 'tag' | 'soilPrice';
   name: string;
   detail: string;
   capacity: number;
@@ -26,6 +26,20 @@ export interface Master extends Base {
   nickname?: string;
   truckType?: 'six-wheel' | 'ten-wheel' | 'other';
   tagIds?: string[];
+  driverId?: string;
+  soilPrice?: SoilPrice;
+}
+export interface SoilPrice {
+  id: string;
+  sourceId: string;
+  soilTypeId: string;
+  sourceName: string;
+  soilName: string;
+  satang: number;
+  unit: 'm3' | 'trip';
+  at: string;
+  by: string;
+  note: string;
 }
 export interface Trip extends Base {
   capacityPerTrip?: number;

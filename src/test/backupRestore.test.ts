@@ -6,6 +6,8 @@ import { loadData, openLocalDatabase, persistData, updateData } from '../storage
 import { fixture, project } from './syncFixtures';
 import { emptyData, type Data } from '../models';
 import { readBlobBytes } from '../files';
+import { saveMaster, saveTruckWithDriver } from '../masterData';
+import { saveSoilPrice, priceHistory } from '../soilPrices';
 
 function backup(owner: string, state: Data, uploads: unknown[] = [], extras = {}) {
   return new Blob([
@@ -20,6 +22,42 @@ function backup(owner: string, state: Data, uploads: unknown[] = [], extras = {}
     }),
   ]);
 }
+it('restores original fleet links and immutable source-price history with pending acknowledgements, then rejects malformed prices', async () => {
+  const owner = crypto.randomUUID();
+  let source = fixture();
+  const truck = source.masters[0];
+  source = saveMaster(source, { ...truck, id: 'soil', name: 'ดินถม', kind: 'soilType' }, owner);
+  source = saveMaster(
+    source,
+    { ...truck, id: 'source', name: 'แหล่งหนึ่ง', kind: 'source' },
+    owner,
+  );
+  source = saveTruckWithDriver(source, truck, owner, 'คนขับ');
+  source = saveSoilPrice(
+    source,
+    { soilId: 'soil', sourceId: 'source', amount: '12.34', unit: 'm3', note: '' },
+    owner,
+  );
+  const preview = await previewLocalRestore(owner, backup(owner, source));
+  await applyLocalRestore(owner, preview);
+  const saved = await loadData(owner);
+  expect(saved.masters.find((item) => item.id === truck.id)?.driverId).toBe(
+    source.masters.find((item) => item.id === truck.id)?.driverId,
+  );
+  expect(
+    priceHistory(
+      saved,
+      saved.masters.find((item) => item.id === 'soil')!,
+    )[0].satang,
+  ).toBe(1234);
+  expect(Object.values(saved.sync!.entries).every((entry) => entry.status === 'pending')).toBe(
+    true,
+  );
+  const bad = structuredClone(source);
+  bad.masters.find((item) => item.kind === 'soilPrice')!.soilPrice!.satang = -1;
+  await expect(previewLocalRestore(owner, backup(owner, bad))).rejects.toThrow('ประวัติราคา');
+  expect(await loadData(owner)).toEqual(saved);
+});
 const attachment = (owner: string) => ({
   id: crypto.randomUUID(),
   owner,

@@ -179,6 +179,26 @@ export function integrityIssues(data: Data): string[] {
   const issues: string[] = [];
   const projects = new Set([...data.projects, ...(data.deletedProjects ?? [])].map((p) => p.id));
   const masters = [...data.masters, ...(data.deletedMasters ?? [])];
+  for (const master of masters) {
+    if (
+      master.driverId &&
+      !masters.some((item) => item.id === master.driverId && item.kind === 'driver')
+    )
+      issues.push(`รถ ${master.id}: ไม่พบคนขับประจำรถ`);
+    if (
+      master.soilPrice &&
+      (!masters.some((item) => item.id === master.soilPrice!.sourceId && item.kind === 'source') ||
+        !masters.some(
+          (item) => item.id === master.soilPrice!.soilTypeId && item.kind === 'soilType',
+        ))
+    )
+      issues.push(`ราคาดิน ${master.id}: ไม่พบแหล่งดินหรือชนิดดิน`);
+  }
+  const assigned = new Set<string>();
+  for (const truck of data.masters.filter((item) => item.kind === 'truck' && item.driverId)) {
+    if (assigned.has(truck.driverId!)) issues.push(`รถ ${truck.id}: คนขับประจำรถซ้ำ`);
+    assigned.add(truck.driverId!);
+  }
   for (const trip of [...data.trips, ...(data.deletedTrips ?? [])]) {
     if (!projects.has(trip.projectId))
       issues.push(`เที่ยวรถ ${trip.id}: ไม่พบโครงการ ${trip.projectId}`);

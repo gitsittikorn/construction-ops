@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import type { Master } from './models';
 import type { DailySession } from './workspaceModels';
 import type { DailyFormDraft } from './dailyDrafts';
@@ -27,7 +28,7 @@ export default function DailyTripCorrections({
       <summary>แก้ไขเที่ยวรายรายการพร้อมเหตุผล</summary>
       <label>
         เที่ยวที่ต้องแก้ไข
-        <select
+        <SearchableSelect
           aria-label="เที่ยวที่ต้องแก้ไข"
           value={values.tripId ?? ''}
           disabled={busy || session.body.state === 'closed'}
@@ -59,7 +60,7 @@ export default function DailyTripCorrections({
               </option>
             )),
           )}
-        </select>
+        </SearchableSelect>
       </label>
       {values.tripId && (
         <form
@@ -89,7 +90,7 @@ export default function DailyTripCorrections({
             ).map(([key, kind, label]) => (
               <label key={key}>
                 {label}
-                <select
+                <SearchableSelect
                   aria-label={label}
                   value={values[key]}
                   onChange={(e) => field(key, e.target.value)}
@@ -103,12 +104,12 @@ export default function DailyTripCorrections({
                         {!m.active ? ' (ปิดใช้งาน)' : ''}
                       </option>
                     ))}
-                </select>
+                </SearchableSelect>
               </label>
             ))}
             <label>
               ชนิดดินเที่ยวที่แก้ไข
-              <select
+              <SearchableSelect
                 aria-label="ชนิดดินเที่ยวที่แก้ไข"
                 value={values.soilType}
                 onChange={(e) => field('soilType', e.target.value)}
@@ -119,7 +120,7 @@ export default function DailyTripCorrections({
                   .map((m) => (
                     <option key={m.id}>{m.name}</option>
                   ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               เหตุผลแก้ไขเที่ยว

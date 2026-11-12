@@ -278,6 +278,10 @@ export async function synchronize(
 // reorder arrays, so do not let a dependent block its own prerequisite forever.
 function dependencyPriority(entry: SyncEntry) {
   const payload = entry.desired.payload;
+  if ('kind' in payload) {
+    if (payload.kind === 'soilPrice') return 2;
+    if (payload.kind === 'truck' && payload.driverId && !entry.desired.deletedAt) return 1;
+  }
   return 'recordType' in payload &&
     (payload.recordType === 'evidence' ||
       (payload.recordType === 'finance' &&

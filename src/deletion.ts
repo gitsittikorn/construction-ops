@@ -28,7 +28,14 @@ export function deleteRecord(
           [trip.truckId, trip.driverId, trip.sourceId].includes(id) ||
           (record.kind === 'soilType' && trip.soilType === record.name),
       ) ||
-      data.masters.some((item) => item.tagIds?.includes(id))
+      data.masters.some(
+        (item) =>
+          item.tagIds?.includes(id) ||
+          item.driverId === id ||
+          item.soilPrice?.sourceId === id ||
+          item.soilPrice?.soilTypeId === id,
+      ) ||
+      record.kind === 'soilPrice'
     )
       throw Error(
         'ลบไม่ได้: มีรายการอื่นอ้างอิงข้อมูลนี้ กรุณาปิดใช้งานหรือเอาแท็กออกจากรายการที่ใช้อยู่ก่อน',

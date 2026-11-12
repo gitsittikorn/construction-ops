@@ -22,7 +22,7 @@ test('truck details, team tags, XLSX export and reviewed import work together in
     await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   }
-  await page.getByRole('button', { name: 'รถบรรทุก', exact: true }).click();
+  await page.getByRole('button', { name: 'รถและคนขับ', exact: true }).click();
   for (const [plate, province, phone, type, tag] of [
     ['81-1111', 'ภูเก็ต', '0812345678', 'six-wheel', 'ทีม A'],
     ['82-2222', 'พังงา', '0898765432', 'ten-wheel', 'ทีม B'],

@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { assertCompanyMutation } from './companyPermissions';
 import { actorUid, cacheOwner, companyRole, type CompanyScope } from './workspaceIdentity';
 import CompanyMembersPanel from './CompanyMembersPanel';
@@ -59,7 +60,14 @@ import ProjectPicker from './ProjectPicker';
 import SoilTypePicker from './SoilTypePicker';
 import ProjectCoordinates from './ProjectCoordinates';
 import { clearDriveSessions, clearDriveSessionsExcept } from './driveSession';
-import { saveMaster, matchesMaster, tagNames, truckTypes } from './masterData';
+import {
+  saveTruckWithDriver,
+  assignedDriver,
+  matchesMaster,
+  tagNames,
+  truckTypes,
+} from './masterData';
+import SoilPricesPanel from './SoilPricesPanel';
 import TagFields from './TagFields';
 import TruckExcelPanel from './TruckExcelPanel';
 import PageGuide, { pageDescription } from './PageGuide';
@@ -95,6 +103,7 @@ const labels = {
   customer: 'ลูกค้า',
   soilType: 'ชนิดดิน',
   tag: 'แท็กทีม',
+  soilPrice: 'ประวัติราคาดิน',
 };
 const number = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 3 });
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -138,6 +147,9 @@ export default function App({
         : 'พนักงานบันทึกข้อมูล';
   const [tripProject, setTripProject] = useState('');
   const [tripSoilType, setTripSoilType] = useState('');
+  const [tripTruck, setTripTruck] = useState('');
+  const [tripDriver, setTripDriver] = useState('');
+  const [tripSource, setTripSource] = useState('');
   const [masterTagFilter, setMasterTagFilter] = useState('');
   const [reportProject, setReportProject] = useState('');
   const [demoBusy, setDemoBusy] = useState(false);
@@ -368,6 +380,11 @@ export default function App({
     }
     setConfirmDelete(false);
     if (type === 'trip') setTripSoilType(record && 'soilType' in record ? record.soilType : '');
+    if (type === 'trip') {
+      setTripTruck(record && 'truckId' in record ? record.truckId : '');
+      setTripDriver(record && 'driverId' in record ? (record.driverId ?? '') : '');
+      setTripSource(record && 'sourceId' in record ? record.sourceId : '');
+    }
     if (type === 'trip')
       setTripProject(
         record && 'projectId' in record
@@ -434,10 +451,12 @@ export default function App({
                 phone: get('phone'),
                 nickname: get('nickname'),
                 truckType: (get('truckType') || undefined) as Master['truckType'],
+                driverId: get('driverId'),
               }
             : {}),
+          ...(kind === 'driver' ? { phone: get('phone'), nickname: get('nickname') } : {}),
         };
-        await change((old) => saveMaster(old, record, owner));
+        await change((old) => saveTruckWithDriver(old, record, owner, get('newDriverName')));
       } else {
         const record: Trip = {
           ...base,
@@ -985,19 +1004,75 @@ export default function App({
               )}
               {page === 'masters' && (
                 <>
+                  {(kind === 'truck' || kind === 'driver') && (
+                    <div className="panel padded">
+                      <h2>รถและคนขับ</h2>
+                      <p>
+                        จัดการรถและคนขับในที่เดียว ผูกคนขับประจำได้หนึ่งคนต่อหนึ่งคันที่หน้ารถ
+                        เลือกทะเบียนในเที่ยวรถเพื่อเติมคนขับให้อัตโนมัติ
+                        การเปลี่ยนรถประจำไม่แก้ประวัติเที่ยวรถเก่า
+                      </p>
+                      <div className="form-actions">
+                        <button
+                          type="button"
+                          className={kind === 'truck' ? 'primary' : ''}
+                          onClick={() => {
+                            setKind('truck');
+                            setQuery('');
+                          }}
+                        >
+                          รถบรรทุก
+                        </button>
+                        <button
+                          type="button"
+                          className={kind === 'driver' ? 'primary' : ''}
+                          onClick={() => {
+                            setKind('driver');
+                            setQuery('');
+                          }}
+                        >
+                          คนขับรถ
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canManage}
+                          onClick={() => {
+                            setKind('truck');
+                            open('master');
+                          }}
+                        >
+                          เพิ่มรถพร้อมคนขับ
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canManage}
+                          onClick={() => {
+                            setKind('driver');
+                            open('master');
+                          }}
+                        >
+                          เพิ่มคนขับรถ
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="tabs">
-                    {Object.entries(labels).map(([id, title]) => (
-                      <button
-                        className={kind === id ? 'active' : ''}
-                        key={id}
-                        onClick={() => {
-                          setKind(id as Master['kind']);
-                          setQuery('');
-                        }}
-                      >
-                        {title}
-                      </button>
-                    ))}
+                    {Object.entries(labels)
+                      .filter(([id]) => id !== 'soilPrice' && id !== 'driver')
+                      .map(([id, title]) => (
+                        <button
+                          className={
+                            kind === id || (id === 'truck' && kind === 'driver') ? 'active' : ''
+                          }
+                          key={id}
+                          onClick={() => {
+                            setKind(id as Master['kind']);
+                            setQuery('');
+                          }}
+                        >
+                          {id === 'truck' ? 'รถและคนขับ' : title}
+                        </button>
+                      ))}
                   </div>
                   <div className="toolbar wrap">
                     <Search size={17} />
@@ -1008,7 +1083,7 @@ export default function App({
                       onChange={(event) => setQuery(event.target.value)}
                     />
                     {kind !== 'tag' && (
-                      <select
+                      <SearchableSelect
                         aria-label="กรองแท็กทีม"
                         value={masterTagFilter}
                         onChange={(event) => setMasterTagFilter(event.target.value)}
@@ -1022,10 +1097,10 @@ export default function App({
                               {!tag.active ? ' (ปิดใช้งาน)' : ''}
                             </option>
                           ))}
-                      </select>
+                      </SearchableSelect>
                     )}
                     {kind === 'truck' && (
-                      <select
+                      <SearchableSelect
                         aria-label="กรองประเภทรถ"
                         value={truckTypeFilter}
                         onChange={(event) => setTruckTypeFilter(event.target.value)}
@@ -1036,7 +1111,7 @@ export default function App({
                             {title}
                           </option>
                         ))}
-                      </select>
+                      </SearchableSelect>
                     )}
                   </div>
                   {kind === 'truck' && canManage && (
@@ -1067,6 +1142,12 @@ export default function App({
                             {m.phone ? ` · ${m.phone}` : ''}
                             {m.nickname ? ` · ${m.nickname}` : ''}
                             {m.truckType ? ` · ${truckTypes[m.truckType]}` : ''}
+                            {m.kind === 'truck' && m.driverId
+                              ? ` · คนขับประจำ: ${masterName(m.driverId)}`
+                              : ''}
+                            {m.kind === 'driver'
+                              ? ` · รถประจำ: ${data.masters.find((truck) => truck.kind === 'truck' && truck.driverId === m.id)?.name ?? 'ยังไม่ผูกกับรถ'}`
+                              : ''}
                           </small>
                           <span className="tag-badges">
                             {tagNames(m, data.masters).map((name, index) => (
@@ -1089,20 +1170,28 @@ export default function App({
                   {!data.masters.some((m) => m.kind === kind) && (
                     <Empty text={`ยังไม่มีข้อมูล${labels[kind]}`} action={() => open('master')} />
                   )}
+                  {kind === 'soilType' && (
+                    <SoilPricesPanel
+                      data={data}
+                      actor={owner}
+                      canManage={canManage}
+                      onChange={change}
+                    />
+                  )}
                 </>
               )}
               {page === 'trips' && (
                 <div className="toolbar view-selector">
                   <label>
                     มุมมองเที่ยวรถ
-                    <select
+                    <SearchableSelect
                       aria-label="มุมมองเที่ยวรถ"
                       value={tripView}
                       onChange={(event) => setTripView(event.target.value)}
                     >
                       <option value="records">รายการเที่ยวรถ</option>
                       <option value="duplicates">ตรวจเที่ยวที่อาจซ้ำ</option>
-                    </select>
+                    </SearchableSelect>
                   </label>
                 </div>
               )}
@@ -1153,7 +1242,7 @@ export default function App({
                       disabled={!date}
                       onChange={(e) => setDate(e.target.value)}
                     />
-                    <select
+                    <SearchableSelect
                       aria-label="กรองโครงการ"
                       value={filter}
                       onChange={(e) => setFilter(e.target.value)}
@@ -1164,7 +1253,7 @@ export default function App({
                           {p.name}
                         </option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                     <button className="secondary" onClick={exportCSV}>
                       <Download size={16} /> CSV
                     </button>
@@ -1260,7 +1349,7 @@ export default function App({
                     <p>ใช้เริ่มกรอกงานใหม่ในบัญชีและ browser นี้ ไม่เปลี่ยนงานหรือแบบร่างเดิม</p>
                     <label>
                       เลือกโครงการเริ่มต้น
-                      <select
+                      <SearchableSelect
                         aria-label="เลือกโครงการเริ่มต้น"
                         value={projectPreference.id}
                         disabled={!projectPreference.ready || projectPreference.saving}
@@ -1274,7 +1363,7 @@ export default function App({
                               {project.name}
                             </option>
                           ))}
-                      </select>
+                      </SearchableSelect>
                     </label>
                     {projectPreference.saving && <p role="status">กำลังบันทึกการตั้งค่า…</p>}
                     {projectPreference.error && <p role="alert">{projectPreference.error}</p>}
@@ -1384,7 +1473,7 @@ export default function App({
                     {input('startDate', 'วันเริ่มต้น', 'date')}
                     {input('endDate', 'วันสิ้นสุด', 'date')}
                     <Field label="สถานะ">
-                      <select
+                      <SearchableSelect
                         name="status"
                         aria-label="สถานะโครงการ"
                         defaultValue={editing && 'status' in editing ? editing.status : 'active'}
@@ -1394,7 +1483,7 @@ export default function App({
                             {title}
                           </option>
                         ))}
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     {input('description', 'รายละเอียด')}
                   </>
@@ -1417,14 +1506,84 @@ export default function App({
                       kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด',
                     )}
                     {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
+                    {kind === 'driver' && (
+                      <>
+                        {input('phone', 'เบอร์โทร', 'tel')}
+                        {input('nickname', 'ชื่อเล่น')}
+                        <p>
+                          รถประจำ:{' '}
+                          {data.masters.find(
+                            (truck) => truck.kind === 'truck' && truck.driverId === editing?.id,
+                          )?.name ?? 'ยังไม่ผูกกับรถ'}{' '}
+                          · ผูกหรือยกเลิกได้จากการแก้ไขรถบรรทุก
+                        </p>
+                      </>
+                    )}
                     {kind === 'truck' && (
                       <>
                         {input('province', 'จังหวัดทะเบียน')}
                         {input('phone', 'เบอร์โทร', 'tel')}
                         {input('nickname', 'ชื่อเล่น')}
+                        <Field label="คนขับประจำรถ">
+                          <SearchableSelect
+                            name="driverId"
+                            aria-label="คนขับประจำรถ"
+                            defaultValue={
+                              editing && 'kind' in editing ? (editing.driverId ?? '') : ''
+                            }
+                          >
+                            <option value="">ยังไม่ผูกคนขับ / เพิ่มคนขับใหม่ด้านล่าง</option>
+                            {data.masters
+                              .filter(
+                                (item) =>
+                                  item.kind === 'driver' &&
+                                  (item.active ||
+                                    (editing && 'kind' in editing && editing.driverId === item.id)),
+                              )
+                              .map((driver) => {
+                                const assigned = data.masters.find(
+                                  (truck) =>
+                                    truck.kind === 'truck' &&
+                                    truck.id !== editing?.id &&
+                                    truck.driverId === driver.id,
+                                );
+                                return (
+                                  <option
+                                    key={driver.id}
+                                    value={driver.id}
+                                    disabled={Boolean(assigned)}
+                                    data-search={[
+                                      driver.nickname,
+                                      driver.phone,
+                                      driver.detail,
+                                    ].join(' ')}
+                                  >
+                                    {driver.name}
+                                    {assigned
+                                      ? ` (รถ ${assigned.name} · ต้องยกเลิกการผูกเดิมก่อน)`
+                                      : ''}
+                                    {driver.active ? '' : ' (ปิดใช้งาน)'}
+                                  </option>
+                                );
+                              })}
+                          </SearchableSelect>
+                        </Field>
+                        <Field label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)">
+                          <input
+                            name="newDriverName"
+                            aria-label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)"
+                            maxLength={200}
+                          />
+                          <small>
+                            เลือกคนขับเดิมหรือกรอกชื่อใหม่อย่างใดอย่างหนึ่ง
+                            ชื่อใหม่จะใช้ชื่อเล่นและเบอร์โทรที่กรอกในรถนี้เป็นข้อมูลเริ่มต้น
+                            บันทึกพร้อมรถในครั้งเดียว
+                          </small>
+                        </Field>
                         <Field label="ประเภทรถ">
-                          <select
+                          <SearchableSelect
                             name="truckType"
+                            aria-label="ประเภทรถ"
                             defaultValue={
                               editing && 'kind' in editing ? (editing.truckType ?? '') : ''
                             }
@@ -1435,7 +1594,7 @@ export default function App({
                                 {title}
                               </option>
                             ))}
-                          </select>
+                          </SearchableSelect>
                         </Field>
                       </>
                     )}
@@ -1446,7 +1605,7 @@ export default function App({
                       />
                     )}
                     <Field label="สถานะ">
-                      <select
+                      <SearchableSelect
                         name="active"
                         defaultValue={
                           editing && 'active' in editing ? String(editing.active) : 'true'
@@ -1454,7 +1613,7 @@ export default function App({
                       >
                         <option value="true">ใช้งาน</option>
                         <option value="false">ปิดใช้งาน</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                   </>
                 ) : (
@@ -1471,28 +1630,58 @@ export default function App({
                     />
                     {(['truck', 'driver', 'source'] as const).map((type) => (
                       <Field key={type} label={labels[type] + (type === 'truck' ? ' *' : '')}>
-                        <select
+                        <SearchableSelect
                           aria-label={labels[type] + (type === 'truck' ? ' *' : '')}
                           name={type + 'Id'}
                           required={type === 'truck'}
-                          defaultValue={
-                            editing
-                              ? String(
-                                  (editing as unknown as Record<string, unknown>)[type + 'Id'] ??
-                                    '',
-                                )
-                              : ''
+                          value={
+                            type === 'truck'
+                              ? tripTruck
+                              : type === 'driver'
+                                ? tripDriver
+                                : tripSource
                           }
+                          onChange={(event) => {
+                            const id = event.target.value;
+                            if (type === 'truck') {
+                              setTripTruck(id);
+                              setTripDriver(assignedDriver(data.masters, id));
+                            }
+                            if (type === 'driver') {
+                              setTripDriver(id);
+                              const truck = data.masters.find(
+                                (item) =>
+                                  item.kind === 'truck' &&
+                                  item.active &&
+                                  item.driverId === id &&
+                                  id,
+                              );
+                              if (truck) setTripTruck(truck.id);
+                            }
+                            if (type === 'source') setTripSource(id);
+                          }}
                         >
                           <option value="">เลือก{labels[type]}</option>
                           {data.masters
                             .filter((m) => m.kind === type && m.active)
                             .map((m) => (
-                              <option key={m.id} value={m.id}>
+                              <option
+                                key={m.id}
+                                value={m.id}
+                                data-search={[
+                                  m.nickname,
+                                  m.phone,
+                                  m.province,
+                                  m.detail,
+                                  m.kind === 'driver'
+                                    ? data.masters.find((truck) => truck.driverId === m.id)?.name
+                                    : masterName(m.driverId ?? ''),
+                                ].join(' ')}
+                              >
                                 {m.name}
                               </option>
                             ))}
-                        </select>
+                        </SearchableSelect>
                         {!data.masters.some((m) => m.kind === type && m.active) && (
                           <small>
                             {data.masters.some((m) => m.kind === type)
@@ -1523,6 +1712,7 @@ export default function App({
                       masters={data.masters}
                       value={tripSoilType}
                       onChange={setTripSoilType}
+                      sourceId={tripSource}
                       previousValue={
                         editing && 'soilType' in editing ? editing.soilType : undefined
                       }

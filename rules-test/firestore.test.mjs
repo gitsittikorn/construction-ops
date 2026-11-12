@@ -70,6 +70,107 @@ const envelope = (payload, revision = 1) => ({
   serverUpdatedAt: serverTimestamp(),
 });
 
+test('driver claims enforce one truck per driver, atomic release and company isolation', async () => {
+  const db = env.authenticatedContext('admin').firestore();
+  const path = (kind, id) => doc(db, 'users', 'admin', kind, id);
+  await assertSucceeds(
+    setDoc(path('masters', 'fleet-driver'), envelope(master('fleet-driver', 'driver'))),
+  );
+  const first = { ...master('fleet-one'), driverId: 'fleet-driver' };
+  await assertFails(setDoc(path('masters', first.id), envelope(first)));
+  await assertSucceeds(
+    runTransaction(db, async (tx) => {
+      tx.set(path('masters', first.id), envelope(first));
+      tx.set(path('uniqueKeys', 'driver-fleet-driver'), { entityId: first.id, active: true });
+    }),
+  );
+  const second = { ...master('fleet-two'), driverId: 'fleet-driver' };
+  await assertFails(
+    runTransaction(db, async (tx) => {
+      tx.set(path('masters', second.id), envelope(second));
+      tx.set(path('uniqueKeys', 'driver-fleet-driver'), { entityId: second.id, active: true });
+    }),
+  );
+  await assertFails(
+    setDoc(path('uniqueKeys', 'driver-fleet-driver'), { entityId: first.id, active: false }),
+  );
+  await assertSucceeds(
+    runTransaction(db, async (tx) => {
+      tx.set(path('masters', first.id), envelope({ ...first, driverId: '' }, 2));
+      tx.set(path('uniqueKeys', 'driver-fleet-driver'), { entityId: first.id, active: false });
+    }),
+  );
+  await assertSucceeds(
+    runTransaction(db, async (tx) => {
+      tx.set(path('masters', second.id), envelope(second));
+      tx.set(path('uniqueKeys', 'driver-fleet-driver'), { entityId: second.id, active: true });
+    }),
+  );
+  const outsider = env.authenticatedContext('other').firestore();
+  await assertFails(
+    setDoc(
+      doc(outsider, 'users', 'admin', 'masters', 'foreign-truck'),
+      envelope({ ...master('foreign-truck'), driverId: 'fleet-driver' }),
+    ),
+  );
+});
+
+test('soil price events validate exact currency, references and authors, and cannot be edited or deleted', async () => {
+  const db = env.authenticatedContext('admin').firestore();
+  const path = (id) => doc(db, 'users', 'admin', 'masters', id);
+  await assertSucceeds(setDoc(path('price-soil'), envelope(master('price-soil', 'soilType'))));
+  await assertSucceeds(setDoc(path('price-source'), envelope(master('price-source', 'source'))));
+  const price = {
+    ...master('price-event', 'soilPrice'),
+    soilPrice: {
+      id: 'price-event',
+      soilTypeId: 'price-soil',
+      sourceId: 'price-source',
+      sourceName: 'แหล่งหนึ่ง',
+      soilName: 'ดินถม',
+      satang: 12050,
+      unit: 'm3',
+      at: '2026-11-05T00:00:00Z',
+      by: 'admin',
+      note: '',
+    },
+  };
+  await assertSucceeds(setDoc(path(price.id), envelope(price)));
+  await assertFails(
+    setDoc(path(price.id), envelope({ ...price, soilPrice: { ...price.soilPrice, satang: 1 } }, 2)),
+  );
+  await assertFails(setDoc(path(price.id), { ...envelope(price, 2), deletedAt: 'now' }));
+  await assertFails(deleteDoc(path(price.id)));
+  for (const patch of [
+    { satang: -1 },
+    { satang: 1.5 },
+    { satang: 1000000000001 },
+    { unit: 'ton' },
+    { sourceId: 'missing' },
+    { soilTypeId: 'price-source' },
+    { by: 'other' },
+    { unexpected: true },
+  ]) {
+    const id = `price-bad-${Object.keys(patch)[0]}-${String(Object.values(patch)[0])}`;
+    await assertFails(
+      setDoc(path(id), envelope({ ...price, id, soilPrice: { ...price.soilPrice, id, ...patch } })),
+    );
+  }
+  const zero = {
+    ...price,
+    id: 'price-zero',
+    soilPrice: { ...price.soilPrice, id: 'price-zero', satang: 0 },
+  };
+  await assertSucceeds(setDoc(path(zero.id), envelope(zero)));
+  const outsider = env.authenticatedContext('other').firestore();
+  await assertFails(
+    setDoc(
+      doc(outsider, 'users', 'admin', 'masters', 'price-foreign'),
+      envelope({ ...price, id: 'price-foreign' }),
+    ),
+  );
+});
+
 test('anonymous, non-admin and disabled accounts cannot read or write data', async () => {
   for (const context of [
     env.unauthenticatedContext(),

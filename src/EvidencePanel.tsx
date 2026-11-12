@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { useEffect, useRef, useState } from 'react';
 import type { Data } from './models';
 import type { DailySession, DailyRow, EvidenceCategory } from './workspaceModels';
@@ -133,7 +134,7 @@ export default function EvidencePanel({
       {notice && <p role="status">{notice}</p>}
       <label>
         ประเภทภาพ
-        <select
+        <SearchableSelect
           aria-label="ประเภทภาพหลักฐาน"
           disabled={busy || session.body.state === 'closed'}
           value={category}
@@ -144,7 +145,7 @@ export default function EvidencePanel({
         >
           <option value="driver-photo">รูปคนขับ</option>
           <option value="trip-slip">ภาพใบเที่ยว</option>
-        </select>
+        </SearchableSelect>
       </label>
       <label>
         ถ่ายภาพ / เลือกภาพ

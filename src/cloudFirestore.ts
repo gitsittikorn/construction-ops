@@ -79,6 +79,18 @@ function uniqueKey(kind: EntityCollection, record: CloudRecord | null) {
   if (value.length > 250) throw Error('ชื่อหรือทะเบียนยาวเกินไปสำหรับตรวจสอบข้อมูลซ้ำ');
   return encodeURIComponent(value);
 }
+function driverKey(kind: EntityCollection, record: CloudRecord | null) {
+  if (
+    kind !== 'masters' ||
+    !record ||
+    record.deletedAt ||
+    !('kind' in record.payload) ||
+    record.payload.kind !== 'truck' ||
+    !record.payload.driverId
+  )
+    return null;
+  return `driver-${record.payload.driverId}`;
+}
 export async function pushCloudRecord(
   owner: string,
   kind: EntityCollection,
@@ -102,20 +114,35 @@ export async function pushCloudRecord(
         (remote && desired.createdAt !== remote.createdAt)
       )
         throw Error('เวอร์ชันข้อมูลไม่ถูกต้อง');
-      const oldKey = uniqueKey(kind, remote),
-        newKey = uniqueKey(kind, desired);
-      const newClaim = newKey ? doc(db, 'users', companyId(owner), 'uniqueKeys', newKey) : null;
-      const oldClaim =
-        oldKey && oldKey !== newKey
-          ? doc(db, 'users', companyId(owner), 'uniqueKeys', oldKey)
-          : null;
-      const claim = newClaim ? await transaction.get(newClaim) : null;
-      const previousClaim = oldClaim ? await transaction.get(oldClaim) : null;
-      if (claim?.exists() && claim.data().active === true && claim.data().entityId !== desired.id)
-        throw Error('ทะเบียนรถหรือชื่อทีมนี้มีอยู่บน Cloud แล้ว กรุณาตรวจสอบรายการซ้ำ');
-      if (newClaim) transaction.set(newClaim, { entityId: desired.id, active: true });
-      if (oldClaim && previousClaim?.exists() && previousClaim.data().entityId === desired.id)
-        transaction.set(oldClaim, { entityId: desired.id, active: false });
+      const newKeys = [uniqueKey(kind, desired), driverKey(kind, desired)].filter(
+        (key): key is string => !!key,
+      );
+      const oldKeys = [uniqueKey(kind, remote), driverKey(kind, remote)].filter(
+        (key): key is string => !!key && !newKeys.includes(key),
+      );
+      const claims = [];
+      // All reads precede writes, including plate and driver claims in the same transaction.
+      for (const key of [...newKeys, ...oldKeys]) {
+        const ref = doc(db, 'users', companyId(owner), 'uniqueKeys', key);
+        claims.push({ key, ref, snapshot: await transaction.get(ref) });
+      }
+      for (const { key, snapshot } of claims)
+        if (
+          newKeys.includes(key) &&
+          snapshot.exists() &&
+          snapshot.data().active === true &&
+          snapshot.data().entityId !== desired.id
+        )
+          throw Error(
+            key.startsWith('driver-')
+              ? 'คนขับนี้มีรถประจำบน Cloud แล้ว กรุณายกเลิกการผูกเดิมก่อน'
+              : 'ทะเบียนรถหรือชื่อทีมนี้มีอยู่บน Cloud แล้ว กรุณาตรวจสอบรายการซ้ำ',
+          );
+      for (const { key, ref, snapshot } of claims) {
+        if (newKeys.includes(key)) transaction.set(ref, { entityId: desired.id, active: true });
+        else if (snapshot.exists() && snapshot.data().entityId === desired.id)
+          transaction.set(ref, { entityId: desired.id, active: false });
+      }
       transaction.set(ref, { ...desired, serverUpdatedAt: serverTimestamp() });
       transaction.set(doc(db, 'users', companyId(owner), 'audit', desired.operationId), {
         entityId: desired.id,

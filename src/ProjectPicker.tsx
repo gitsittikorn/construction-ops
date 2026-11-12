@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import type { Project } from './models';
 const labels: Record<Project['status'], string> = {
   active: 'กำลังดำเนินการ',
@@ -28,7 +29,7 @@ export default function ProjectPicker({
     <div className="field">
       <label className="field">
         <span>{label}</span>
-        <select
+        <SearchableSelect
           name="projectId"
           aria-label={label}
           required
@@ -44,7 +45,7 @@ export default function ProjectPicker({
                 : ` (${labels[project.status] ?? 'สถานะไม่รองรับ'} · เลือกไม่ได้)`}
             </option>
           ))}
-        </select>
+        </SearchableSelect>
       </label>
       {needsAction && (
         <div className="project-help" role="status">

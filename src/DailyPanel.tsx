@@ -1,3 +1,5 @@
+import SearchableSelect from './SearchableSelect';
+import { assignedDriver } from './masterData';
 import { managesBusiness } from './workspaceIdentity';
 import { useRef, useState, type FormEvent } from 'react';
 import type { Data, Master } from './models';
@@ -135,10 +137,14 @@ export default function DailyPanel({
     const values = Object.fromEntries(
       [...new FormData(form)].map(([key, value]) => [key, String(value)]),
     );
-    if (changed === 'truckId' && !editing)
+    if (changed === 'truckId' && !editing) {
       values.capacity = String(
         defaultTripCapacity(data.masters.find((m) => m.id === values.truckId)) ?? '',
       );
+      values.driverId = assignedDriver(data.masters, values.truckId);
+      const driver = form.elements.namedItem('driverId') as HTMLSelectElement | null;
+      if (driver) driver.value = values.driverId;
+    }
     ui.update((s) => ({
       ...s,
       drafts: {
@@ -162,7 +168,7 @@ export default function DailyPanel({
     return (
       <label>
         {label}
-        <select
+        <SearchableSelect
           name={key}
           aria-label={label}
           required={required}
@@ -174,12 +180,16 @@ export default function DailyPanel({
               (m) => m.kind === kind && (m.active || m.id === value || m.id === draft?.values[key]),
             )
             .map((m) => (
-              <option value={m.id} key={m.id}>
+              <option
+                value={m.id}
+                key={m.id}
+                data-search={[m.nickname, m.phone, m.province, m.detail].join(' ')}
+              >
                 {m.name}
                 {!m.active ? ' (ปิดใช้งาน)' : ''}
               </option>
             ))}
-        </select>
+        </SearchableSelect>
       </label>
     );
   }
@@ -233,7 +243,7 @@ export default function DailyPanel({
       <div className="operations-filters">
         <label>
           โครงการทำงาน
-          <select
+          <SearchableSelect
             aria-label="โครงการทำงาน"
             value={project}
             onChange={(e) => {
@@ -248,7 +258,7 @@ export default function DailyPanel({
                 {p.name}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </label>
         <label>
           วันที่ทำงาน
@@ -265,7 +275,7 @@ export default function DailyPanel({
         </label>
         <label>
           เปิดประวัติ
-          <select
+          <SearchableSelect
             aria-label="ประวัติวันทำงาน"
             value={session?.id ?? ''}
             onChange={(e) => {
@@ -296,7 +306,7 @@ export default function DailyPanel({
                       : 'เปิดรับรายการ'}
                 </option>
               ))}
-          </select>
+          </SearchableSelect>
         </label>
       </div>
       {error && <p role="alert">{error}</p>}
@@ -328,7 +338,7 @@ export default function DailyPanel({
       </details>
       <label>
         สถานะประวัติ{' '}
-        <select
+        <SearchableSelect
           aria-label="สถานะประวัติวันทำงาน"
           value={historyState}
           onChange={(e) => setHistoryState(e.target.value)}
@@ -337,7 +347,7 @@ export default function DailyPanel({
           <option value="open">เปิดรับรายการ</option>
           <option value="closed">ปิดวันแล้ว</option>
           <option value="reopened">เปิดใหม่</option>
-        </select>
+        </SearchableSelect>
       </label>
       {!session ? (
         <button
@@ -513,7 +523,7 @@ export default function DailyPanel({
           <div className="operations-filters">
             <label>
               กรองรถ{' '}
-              <select
+              <SearchableSelect
                 aria-label="กรองรถรายวัน"
                 value={truckFilter}
                 onChange={(e) => setTruckFilter(e.target.value)}
@@ -526,11 +536,11 @@ export default function DailyPanel({
                       {m.name}
                     </option>
                   ))}
-              </select>
+              </SearchableSelect>
             </label>
             <label>
               กรองคนขับ{' '}
-              <select
+              <SearchableSelect
                 aria-label="กรองคนขับรายวัน"
                 value={driverFilter}
                 onChange={(e) => setDriverFilter(e.target.value)}
@@ -543,7 +553,7 @@ export default function DailyPanel({
                       {m.name}
                     </option>
                   ))}
-              </select>
+              </SearchableSelect>
             </label>
           </div>
           <div className="table-scroll">
@@ -647,7 +657,7 @@ export default function DailyPanel({
                 {masterSelect('sourceId', 'แหล่งดินทำงาน', 'source', editing?.sourceId)}
                 <label>
                   ชนิดดินทำงาน
-                  <select
+                  <SearchableSelect
                     aria-label="ชนิดดินทำงาน"
                     name="soilType"
                     defaultValue={draft?.values.soilType ?? editing?.soilType ?? ''}
@@ -664,7 +674,7 @@ export default function DailyPanel({
                       .map((m) => (
                         <option key={m.id}>{m.name}</option>
                       ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label>
                   เที่ยวบันทึก

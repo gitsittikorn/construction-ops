@@ -8,7 +8,7 @@ export function workDate(now = new Date()) {
     day: '2-digit',
   }).format(now);
 }
-export function workTimestamp(value: string) {
+export function workTimestamp(value: string, seconds = false) {
   const date = new Date(value);
   return Number.isFinite(date.getTime())
     ? date.toLocaleString('th-TH', {
@@ -18,6 +18,7 @@ export function workTimestamp(value: string) {
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        ...(seconds ? { second: '2-digit' as const } : {}),
       })
     : value;
 }

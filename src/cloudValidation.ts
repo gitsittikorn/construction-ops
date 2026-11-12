@@ -1,6 +1,7 @@
 import type { CloudRecord, EntityCollection } from './syncModel';
 import { payloadOf } from './syncModel';
 import { validateWorkspace } from './workspaceValidation';
+import { validatePriceHistory } from './soilPriceValidation';
 
 function object(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -45,7 +46,17 @@ export function validateCloudRecord(
     collection === 'projects'
       ? ['latitude', 'longitude']
       : collection === 'masters'
-        ? ['capacity', 'active', 'province', 'phone', 'nickname', 'truckType', 'tagIds']
+        ? [
+            'capacity',
+            'active',
+            'province',
+            'phone',
+            'nickname',
+            'truckType',
+            'tagIds',
+            'driverId',
+            'soilPrice',
+          ]
         : ['revision', 'capacityPerTrip'];
   const allowed = new Set(['id', 'createdAt', 'updatedAt', ...strings, ...optional]);
   if (
@@ -83,6 +94,25 @@ export function validateCloudRecord(
         !['six-wheel', 'ten-wheel', 'other'].includes(String(p.truckType))))
   )
     throw Error('ข้อมูลรถ Cloud ไม่ถูกต้อง');
+  if (collection === 'masters') {
+    if (
+      p.driverId !== undefined &&
+      (p.kind !== 'truck' || typeof p.driverId !== 'string' || p.driverId.length > 200)
+    )
+      throw Error('ข้อมูลคนขับประจำรถ Cloud ไม่ถูกต้อง');
+    if (p.kind === 'soilPrice' || p.soilPrice !== undefined) {
+      if (
+        p.kind !== 'soilPrice' ||
+        !object(p.soilPrice) ||
+        p.soilPrice.id !== p.id ||
+        p.soilPrice.at !== p.createdAt ||
+        p.createdAt !== p.updatedAt ||
+        value.deletedAt !== null
+      )
+        throw Error('ประวัติราคา Cloud ไม่ถูกต้อง');
+      validatePriceHistory([p.soilPrice]);
+    }
+  }
   if (
     collection === 'projects' &&
     (!['draft', 'active', 'completed', 'archived'].includes(String(p.status)) ||
@@ -99,7 +129,9 @@ export function validateCloudRecord(
     throw Error('ข้อมูลโครงการ Cloud ไม่ถูกต้อง');
   if (
     collection === 'masters' &&
-    (!['truck', 'driver', 'source', 'customer', 'soilType', 'tag'].includes(String(p.kind)) ||
+    (!['truck', 'driver', 'source', 'customer', 'soilType', 'tag', 'soilPrice'].includes(
+      String(p.kind),
+    ) ||
       typeof p.capacity !== 'number' ||
       !Number.isFinite(p.capacity) ||
       p.capacity < 0 ||

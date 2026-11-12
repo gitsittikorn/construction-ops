@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Data } from './models';
 import { connectionMessage } from './async';
@@ -131,10 +132,10 @@ export default function DuplicateReviewPanel({
               >
                 <label className="field">
                   ผลการตรวจ
-                  <select name="decision" aria-label="ผลการตรวจ" required>
+                  <SearchableSelect name="decision" aria-label="ผลการตรวจ" required>
                     <option value="distinct">เป็นคนละเที่ยว</option>
                     <option value="needs-correction">ต้องตรวจแก้ไข</option>
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="field">
                   เหตุผลตรวจเที่ยวซ้ำ

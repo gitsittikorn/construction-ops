@@ -2003,3 +2003,48 @@ header.company-header {
     min-height: 48px;
   }
 }
+/* A body-level picker avoids clipping in dialogs and horizontally scrolling tables. */
+.search-select-popup {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #fff;
+  color: #172b36;
+  border: 1px solid #b6c6ce;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px #172b3633;
+}
+.search-select-popup input {
+  width: 100%;
+  min-height: 48px;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+.search-select-popup [role='listbox'] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.search-select-popup [role='option'] {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 12px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  border-radius: 6px;
+}
+.search-select-popup [role='option'][data-highlighted='true'] {
+  background: #e0f0eb;
+  outline: 2px solid #217c64;
+  outline-offset: -2px;
+}
+.search-select-popup [role='option'][aria-selected='true'] {
+  font-weight: 700;
+}

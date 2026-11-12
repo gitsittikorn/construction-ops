@@ -1,3 +1,4 @@
+import SearchableSelect from './SearchableSelect';
 import { managesBusiness } from './workspaceIdentity';
 import { useMemo, useState, useRef } from 'react';
 import { canonical } from './syncModel';
@@ -231,17 +232,17 @@ export default function SurveyPanel({
       <div className="operations-filters">
         <label>
           โครงการสำรวจ
-          <select value={project} onChange={(e) => setProject(e.target.value)}>
+          <SearchableSelect value={project} onChange={(e) => setProject(e.target.value)}>
             {data.projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
-          </select>
+          </SearchableSelect>
         </label>
         <label>
           ประวัติงานสำรวจ
-          <select
+          <SearchableSelect
             aria-label="ประวัติงานสำรวจ"
             value={saved?.id ?? ''}
             onChange={(e) => {
@@ -266,7 +267,7 @@ export default function SurveyPanel({
                   {r.name} · {r.updatedAt}
                 </option>
               ))}
-          </select>
+          </SearchableSelect>
         </label>
         <button
           onClick={() => {
@@ -307,7 +308,7 @@ export default function SurveyPanel({
         {setNumber('spacingY', 'ระยะกริด Y (m)')}
         <label>
           ผิวออกแบบ
-          <select
+          <SearchableSelect
             aria-label="ผิวออกแบบ"
             value={body.design}
             onChange={(e) => setBody({ ...body, design: e.target.value as SurveyBody['design'] })}
@@ -315,14 +316,14 @@ export default function SurveyPanel({
             <option value="uniform">ระดับสม่ำเสมอ</option>
             <option value="slope">ลาดเอียง</option>
             <option value="custom">กำหนดแต่ละจุด</option>
-          </select>
+          </SearchableSelect>
         </label>
         {setNumber('designLevel', 'ระดับแบบที่จุดกำเนิด (m)')}
         {setNumber('slopeX', 'ความลาด X (%)')}
         {setNumber('slopeY', 'ความลาด Y (%)')}
         <label>
           ค่าเผื่อขนส่งถม
-          <select
+          <SearchableSelect
             aria-label="ค่าเผื่อขนส่งถม"
             value={[25, 30, 35, 50, 60].includes(body.allowance) ? body.allowance : 'custom'}
             onChange={(e) => {
@@ -337,7 +338,7 @@ export default function SurveyPanel({
               </option>
             ))}
             <option value="custom">กำหนดเอง</option>
-          </select>
+          </SearchableSelect>
         </label>
         {setNumber('allowance', 'เผื่อขนส่งจากปริมาตรถมแน่น (%)')}
         {setNumber('cutSwell', 'การพองตัวจากปริมาตรตัดเดิม (%)')}
@@ -349,7 +350,7 @@ export default function SurveyPanel({
       <div className="operations-filters">
         <label>
           ชนิดอ่านไม้
-          <select
+          <SearchableSelect
             value={reading.type}
             onChange={(e) =>
               setReading({ ...reading, type: e.target.value as LevelObservation['type'] })
@@ -358,7 +359,7 @@ export default function SurveyPanel({
             {['BS', 'IS', 'FS'].map((v) => (
               <option key={v}>{v}</option>
             ))}
-          </select>
+          </SearchableSelect>
         </label>
         <label>
           ชื่อจุดอ่านไม้
