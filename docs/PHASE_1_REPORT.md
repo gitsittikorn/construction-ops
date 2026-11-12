@@ -1,5 +1,9 @@
 # Phase 1 — evidence index
 
+## Actual data recovery — 2026-11-12
+
+Same-account original Chrome localhost state recovered through existing guarded missing-only restore; actual Firestore now has 2 projects/92 masters/3 trips, both canonical contexts 97 acknowledged/0 pending/0 conflict/0 failed. Missing-reference validation remains enforced. Added canonical URL gate/strict port and orphan-recovery regression; targeted 26/26 PASS. Full Windows gate **exit 0**: frontend 392/backend 20/Rules-storage 14/integration 10/E2E 73/tooling 4; format/lint/typecheck/build/smoke PASS, 59 existing warnings/zero errors, no skips. Cleanup **exit 0**. [Evidence and preserved backup](DATA_RECOVERY_2026-11-12.md). Historical Drive-file bytes/physical devices remain unverified; no complete-phase claim.
+
 2026-11-08 (Asia/Bangkok). Status: PARTIAL overall; isolated regression PASS ใน final gate 2026-11-08 ดู current run ใน TEST_RESULTS.md.
 
 รายงานรายละเอียดจริง: [PHASE_1_E2E_REPORT.md](PHASE_1_E2E_REPORT.md). รายงาน historical implementation: [PHASE1_REPORT.md](../PHASE1_REPORT.md).

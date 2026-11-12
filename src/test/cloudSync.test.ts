@@ -29,6 +29,9 @@ import { emptyData } from '../models';
 import { decodeCloudRecord } from '../cloudValidation';
 import { deleteRecord } from '../deletion';
 import { cloudProject, cloudRecords, fixture, project, truck, trip } from './syncFixtures';
+import { Blob as NodeBlob } from 'node:buffer';
+import { exportLocalBackup } from '../backup';
+import { previewLocalRestore, applyLocalRestore } from '../backupRestore';
 
 function memoryTransport() {
   const remote = new Map<string, CloudRecord>();
@@ -119,6 +122,58 @@ it('syncs every master category, projects and trips and replays without duplicat
   await synchronize(owner, transport);
   expect(remote.size).toBe(8);
   expect(transport.push).toHaveBeenCalledTimes(8);
+});
+it('recovers an orphaned cloud trip using original same-account parents and restores every master category on a fresh device', async () => {
+  vi.stubGlobal('Blob', NodeBlob);
+  try {
+    const owner = crypto.randomUUID(),
+      { transport, remote } = memoryTransport();
+    const original = fixture();
+    original.masters.push(
+      ...(['driver', 'source', 'customer', 'soilType', 'tag'] as const).map((kind) => ({
+        ...truck,
+        id: kind,
+        kind,
+      })),
+    );
+    original.trips[0].driverId = 'driver';
+    original.trips[0].sourceId = 'source';
+    const orphan = cloudRecords(original).find((row) => row.collection === 'trips')!;
+    remote.set('trips/trip', orphan.record);
+    await persistData(owner, original);
+    const backup = await exportLocalBackup(owner);
+    // A separate origin starts empty; reset only this isolated test namespace.
+    await persistData(owner, structuredClone(emptyData));
+    await expect(synchronize(owner, transport)).rejects.toThrow('ไม่พบโครงการ');
+    expect((await loadData(owner)).sync!.cursors).toEqual({});
+    expect(transport.push).not.toHaveBeenCalled();
+    const preview = await previewLocalRestore(owner, backup);
+    await applyLocalRestore(owner, preview);
+    expect(
+      Object.values((await loadData(owner)).sync!.entries).every(
+        (entry) => entry.status === 'pending',
+      ),
+    ).toBe(true);
+    await synchronize(owner, transport);
+    expect(remote.size).toBe(8);
+    expect(remote.get('trips/trip')).toEqual(orphan.record);
+    expect(integrityIssues(await loadData(owner))).toEqual([]);
+    expect(
+      Object.values((await loadData(owner)).sync!.entries).every(
+        (entry) => entry.status === 'synced',
+      ),
+    ).toBe(true);
+    const pushes = vi.mocked(transport.push).mock.calls.length;
+    await synchronize(owner, transport);
+    expect(transport.push).toHaveBeenCalledTimes(pushes);
+    const second = crypto.randomUUID();
+    await synchronize(second, transport);
+    expect((await loadData(second)).masters).toHaveLength(6);
+    expect((await loadData(second)).trips).toHaveLength(1);
+    expect(integrityIssues(await loadData(second))).toEqual([]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 it('restores a new device completely without deleting unrelated local records', async () => {
   const owner = crypto.randomUUID(),

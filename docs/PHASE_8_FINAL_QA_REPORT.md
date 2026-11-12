@@ -1,5 +1,9 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Canonical local origin and real recovery — 2026-11-12
+
+Daily use is fixed to 127.0.0.1:5173 with strict port. Empty localhost redirects; existing records/backups/attachments retain a dedicated backup screen, account isolation and read-error protection. Actual restored Firestore operational data verified separately from synthetic tests. Targeted 26/26 PASS. Full Windows gate **exit 0**: frontend 392/backend 20/Rules-storage 14/integration 10/E2E 73/tooling 4; format/lint/typecheck/build/smoke PASS, 59 existing warnings/zero errors, no skips. Cleanup **exit 0**. [Recovery, reproduction and acceptance boundaries](DATA_RECOVERY_2026-11-12.md). Three historical Drive files and physical Android remain NOT VERIFIED/deferred; no deployment or phase-completion claim.
+
 ## Backend OAuth binding gate — 2026-11-11
 
 BUG-021 fixed on baseline `978a1ae`: additive client/UID isolation, encrypted attribution and frontend rejection of mismatched/old backend responses. Legacy originals/key, operational data and pending bytes retained. Full Windows `npm.cmd run check` **exit 0**: frontend **383/383**, backend **20/20**, Node Rules/storage emulator **14/14**, frontend emulator integration **10/10**, E2E **71/71** (3.6 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors. Cleanup exit **0**, two generated Phase 2 images restored. [Commands, negative-test diagnosis and rollout prerequisites](DRIVE_OAUTH_BINDING_2026-11-11.md). Production services/device/manual acceptance remains separate and NOT VERIFIED; Android deferred. No environment edit, push or deployment.

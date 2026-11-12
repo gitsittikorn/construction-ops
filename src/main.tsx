@@ -3,12 +3,15 @@ import { createRoot } from 'react-dom/client';
 import CompanyGate from './CompanyGate';
 import PwaUpdate from './PwaUpdate';
 import WorkspaceErrorBoundary from './WorkspaceErrorBoundary';
+import LocalOriginGate from './LocalOriginGate';
 import './styles.css';
 if (import.meta.env.DEV) void import('./devDiagnostics');
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <WorkspaceErrorBoundary>
-      <CompanyGate />
+      <LocalOriginGate>
+        <CompanyGate />
+      </LocalOriginGate>
     </WorkspaceErrorBoundary>
     <PwaUpdate />
   </React.StrictMode>,

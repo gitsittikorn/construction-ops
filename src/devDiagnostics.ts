@@ -1,8 +1,10 @@
-import { activeCacheOwner } from './workspaceIdentity';
+import { activeCacheOwner, getWorkspaceSession } from './workspaceIdentity';
 import { getSessionIdentity } from './firebase';
 import { loadData } from './storage';
 import { listUploads, getFolders } from './uploads';
+import { dataCounts, inspectStoredNamespaces } from './storageDiagnostics';
 if (import.meta.hot) {
+  import.meta.hot.accept();
   const inspect = async ({ id }: { id: string }) => {
     const user = getSessionIdentity();
     const owner = user ? activeCacheOwner(user.uid) : 'local';
@@ -18,6 +20,16 @@ if (import.meta.hot) {
       result = {
         origin: location.origin,
         signedIn: Boolean(user),
+        ownerFingerprint: Array.from(
+          new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(owner))),
+        )
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('')
+          .slice(0, 16),
+        companySelected: Boolean(getWorkspaceSession()),
+        counts: dataCounts(data),
+        namespaces: await inspectStoredNamespaces(owner),
+        cloud: await inspectCloud(owner, Boolean(user && getWorkspaceSession())),
         projectCount: data.projects.length,
         activeProjectCount: data.projects.filter((p) => p.status === 'active').length,
         hasRootMapping: Boolean(folders?.rootId),
@@ -65,4 +77,39 @@ if (import.meta.hot) {
   };
   import.meta.hot.on('construction:upload-diagnostics', inspect);
   import.meta.hot.dispose(() => import.meta.hot?.off('construction:upload-diagnostics', inspect));
+}
+
+async function inspectCloud(owner: string, enabled: boolean) {
+  if (!enabled) return { status: 'not-inspected' };
+  try {
+    const { pullCloud } = await import('./cloudFirestore');
+    const batch = await pullCloud(owner, {});
+    return {
+      status: 'server-read',
+      collections: Object.fromEntries(
+        ['projects', 'masters', 'trips', 'workspaces'].map((kind) => [
+          kind,
+          batch.records.filter((item) => item.collection === kind && !item.record.deletedAt).length,
+        ]),
+      ),
+      masters: Object.fromEntries(
+        ['truck', 'driver', 'source', 'customer', 'soilType', 'tag'].map((kind) => [
+          kind,
+          batch.records.filter(
+            ({ collection, record }) =>
+              collection === 'masters' &&
+              !record.deletedAt &&
+              'kind' in record.payload &&
+              record.payload.kind === kind,
+          ).length,
+        ]),
+      ),
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      code:
+        error && typeof error === 'object' && 'code' in error ? String(error.code) : 'read-error',
+    };
+  }
 }

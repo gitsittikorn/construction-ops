@@ -1,5 +1,11 @@
 # Bug tracker
 
+## DATA-002 / UX-007 — missing master parents and inconsistent local origins — 2026-11-12
+
+**RESOLVED for the reported missing-parent error / High availability / Phase 1/4/8.** Actual Firestore had three trips without project/master parents; fresh restoration correctly failed with missing-project/truck/driver/source errors. Original same-account Chrome Profile 2 localhost IndexedDB retained 2 projects/92 masters/3 trips. Existing validated missing-only restoration plus normal sync recovered all **97 operational records**, confirmed by real server reads. No validators bypassed, records deleted or relationships invented. Historical Drive-file bytes/access remain NOT VERIFIED. [Exact source location, backup and evidence](DATA_RECOVERY_2026-11-12.md).
+
+Prevention: strict dev port 5173 and canonical loopback gate, retaining legacy storage for same-account backup and blocking redirects on read errors. Targeted **26/26**, exit 0: orphan recovery, original parents, replay/fresh-device fixtures, legacy/error/identity/privacy checks. Full Windows gate **exit 0**: frontend **392**, backend **20**, Rules/storage **14**, integration **10**, E2E **73** (2.9 minutes), tooling **4**; other checks PASS, 59 existing warnings/zero errors, no skips. Cleanup **exit 0**; no phase/deployment completion claim.
+
 ## BUG-021 — backend grant issuer is unbound during an OAuth client migration — 2026-11-11
 
 **FIXED in local source**, baseline `978a1ae`. Grants are isolated by UID/client in additive storage, with authenticated client attribution inside encryption. Legacy/other-client originals remain; matching grants renew normally. Frontend rejects old/mismatched backend attribution. Full Windows `npm.cmd run check`, **exit 0**: frontend **383/383**, backend **20/20**, Node Rules/storage emulator **14/14**, frontend emulator integration **10/10**, E2E **71/71** (3.6 minutes), tooling **4/4**; format/lint/typecheck/build/smoke PASS, 59 warnings/zero errors. Cleanup exit **0**. [Detailed evidence and rollout prerequisites](DRIVE_OAUTH_BINDING_2026-11-11.md). Earlier OPEN diagnosis below is historical; real-service/remote rollout remains open.
@@ -83,6 +89,8 @@ Regression: `App.syncNavigation.test.tsx` tests successful navigation, pending p
 ## Open roadmap work / verification gaps
 
 ### ENV-003 — real backend omits shared-company CORS header
+
+**2026-11-12 real preflight retest: transport symptom RESOLVED on the configured remote service.** Both `http://localhost:5173` and `http://127.0.0.1:5173` now receive HTTP **204** with the exact allowed origin, POST and all requested headers including `X-Company-ID`. No deployment was performed by this review; the actual remote revision is not inferred. Authenticated member access/OAuth remain **NOT VERIFIED**. [Current evidence](LOCAL_CONNECTION_REVIEW_2026-11-12.md). The original reproduction below is historical.
 
 2026-11-09, Phase 4/shared-company acceptance, **Medium**, **OPEN on the configured remote backend**. Send an OPTIONS preflight to the actual configured `/api/drive/session` with Origin `http://127.0.0.1:5173`, requested method POST and requested headers `authorization,content-type,x-requested-with,x-company-id`. The real service returns HTTP 204 and the correct allowed origin/method, but omits `x-company-id` from allowed headers. The browser therefore blocks a shared member's request before token exchange. The equivalent owner preflight without the company header passes. No authenticated request or production mutation was required to reproduce it.
 
