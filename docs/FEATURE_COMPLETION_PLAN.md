@@ -67,3 +67,7 @@ npm run test:rules
 - ผู้ใช้เคยรายงาน Firebase/Drive เชื่อมได้บนเครื่อง VS Code; เก็บเป็น user-reported evidence ไม่ใช่ independent PASS ของ flow ทั้งหมด ส่วน Sheets account error ยังไม่ทราบสาเหตุ อย่าเหมารวมว่าทุกบริการไม่เคยเชื่อม หรือว่า Sheets ถูกแก้แล้ว
 - Real Google/MFA/iPhone acceptance ยังเปิด; Phase 1/4/8 คง PARTIAL, physical Android deferred
 - เริ่มจากอ่าน checkpoint ล่าสุด/ตรวจ Git แล้วเปิด Sheets import บนเครื่องที่มี config เดิม เก็บข้อความ error, origin และขั้นตอนก่อนเกิดโดยไม่แชร์ tokens ถ้าทำต่อไม่ได้ ให้เดินชุด local workflow review ไปพร้อมกัน ไม่ขยายสิทธิ์หรือเปลี่ยน provider/production เพื่อเลี่ยง blocker
+
+## ชุดที่ดำเนินการแล้ว: Sheets และ PWA regression
+
+Source `1861097`: แก้ BUG-020 ป้องกันรายการ Sheets เดินต่อเมื่อเปลี่ยนบัญชี/บริษัท และเพิ่มข้อความระบุขั้นตอนที่เชื่อมต่อล้มเหลว พร้อมแก้การรอ reload ใน test PWA เดิม Final full gate exit 0 (frontend 360, backend 24, emulator Node 15/client 10, E2E 85). ดู SHEETS_WORKFLOW_BATCH.md และ checkpoint ล่าสุด ก่อนทำงานต่อ ปัญหาบัญชี Sheets จริงยัง OPEN จนได้ error/origin จากเครื่องที่มี config; ไม่เปิดฟีเจอร์เสริมนอกขอบเขตหรือปรับ OAuth Production เพื่อเลี่ยง prerequisite นี้

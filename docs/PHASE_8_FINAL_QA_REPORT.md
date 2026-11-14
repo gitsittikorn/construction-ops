@@ -1,5 +1,11 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Resumed Sheets workflow and PWA regression batch
+
+Baseline `130ac5b`, source **`1861097`** on the existing feature branch. BUG-020 adds account/workspace guards to Sheets import/template operations and stage-specific progress/errors. The first full gate ended 84/85 E2E because the PWA fixture read IndexedDB before activation reload completed; its event synchronization was corrected without changing application worker behavior or removing data-retention assertions. Focused Sheets **29/29**, PWA **4/4**. Final full cloud `npm run check` **exit 0**: frontend **360**, backend **24**, release preflight **5**, Node emulator **15**, client integration **10**, E2E **85** (2.8 minutes), tooling **4**. Format/lint/typecheck, root/Pages build/HTTP smoke PASS; 61 lint warnings/zero errors, normal bundle warning retained, no skipped tests. Cleanup and restoration of only the two generated Phase 2 screenshots completed. Details: [SHEETS_WORKFLOW_BATCH.md](SHEETS_WORKFLOW_BATCH.md).
+
+These are synthetic Google identities/responses, Chromium and Firestore emulator results. The user's real Sheets account error remains undiagnosed pending its visible error/origin; Google/MFA/Safari/iPhone acceptance stays open. No Rules/backend/config/dependency/production changes or deployment. Source push is feature-only; Phase 8 remains PARTIAL.
+
 ## PWA release update and pending originals — 2026-11-10
 
 Baseline `f074bc0`, source **`8755d76`**, existing feature branch. BUG-019 fixes newer HTML replacing an active worker's cached shell before explicit update. Before-fix browser reproduction failed at both hosting bases; focused worker test failed. Final documented cloud `npm run check` exit **0**: frontend **356**, backend **24**, release preflight **5**, Node emulator **15**, client integration **10**, Playwright **85** (2.9 minutes), editor tooling **4**. Format/lint/typecheck, root + Pages builds and HTTP smoke PASS; **61 warnings / zero errors** (59 prior + 2 fixture typing warnings), normal chunk-size warning retained. No skipped/disabled tests.
