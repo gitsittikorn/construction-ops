@@ -41,10 +41,16 @@ export async function loadTruckSheet(owner: string): Promise<string> {
   }
 }
 // Never overwrite a nonempty, incompatible header or any vehicle rows.
-export async function prepareTruckSheet(token: string, id: string) {
+export async function prepareTruckSheet(
+  token: string,
+  id: string,
+  assertActive: () => void = () => {},
+) {
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw Error('รหัส Google Sheets ไม่ถูกต้อง');
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}`;
   async function call(url: string, init: RequestInit = {}) {
+    // Revalidate before every request, especially the write after metadata/header reads.
+    assertActive();
     let response: Response;
     try {
       response = await fetch(url, {

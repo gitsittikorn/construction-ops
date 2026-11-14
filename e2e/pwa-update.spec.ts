@@ -163,7 +163,12 @@ for (const { base, legacy } of [
       );
       await expect(page.getByRole('button', { name: 'อัปเดตแอปและโหลดใหม่' })).toBeVisible();
       await context.setOffline(true);
-      await page.getByRole('button', { name: 'อัปเดตแอปและโหลดใหม่' }).click();
+      // The archived worker may already display the new HTML marker before
+      // activation. Wait for the actual reload before reading IndexedDB.
+      await Promise.all([
+        page.waitForEvent('domcontentloaded'),
+        page.getByRole('button', { name: 'อัปเดตแอปและโหลดใหม่' }).click(),
+      ]);
       await expect(page.locator('html')).toHaveAttribute('data-pwa-release', 'new');
       await expect(page.getByText('Pending across update', { exact: true })).toBeVisible();
       expect(await snapshot(page)).toEqual(before);
