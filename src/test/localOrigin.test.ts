@@ -5,11 +5,13 @@ import { cacheOwner } from '../workspaceIdentity';
 import { fixture } from './syncFixtures';
 import { Blob as NodeBlob } from 'node:buffer';
 
-it('chooses the numeric loopback while retaining navigation and leaving other domains alone', () => {
-  expect(canonicalLocalUrl('http://localhost:5173/path?q=1#daily')).toBe(
-    'http://127.0.0.1:5173/path?q=1#daily',
+it('chooses localhost while retaining navigation and leaving other domains and test ports alone', () => {
+  expect(canonicalLocalUrl('http://127.0.0.1:5173/path?q=1#daily')).toBe(
+    'http://localhost:5173/path?q=1#daily',
   );
-  expect(canonicalLocalUrl('http://127.0.0.1:5173/')).toBeNull();
+  expect(canonicalLocalUrl('http://localhost:5173/')).toBeNull();
+  expect(canonicalLocalUrl('http://127.0.0.1:5174/')).toBeNull();
+  expect(canonicalLocalUrl('https://127.0.0.1/')).toBeNull();
   expect(canonicalLocalUrl('https://example.com/')).toBeNull();
 });
 

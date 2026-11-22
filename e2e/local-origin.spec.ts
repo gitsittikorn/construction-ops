@@ -1,15 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-test('an empty localhost redirects to the canonical origin and preserves navigation', async ({
-  page,
-}) => {
+test('localhost stays on the requested origin and preserves navigation', async ({ page }) => {
   await page.goto('http://localhost:5174/?review=1#daily');
-  await expect(page).toHaveURL('http://127.0.0.1:5174/?review=1#daily');
+  await expect(page).toHaveURL('http://localhost:5174/?review=1#daily');
   await expect(page.getByRole('navigation')).toBeVisible();
 });
 
-test('legacy localhost data is backed up and retained before opening the canonical workspace', async ({
+test('existing localhost data stays usable and backed up without crossing into another origin', async ({
   page,
   context,
 }) => {
@@ -28,20 +26,26 @@ test('legacy localhost data is backed up and retained before opening the canonic
     await persistData('local', fixture());
   });
   await page.goto('http://localhost:5174/');
-  await expect(page.getByText('ใช้ 127.0.0.1 เป็นที่อยู่หลัก', { exact: true })).toBeVisible();
+  await expect(page).toHaveURL('http://localhost:5174/');
+  await expect(page.getByRole('navigation')).toBeVisible();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
+    .click();
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'ดาวน์โหลดข้อมูลก่อนล็อกอิน' }).click();
+  await page.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' }).click();
   const downloaded = await downloadPromise;
   const backup = JSON.parse(await readFile((await downloaded.path())!, 'utf8'));
   expect(backup.state.projects).toHaveLength(1);
   expect(backup.state.masters).toHaveLength(1);
   expect(backup.state.trips).toHaveLength(1);
-  await page.getByRole('link', { name: 'เปิดที่อยู่หลัก 127.0.0.1' }).click();
-  await expect(page).toHaveURL('http://127.0.0.1:5174/');
-  await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
+  const separate = await context.newPage();
+  await separate.goto('http://127.0.0.1:5174/');
+  await expect(separate.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   const legacy = await context.newPage();
   await legacy.goto('http://localhost:5174/');
-  await expect(legacy.getByRole('button', { name: 'ดาวน์โหลดข้อมูลก่อนล็อกอิน' })).toBeVisible();
+  await expect(legacy).toHaveURL('http://localhost:5174/');
+  await expect(legacy.getByRole('navigation')).toBeVisible();
   const retained = await legacy.evaluate(async () => {
     const path = '/src/storage.ts';
     return (await import(path)).loadData('local');

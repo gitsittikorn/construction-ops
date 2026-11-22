@@ -1,5 +1,7 @@
 # Khok Kloi Backhoe Engineering · Construction Operations
 
+Local development: **http://localhost:5173/** (`npm.cmd run dev`, strict port). Updated by explicit user request on 2026-11-22. Existing browser data at other local origins stays separate and must be backed up/reviewed before any import; do not clear site data. Earlier dated reports retain their historical origins.
+
 ## การทำงานต่อทุก Codex session
 
 อ่าน [AGENTS.md](AGENTS.md), [Master Roadmap Phase 0–8](docs/MASTER_ROADMAP.md),

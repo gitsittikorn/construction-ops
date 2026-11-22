@@ -1,5 +1,7 @@
 # Local and Cloud integration review — 2026-11-22
 
+Later explicit user update: daily development now uses **http://localhost:5173/**. The numerical origins below describe the earlier integration gate, not the current preference. See the latest localhost checkpoint in [ROADMAP_PROGRESS.md](ROADMAP_PROGRESS.md); original browser data is retained.
+
 ## Verified baseline and preservation
 
 Task: reconcile both developed histories and the Windows WIP in the existing VS Code checkout, without deploying or changing production data/configuration. Category: architecture/authentication/data integrity; critical risk; project recommendation 6 Astra / High / Standard. No actual model switch was performed.

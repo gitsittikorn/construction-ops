@@ -1,7 +1,7 @@
 # Project workflow
 
 - Respond in Thai. Use English for code, identifiers and filenames.
-- Canonical local development origin: `http://127.0.0.1:5173/`. Use it consistently; do not alternate daily work with `localhost` or silently fall back to another port. Preserve and recover any legacy origin data before redirecting or migrating; never clear browser storage.
+- Canonical local development origin: `http://localhost:5173/` (explicit user update, 2026-11-22). Use it consistently; do not silently fall back to another port or redirect localhost to a numeric host. Preserve data from both local origins before redirecting or migrating; never clear browser storage. Earlier dated reports retain their historical numeric-origin evidence.
 - Preserve React, TypeScript, Vite, Firebase, Google Drive and IndexedDB architecture.
 - Every new feature needs meaningful automated tests for successful operation and errors. Run `npm run check` before reporting completion; report what has not been tested on real services or devices.
 - Use `npm.cmd` on Windows if PowerShell blocks npm.ps1.

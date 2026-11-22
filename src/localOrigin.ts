@@ -4,8 +4,14 @@ import { actorUid } from './workspaceIdentity';
 
 export function canonicalLocalUrl(value: string): string | null {
   const url = new URL(value);
-  if (url.hostname !== 'localhost' || !['http:', 'https:'].includes(url.protocol)) return null;
-  url.hostname = '127.0.0.1';
+  // Only the daily-work alias participates; isolated test/preview ports stay independent.
+  if (
+    url.hostname !== '127.0.0.1' ||
+    url.port !== '5173' ||
+    !['http:', 'https:'].includes(url.protocol)
+  )
+    return null;
+  url.hostname = 'localhost';
   return url.href;
 }
 

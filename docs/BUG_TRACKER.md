@@ -1,5 +1,9 @@
 # Bug tracker
 
+## INT-004 — localhost preference conflicts with the previous redirect — 2026-11-22
+
+**FIXED / Medium / Phase 1/8.** Baseline `56b8395` redirects localhost away from the hostname now explicitly requested by the user. Reverse the daily-work alias target to localhost, update dev/preview and persistent instructions, retain legacy-data/read-error backup guards and account isolation. Scope redirects to daily port 5173, leaving synthetic test/preview ports independent. Unit regression **7/7** covers success, nonempty legacy data, storage failure, unchanged records/bytes/account isolation; browser **2/2** verifies localhost stays selected and existing localhost state/backups remain separate from another origin. Actual localhost login page HTTP **200** with Google button; no real sign-in or cloud mutation claimed. Final `npm.cmd run check` exit **0**: frontend 446/backend 29/Node emulator 20/client integration 11/E2E 94; cleanup exit **0**. Exact evidence/source hash is in ROADMAP_PROGRESS.md.
+
 ## Integration findings — 2026-11-22
 
 Validated integrated source **`e16740b`**, parents `14ca9d3` + `31c2f46`; exact passing gate and delivery checkpoint: [integration report](INTEGRATION_REVIEW_2026-11-22.md). INT-001/003 are fixed in that source; INT-002 remains an external hosted-login prerequisite.

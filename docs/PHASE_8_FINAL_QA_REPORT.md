@@ -1,5 +1,9 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Explicit localhost preference — 2026-11-22
+
+Latest user instruction sets **http://localhost:5173/** as the daily origin. Removed the localhost-to-numeric redirect, switched dev/preview defaults and retained guarded old-origin recovery without clearing or auto-migrating storage. Focused unit **7/7**, browser **2/2**, exit **0**; actual isolated localhost page HTTP **200**, URL unchanged and Google login button visible (no authenticated login attempted). Final Windows `npm.cmd run check` **exit 0**: frontend **446**, backend **29**, Node emulator **20**, client integration **11**, E2E **94** (3.7 minutes), release **5**, tooling **4**. Format/lint/typecheck/both builds/smokes PASS, 61 warnings/zero errors, no skips. Cleanup **exit 0**, pre-test Phase 2 images restored, localhost HTTP **200**. [Source and next actions](ROADMAP_PROGRESS.md). Real Google/MFA/device acceptance remains unverified; physical Android deferred. No production/configuration/deployment change.
+
 ## Integrated desktop review checkpoint — 2026-11-22
 
 Both developed histories and verified WIP are reconciled on `feat/integrate-local-cloud-20261122`; [decisions, defects, commands and source/delivery hashes](INTEGRATION_REVIEW_2026-11-22.md). INT-001 fixes native-dialog/search focus; INT-003 fixes Pages fixture routing. Initial gate exit 1 at E2E (89/94); focused retest 5/5 exit 0. Final Windows `npm.cmd run check` **exit 0**: frontend **446/446** (70 files), backend **29/29**, Node emulator **20/20**, client integration **11/11**, E2E **94/94** (3.4 minutes), release **5/5**, tooling **4/4**. Format/lint/typecheck/root+Pages builds/HTTP smoke PASS; 61 warnings/zero errors, no skips or disabled tests. `npm.cmd run clean` **exit 0**, pre-test Phase 2 images restored, canonical local review URL HTTP **200**.
