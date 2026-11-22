@@ -6,8 +6,11 @@ export async function companyAuthorization(uid, requestedCompany, read) {
     return false;
   const root = await read.admin(company);
   if (root?.enabled !== true) return false;
-  if (company === uid) return true;
   const profile = await read.company(company);
+  // Policy companies must use the verified-Google allowlist service, never the
+  // legacy owner shortcut or a client-supplied role.
+  if (profile?.accessPolicy === 'allowlist-v1') return false;
+  if (company === uid) return true;
   if (profile?.ownerUid !== company) return false;
   const membership = await read.member(company, uid);
   return (

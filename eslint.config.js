@@ -9,6 +9,7 @@ export default defineConfig([
   globalIgnores([
     '**/node_modules/**',
     'dist/**',
+    'dist-pages/**',
     'coverage/**',
     'test-results/**',
     'playwright-report/**',

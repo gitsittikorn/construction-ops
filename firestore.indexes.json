@@ -4,11 +4,35 @@
       "collectionGroup": "workspaces",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "payload.recordType", "order": "ASCENDING" },
-        { "fieldPath": "serverUpdatedAt", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        {
+          "fieldPath": "payload.recordType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "serverUpdatedAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "authorized_users",
+      "fieldPath": "email",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    }
+  ]
 }

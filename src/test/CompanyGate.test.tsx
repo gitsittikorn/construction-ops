@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ResolvedCompany } from '../companyAccess';
 import { getWorkspaceSession, setWorkspaceSession } from '../workspaceIdentity';
@@ -23,6 +23,7 @@ vi.mock('../firebase', () => ({
   logout: vi.fn(),
 }));
 vi.mock('../companyAccess', () => ({
+  invalidateCompanyGrant: vi.fn().mockResolvedValue(undefined),
   resolveCompany: mocks.resolve,
   readCompanySelection: mocks.cached,
   rememberCompany: mocks.remember,
@@ -105,4 +106,25 @@ it('stops late company resolution after unmount', async () => {
   await act(async () => finish?.(shared));
   expect(getWorkspaceSession()).toBeNull();
   expect(mocks.remember).not.toHaveBeenCalled();
+});
+
+it('revocation during online revalidation stops the old request without leaving the company picker locked', async () => {
+  mocks.cached.mockResolvedValue({ ...shared, verifiedAt: new Date().toISOString() });
+  mocks.resolve.mockResolvedValue(shared);
+  render(<CompanyGate />);
+  await screen.findByText('Workspace Shared site operator');
+  let finish: ((scope: ResolvedCompany) => void) | undefined;
+  mocks.resolve.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  fireEvent(window, new Event('online'));
+  await waitFor(() => expect(finish).toBeDefined());
+  await act(async () => mocks.watch?.(null));
+  expect(screen.getByRole('button', { name: 'เปิดบริษัท' })).toBeEnabled();
+  await act(async () => finish?.(shared));
+  expect(screen.queryByText('Workspace Shared site operator')).not.toBeInTheDocument();
+  expect(getWorkspaceSession()).toBeNull();
 });

@@ -17,8 +17,8 @@
       import '/src/styles.css';
       // Synthetic local UI only. Firestore/backend role enforcement is exercised
       // separately against real emulator identities; this never signs into Google.
-      const role =
-        new URLSearchParams(location.search).get('role') === 'manager' ? 'manager' : 'operator';
+      const requestedRole = new URLSearchParams(location.search).get('role');
+      const role = ['manager', 'viewer'].includes(requestedRole) ? requestedRole : 'operator';
       const workspace = {
         actorUid: 'simulated-worker',
         companyId: 'simulated-company',

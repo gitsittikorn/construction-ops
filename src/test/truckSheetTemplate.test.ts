@@ -83,3 +83,28 @@ it('does not attempt writes after a failed read', async () => {
   await expect(prepareTruckSheet('token', 'abc')).rejects.toThrow('อินเทอร์เน็ต');
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+it('rechecks the operation identity before writing after asynchronous metadata reads', async () => {
+  let active = true;
+  const fetcher = vi.fn().mockImplementation(async () => {
+    active = false;
+    return json({ sheets: [] });
+  });
+  vi.stubGlobal('fetch', fetcher);
+  const guard = () => {
+    if (!active) throw Error('Account changed');
+  };
+  await expect(prepareTruckSheet('token', 'abc', guard)).rejects.toThrow('Account changed');
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it('sends no request if the operation was already cancelled', async () => {
+  const fetcher = vi.fn();
+  vi.stubGlobal('fetch', fetcher);
+  await expect(
+    prepareTruckSheet('token', 'abc', () => {
+      throw Error('Cancelled');
+    }),
+  ).rejects.toThrow('Cancelled');
+  expect(fetcher).not.toHaveBeenCalled();
+});

@@ -1,6 +1,6 @@
 import type { Data, Master, Project } from './models';
 import { workDate, validateProject } from './domain';
-import { companyRole, actorUid } from './workspaceIdentity';
+import { managesBusiness, actorUid } from './workspaceIdentity';
 import { saveMaster } from './masterData';
 import { createDaily, dailySessions, saveDailyRow, commitWorkspace, validDate } from './daily';
 import { addFinanceRate, addProjectExpense, financeVersion } from './finance';
@@ -10,7 +10,7 @@ import { validateWorkspace } from './workspaceValidation';
 import { demoProjectId, demoProjectName } from './demoProjectInfo';
 export { demoProjectId, demoProjectName } from './demoProjectInfo';
 export function addDemoProject(data: Data, actor: string, today = workDate()): Data {
-  if (!actor || companyRole(actor) === 'operator')
+  if (!actor || !managesBusiness(actor))
     throw Error('ผู้จัดการหรือเจ้าของกิจการเท่านั้นที่สร้างโครงการตัวอย่างได้');
   if (!validDate(today)) throw Error('วันที่ข้อมูลตัวอย่างไม่ถูกต้อง');
   if (data.projects.some((p) => p.id === demoProjectId)) return data;

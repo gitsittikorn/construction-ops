@@ -1,5 +1,9 @@
 # Phase 4 — Private original restoration
 
+## OAuth / allowlist integration — 2026-11-22
+
+Combined Windows client-attributed encrypted Drive credentials/browser sessions with Cloud trusted company allowlist authorization, retaining legacy grants, original bytes and namespaces. Sheets keeps OpenID/email verification and discovered tabs plus stale-operation guards. Final integrated Windows `npm.cmd run check` **exit 0**: frontend **446**, backend **29**, Node emulator **20**, client integration **11**, E2E **94**, release **5**, tooling **4**; both builds/smokes PASS. Cleanup **exit 0**. [Full source/command evidence and hosting observation](INTEGRATION_REVIEW_2026-11-22.md). Real Google consent/renewal/Drive/Sheets/original files and deployed backend/Rules remain NOT VERIFIED; Phase 4 PARTIAL. Hosted Pages currently displays local mode, so it is not confirmed as an operational company-login endpoint. No production credentials, policies or deployment changed.
+
 ## Localhost and real-service reachability review — 2026-11-12
 
 Baseline `f39c3ea`; no application/environment changes. Effective frontend configuration includes Render. Real health **200**, both local origins' company-header preflights **204**, unauthenticated session **401** and unlisted origin **403**; Firebase public configuration/handler **200**. Fresh Edge localhost loads configured login with zero page errors. ENV-003's CORS symptom is resolved; actual deployed OAuth pairing, user consent, membership, renewal and private-file restoration remain **NOT VERIFIED**. [Detailed evidence and next actions](LOCAL_CONNECTION_REVIEW_2026-11-12.md). Physical Android remains deferred; no production mutation/deployment or phase-completion claim.

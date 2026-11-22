@@ -1,0 +1,42 @@
+name: Prepare Pages artifact (no deployment)
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Choose an isolated demo or configured company build
+        type: choice
+        options:
+          - demo
+          - company
+        default: demo
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      VITE_ALLOW_LOCAL_DEMO: ${{ inputs.mode == 'demo' && 'true' || 'false' }}
+      VITE_FIREBASE_API_KEY: ${{ inputs.mode == 'company' && vars.VITE_FIREBASE_API_KEY || '' }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ inputs.mode == 'company' && vars.VITE_FIREBASE_AUTH_DOMAIN || '' }}
+      VITE_FIREBASE_PROJECT_ID: ${{ inputs.mode == 'company' && vars.VITE_FIREBASE_PROJECT_ID || '' }}
+      VITE_FIREBASE_APP_ID: ${{ inputs.mode == 'company' && vars.VITE_FIREBASE_APP_ID || '' }}
+      VITE_GOOGLE_CLIENT_ID: ${{ inputs.mode == 'company' && vars.VITE_GOOGLE_CLIENT_ID || '' }}
+      VITE_DRIVE_BACKEND_URL: ${{ inputs.mode == 'company' && vars.VITE_DRIVE_BACKEND_URL || '' }}
+      VITE_ACCESS_BACKEND_URL: ${{ inputs.mode == 'company' && vars.VITE_ACCESS_BACKEND_URL || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - if: inputs.mode == 'company'
+        run: npm run release:check
+      - run: npm run build:pages
+      - run: npm run smoke:pages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pages-${{ inputs.mode }}-${{ github.sha }}
+          path: dist-pages/
+          include-hidden-files: true
+          retention-days: 7

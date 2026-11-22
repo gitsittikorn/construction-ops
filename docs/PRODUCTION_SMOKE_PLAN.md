@@ -2,6 +2,8 @@
 
 2026-11-08 (Asia/Bangkok). แผนนี้ไม่ใช่คำอนุญาต push/deploy หรือ migration. รันได้หลังมีคำสั่งอนุญาตแยก พร้อมระบุ Firebase project, Hosting/backend URLs และบัญชีทดสอบโดยชัดเจน
 
+อัปเดต 2026-11-10: อ่าน [WEB_RELEASE_PREPARATION.md](WEB_RELEASE_PREPARATION.md) สำหรับ Build รากเว็บ/GitHub Pages, trusted allowlist rollout และขั้นตอนเปิด Firebase TOTP หลังตรวจรับจริง. [MOBILE_WEB_READINESS.md](MOBILE_WEB_READINESS.md) แยกผล Chromium touch จาก Safari/อุปกรณ์จริงซึ่งยังไม่ผ่านการตรวจรับ Physical Android ยัง deferred ตามคำสั่งผู้ใช้ ไม่เป็น blocker ของ desktop review
+
 ## Prerequisites
 
 - เก็บ commit/build artifact, lockfiles, environment/runtime versions และผล full gate ที่ตรงกับ artifact
@@ -31,4 +33,4 @@
 
 หยุด rollout เมื่อมี data loss/cross-account access/silent overwrite/wrong totals หรือ original removed before verified metadata. เก็บเหตุการณ์/commit/ขั้นตอน reproduce โดยไม่ log credentials. Rollback artifact ต้องมีการอนุญาตและไม่ล้าง storage หรือย้าย schema ย้อนหลังแบบทำลายข้อมูล
 
-Backup JSON currently supports account-scoped export of pending bytes and metadata; arbitrary JSON re-import/merge is not an implemented recovery UI. Do not clear data expecting that file to import automatically. Cloud restore and pending queue retention are independently tested; local JSON re-import remains a separate feature decision
+Backup JSON ปัจจุบันรองรับ same-account preview และ atomic missing-only restore รวมต้นฉบับตาม APPROVED_EXTENSIONS.md / EXTENSIONS_REPORT.md แล้ว ข้อจำกัด ownership/conflict/tombstone/ขนาดไฟล์ยังต้องรักษา ไม่ใช่ arbitrary overwrite หรือ cross-account merge ห้าม clear data เพื่อทดสอบการกู้คืน Cloud restore และ pending retention มี coverage แยกต่างหาก

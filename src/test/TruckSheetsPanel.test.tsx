@@ -8,13 +8,14 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   verify: vi.fn(),
   prepare: vi.fn(),
-  identity: { uid: 'owner', email: 'a@example.com' },
+  load: vi.fn(),
+  identity: { uid: 'owner', email: 'a@example.com' } as { uid: string; email: string } | null,
 }));
 vi.mock('../firebase', () => ({
   getSessionIdentity: () => mocks.identity,
 }));
 vi.mock('../drive', () => ({
-  loadGoogleIdentity: async () => {},
+  loadGoogleIdentity: mocks.load,
 }));
 vi.mock('../googleSheetsAuth', () => ({
   requestSheetsToken: mocks.auth,
@@ -30,6 +31,7 @@ vi.mock('../truckSheets', async (original) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.identity = { uid: 'owner', email: 'a@example.com' };
+  mocks.load.mockResolvedValue(undefined);
   mocks.auth.mockResolvedValue({ token: 'token' });
   mocks.verify.mockResolvedValue(undefined);
   mocks.save.mockResolvedValue(undefined);
@@ -72,6 +74,38 @@ it('shows read errors and never forwards or remembers failed data', async () => 
   expect(await screen.findByRole('alert')).toHaveTextContent('ชีตไม่มีสิทธิ์อ่าน');
   expect(onRows).not.toHaveBeenCalled();
   expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it('does not remember discovered tab data or open preview after the account changes during discovery', async () => {
+  let finish!: (value: { rows: never[]; title: string; sheetId: number }) => void;
+  mocks.read.mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  await waitFor(() => expect(mocks.read).toHaveBeenCalled());
+  mocks.identity = { uid: 'other', email: 'other@example.com' };
+  finish({ rows: [], title: 'Selected tab', sheetId: 17 });
+  expect(await screen.findByRole('alert')).toHaveTextContent('บัญชีหรือบริษัทเปลี่ยนแล้ว');
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(onRows).not.toHaveBeenCalled();
+});
+
+it('reports local preference storage failure without forwarding unremembered data to preview', async () => {
+  mocks.read.mockResolvedValue({ rows: [], title: 'Selected tab', sheetId: 17 });
+  mocks.save.mockRejectedValue(Error('quota exceeded'));
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'บันทึกลิงก์ชีตในเครื่อง: quota exceeded',
+  );
+  expect(onRows).not.toHaveBeenCalled();
 });
 
 it('passes the current URL file and gid to the reader instead of the default link', async () => {
@@ -123,6 +157,7 @@ it('defaults to the user template and prepares headers without importing vehicle
   expect(mocks.prepare).toHaveBeenCalledWith(
     'token',
     '1_DHAvNEMXyeVbFhc9Am13o8b_gu4AhOSCQljTUq6jzA',
+    expect.any(Function),
   );
   expect(onRows).not.toHaveBeenCalled();
 });
@@ -172,4 +207,41 @@ it('does not verify or read the old account after the signed in user changes dur
   expect(mocks.read).not.toHaveBeenCalled();
   expect(mocks.save).not.toHaveBeenCalled();
   expect(onRows).not.toHaveBeenCalled();
+});
+
+it('stops before opening consent when the account changes during Google library loading', async () => {
+  let loaded!: () => void;
+  mocks.load.mockReturnValue(
+    new Promise<void>((resolve) => {
+      loaded = resolve;
+    }),
+  );
+  const onRows = vi.fn();
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={onRows} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  mocks.identity = { uid: 'other', email: 'b@example.com' };
+  loaded();
+  await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+  expect(mocks.auth).not.toHaveBeenCalled();
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect(onRows).not.toHaveBeenCalled();
+});
+it('stops before verifying or reading with a stale consent result', async () => {
+  let consent!: (value: { token: string }) => void;
+  mocks.auth.mockReturnValue(
+    new Promise((resolve) => {
+      consent = resolve;
+    }),
+  );
+  render(<TruckSheetsPanel owner="owner" disabled={false} onRows={() => {}} onBusy={() => {}} />);
+  await screen.findByRole('link');
+  fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
+  await waitFor(() => expect(mocks.auth).toHaveBeenCalled());
+  mocks.identity = null;
+  consent({ token: 'stale-token' });
+  await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+  expect(mocks.verify).not.toHaveBeenCalled();
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect(mocks.save).not.toHaveBeenCalled();
 });

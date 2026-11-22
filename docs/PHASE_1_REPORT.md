@@ -1,8 +1,24 @@
 # Phase 1 — evidence index
 
+## Combined local / Cloud acceptance — 2026-11-22
+
+Preserved the verified seven-file WIP backup `14ca9d3`, Windows canonical-origin recovery/OAuth isolation and Cloud allowlist/viewer/offline grants. Corrected modal-search integration and root/Pages fixture routing; pending/original-byte/restore assertions retained. Final Windows `npm.cmd run check` **exit 0**: frontend **446**, backend **29**, Node emulator **20**, client integration **11**, E2E **94**, release **5**, tooling **4**; both builds/smokes and format/lint/typecheck PASS. Cleanup **exit 0**, screenshots restored, canonical dev HTTP **200**. [Source/delivery and exact commands](INTEGRATION_REVIEW_2026-11-22.md). Phase 1 remains PARTIAL for real-service acceptance; no new live account/data validation or production mutation.
+
 ## Actual data recovery — 2026-11-12
 
 Same-account original Chrome localhost state recovered through existing guarded missing-only restore; actual Firestore now has 2 projects/92 masters/3 trips, both canonical contexts 97 acknowledged/0 pending/0 conflict/0 failed. Missing-reference validation remains enforced. Added canonical URL gate/strict port and orphan-recovery regression; targeted 26/26 PASS. Full Windows gate **exit 0**: frontend 392/backend 20/Rules-storage 14/integration 10/E2E 73/tooling 4; format/lint/typecheck/build/smoke PASS, 59 existing warnings/zero errors, no skips. Cleanup **exit 0**. [Evidence and preserved backup](DATA_RECOVERY_2026-11-12.md). Historical Drive-file bytes/physical devices remain unverified; no complete-phase claim.
+
+## Mobile logout / TOTP / scoped PWA follow-up — 2026-11-10
+
+Source **`ef2564b`** keeps pending originals and actor/company/role caches intact while making logout reachable on small screens, preserving native record forms across rotation/offline restart and isolating root/subpath PWA shell caches. Firebase Google identity remains the first factor; TOTP setup/challenge is implemented with own-account checks and ephemeral keys/codes, while company grant and synchronization authorization remain independent. No provider or enforcement flag changed.
+
+Full cloud gate exit **0**: frontend **355**, backend **24**, release preflight **5**, emulator Node **15**, integration **10**, browser **81**, tooling **4**, both base-path builds/smokes PASS. [MOBILE_WEB_READINESS.md](MOBILE_WEB_READINESS.md) records actual tests/scans and [WEB_RELEASE_PREPARATION.md](WEB_RELEASE_PREPARATION.md) records real provider/recovery prerequisites. Real Google/TOTP/expiry/cloud restore remains NOT VERIFIED, so Phase 1 remains **PARTIAL**; no production migration/deployment performed.
+
+## Allowlist/offline access follow-up — 2026-11-10
+
+Validated source **`1b4c21d`** adds email-based Google allowlist access through a trusted backend, protected first UID binding, four canonical roles, a read-only viewer and transactional last-super-admin protection. Offline grants expire after 12 hours; known revocation cannot fall back to a legacy owner timestamp, and reconnect revalidates before synchronization. Account/company/role cache isolation and pending originals are preserved; an interleaved reconnect/revocation regression cannot reopen the old workspace or leave selection busy.
+
+Full gate exit **0**: frontend **343**, backend **24**, Node emulator **15** (13 Rules + 2 backend transactions), client integration **10**, E2E **73**, tooling **4**. Supplemental role-matrix retest also passes. Real Google login, deployed access expiry/revocation, original-cloud restore and MFA remain **NOT VERIFIED**. Phase 1 remains **PARTIAL** for those real-service checks. See [AUTH_RBAC_IMPLEMENTATION.md](AUTH_RBAC_IMPLEMENTATION.md) for policy activation and preserved-data rollout; no production migration/deployment was performed.
 
 2026-11-08 (Asia/Bangkok). Status: PARTIAL overall; isolated regression PASS ใน final gate 2026-11-08 ดู current run ใน TEST_RESULTS.md.
 

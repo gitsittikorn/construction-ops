@@ -1,6 +1,11 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LoginPage from '../LoginPage';
+import { totpChallenge } from '../firebaseMfa';
+vi.mock('../firebaseMfa', () => ({
+  totpChallenge: vi.fn(),
+  mfaErrorMessage: () => 'รหัสไม่ถูกต้อง กรุณาลองใหม่',
+}));
 
 it('uses the supplied artwork and invokes the login handler from the real button', async () => {
   const onLogin = vi.fn().mockResolvedValue(undefined);
@@ -58,4 +63,31 @@ it('disables Google login offline and enables it when connectivity returns', asy
   view.rerender(<LoginPage onLogin={onLogin} online />);
   await user.click(button);
   expect(onLogin).toHaveBeenCalledOnce();
+});
+it('completes a TOTP challenge without repeating Google login and clears the code on retry', async () => {
+  const verify = vi
+      .fn()
+      .mockRejectedValueOnce({ code: 'auth/invalid-verification-code' })
+      .mockResolvedValue(undefined),
+    onLogin = vi.fn().mockRejectedValue({ code: 'auth/multi-factor-auth-required' }),
+    user = userEvent.setup();
+  vi.mocked(totpChallenge).mockReturnValue({
+    factors: [{ uid: 'factor', name: 'Authenticator' }],
+    verify,
+  });
+  render(<LoginPage onLogin={onLogin} online />);
+  await user.click(screen.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }));
+  await screen.findByRole('dialog');
+  await user.type(screen.getByLabelText('รหัสยืนยันเข้าสู่ระบบ 6 หลัก'), '012345');
+  await user.click(screen.getByRole('button', { name: 'ยืนยันเข้าสู่ระบบ' }));
+  expect(await screen.findByText('รหัสไม่ถูกต้อง กรุณาลองใหม่')).toBeInTheDocument();
+  expect(screen.getByLabelText('รหัสยืนยันเข้าสู่ระบบ 6 หลัก')).toHaveValue('');
+  await user.type(screen.getByLabelText('รหัสยืนยันเข้าสู่ระบบ 6 หลัก'), '123456');
+  await user.click(screen.getByRole('button', { name: 'ยืนยันเข้าสู่ระบบ' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(onLogin).toHaveBeenCalledOnce();
+  expect(verify.mock.calls).toEqual([
+    ['factor', '012345'],
+    ['factor', '123456'],
+  ]);
 });

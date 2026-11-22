@@ -4,7 +4,7 @@ test('company branding and login artwork load at the deployed subpath and remain
   page,
   context,
 }) => {
-  const root = 'http://127.0.0.1:5175/construction-ops/';
+  const root = 'http://127.0.0.1:5176/construction-ops/';
   await page.goto(root);
   const logo = page.getByRole('img', { name: 'Khok Kloi Backhoe Engineering' });
   await expect(logo).toBeVisible();

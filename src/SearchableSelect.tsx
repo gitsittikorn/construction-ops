@@ -190,7 +190,8 @@ export default function SearchableSelect(props: SelectHTMLAttributes<HTMLSelectE
               {!options.length && <p role="status">ไม่พบตัวเลือก ลองคำค้นอื่น</p>}
             </div>
           </div>,
-          document.body,
+          // Native modal dialogs make portals outside their focus boundary inert.
+          select.current?.closest('dialog') ?? document.body,
         )}
     </>
   );

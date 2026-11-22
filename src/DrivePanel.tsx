@@ -1,4 +1,5 @@
 import SearchableSelect from './SearchableSelect';
+import { recordsBusiness } from './workspaceIdentity';
 import { workspaceMatches } from './workspaceIdentity';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Upload, RefreshCw, Link, Download, Unplug } from 'lucide-react';
@@ -48,7 +49,7 @@ const statusLabels = {
   synced: 'อัปโหลดและบันทึกข้อมูลแล้ว',
   error: 'ไม่สำเร็จ · ลองใหม่ได้',
 };
-export default function DrivePanel({
+function WritableDrivePanel({
   owner,
   defaultProject = '',
   projects,
@@ -819,4 +820,18 @@ export default function DrivePanel({
       </p>
     </section>
   );
+}
+
+export default function DrivePanel(props: Parameters<typeof WritableDrivePanel>[0]) {
+  if (!recordsBusiness(props.owner))
+    return (
+      <section className="panel padded" aria-label="เอกสารสำหรับผู้ดูข้อมูล">
+        <h2>Google Drive · สิทธิ์ดูข้อมูล</h2>
+        <p>
+          บัญชีนี้อ่านข้อมูลที่ได้รับอนุญาตได้
+          การเชื่อมต่อเพื่ออัปโหลดหรือจัดการไฟล์ต้องให้พนักงานหรือผู้จัดการดำเนินการ
+        </p>
+      </section>
+    );
+  return <WritableDrivePanel {...props} />;
 }

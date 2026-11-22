@@ -1,5 +1,11 @@
 # Verification — 2026-11-02
 
+## Latest mobile / TOTP / Pages gate — 2026-11-10
+
+Source **`ef2564b`**, full documented cloud `npm run check` exit **0**: frontend **355**, backend **24**, release preflight **5**, emulator Node **15**, Firestore client integration **10**, E2E **81**, editor tooling **4**. Format/lint/typecheck and root + Pages build/HTTP smoke PASS, 59 existing warnings/zero errors. New cases cover native touch forms/focus/rotation/offline persistence, scoped PWA caches, Pages offline lazy reports, ephemeral TOTP setup/challenge and unsafe release configuration. See [MOBILE_WEB_READINESS.md](docs/MOBILE_WEB_READINESS.md) for intermediate failures/retests and scan scope, and [WEB_RELEASE_PREPARATION.md](docs/WEB_RELEASE_PREPARATION.md) for release prerequisites.
+
+Chromium emulation/synthetic MFA/Firestore emulator do not establish real Google/TOTP or Safari/iPhone/iPad acceptance. WebKit download blocked by Domain forbidden. Fresh runtime audit zero/zero; compatible patch fix reduces development advisories 31→23 moderate, zero high/critical. No merge/deploy/bootstrap/provider/environment publication performed. The dated entries below are historical.
+
 ผลตรวจ Phase 1 ล่าสุดวันที่ 2026-11-06 อยู่ใน [PHASE_1_E2E_REPORT.md](docs/PHASE_1_E2E_REPORT.md) ซึ่งแยกผล browser, unit และ Firestore Emulator ออกจากบริการจริง ข้อความด้านล่างเป็นประวัติการตรวจแต่ละรุ่น ไม่ใช่สถานะปัจจุบันของ project/master sync หรือ restore
 
 ตรวจสอบรุ่นเริ่มต้นบน Windows / Node.js 26.3.1

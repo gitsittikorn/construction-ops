@@ -1,6 +1,14 @@
 import SearchableSelect from './SearchableSelect';
 import { assertCompanyMutation } from './companyPermissions';
-import { actorUid, cacheOwner, companyRole, type CompanyScope } from './workspaceIdentity';
+import {
+  actorUid,
+  cacheOwner,
+  companyRole,
+  managesBusiness,
+  recordsBusiness,
+  type CompanyScope,
+} from './workspaceIdentity';
+import { accessRoleLabels } from './accessBackend';
 import CompanyMembersPanel from './CompanyMembersPanel';
 import { useProjectPreference } from './useProjectPreference';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -23,6 +31,7 @@ import {
   Download,
   X,
   LogOut,
+  Users,
 } from 'lucide-react';
 import type { Data, Project, Master, Trip } from './models';
 import { emptyData } from './models';
@@ -51,8 +60,11 @@ const DailyPanel = lazy(() => import('./DailyPanel'));
 const ReportsPanel = lazy(() => import('./ReportsPanel'));
 const SurveyPanel = lazy(() => import('./SurveyPanel'));
 const FinancePanel = lazy(() => import('./FinancePanel'));
+const UserManagementPanel = lazy(() => import('./UserManagementPanel'));
+const AccountSecurityPanel = lazy(() => import('./AccountSecurityPanel'));
 import { companyName, companyLogo } from './branding';
 import LoginPage from './LoginPage';
+import RecordDialog from './RecordDialog';
 import DrivePanel from './DrivePanel';
 import DuplicateReviewPanel from './DuplicateReviewPanel';
 import BackupRestorePanel from './BackupRestorePanel';
@@ -82,6 +94,7 @@ const pages = [
   ['finance', 'การเงินโครงการ', BarChart3],
   ['survey', 'สำรวจและคำนวณ', Calculator],
   ['sync', 'ซิงก์และสำรองข้อมูล', RefreshCw],
+  ['users', 'ผู้ใช้งานและสิทธิ์', Users],
   ['settings', 'การตั้งค่า', Settings],
 ] as const;
 const navGroups: Record<string, string> = {
@@ -138,13 +151,17 @@ export default function App({
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
   const projectPreference = useProjectPreference(owner, data.projects);
-  const canManage = companyRole(owner) !== 'operator';
-  const roleLabel =
-    companyRole(owner) === 'owner'
+  const canManage = managesBusiness(owner);
+  const canRecord = recordsBusiness(owner);
+  const roleLabel = workspace?.accessRole
+    ? accessRoleLabels[workspace.accessRole]
+    : companyRole(owner) === 'owner'
       ? 'เจ้าของกิจการ'
       : companyRole(owner) === 'manager'
         ? 'ผู้จัดการ'
-        : 'พนักงานบันทึกข้อมูล';
+        : companyRole(owner) === 'viewer'
+          ? 'ผู้ดูข้อมูลเท่านั้น'
+          : 'พนักงานบันทึกข้อมูล';
   const [tripProject, setTripProject] = useState('');
   const [tripSoilType, setTripSoilType] = useState('');
   const [tripTruck, setTripTruck] = useState('');
@@ -327,6 +344,10 @@ export default function App({
     return () => window.clearTimeout(timer);
   }, [localOperations, owner, online, ready]);
   async function resolve(key: string, choice: 'local' | 'remote') {
+    if (!canRecord) {
+      setCloudError('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถแก้ข้อมูลขัดแย้งได้');
+      return;
+    }
     if (!alive.current || syncLock.current || !owner || !online) return;
     syncLock.current = true;
     setBusy(true);
@@ -374,6 +395,10 @@ export default function App({
     }
   }
   function open(type: typeof modal, record: typeof editing = null) {
+    if (!canRecord) {
+      setError('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถบันทึกหรือแก้ไขข้อมูลได้');
+      return;
+    }
     if (!canManage && type !== 'trip') {
       setError('พนักงานดูข้อมูลนี้ได้ การแก้ไขต้องให้ผู้จัดการดำเนินการ');
       return;
@@ -601,7 +626,12 @@ export default function App({
         <span className="nav-caption">พื้นที่ทำงาน</span>
         <nav>
           {pages
-            .filter(([id]) => canManage || id !== 'finance')
+            .filter(
+              ([id]) =>
+                (canManage || id !== 'finance') &&
+                (id !== 'users' ||
+                  (workspace?.role === 'owner' && workspace.accessPolicy === 'allowlist-v1')),
+            )
             .map(([id, title, Icon]) => (
               <div className="nav-item" key={id}>
                 {navGroups[id] && <span className="nav-group-title">{navGroups[id]}</span>}
@@ -638,23 +668,9 @@ export default function App({
           <div className="profile">
             <span>AD</span>
             <div>
-              <b>
-                {companyRole(owner) === 'owner'
-                  ? 'เจ้าของกิจการ'
-                  : companyRole(owner) === 'manager'
-                    ? 'ผู้จัดการ'
-                    : 'พนักงานบันทึกข้อมูล'}
-              </b>
+              <b>{roleLabel}</b>
               <small>{configured ? 'บัญชี Google' : 'พื้นที่ทำงานในเครื่อง'}</small>
             </div>
-            {configured && (
-              <button
-                aria-label="ออกจากระบบ"
-                onClick={() => logout().catch((e) => setError(message(e)))}
-              >
-                <LogOut size={17} />
-              </button>
-            )}
           </div>
         </div>
       </aside>
@@ -681,6 +697,16 @@ export default function App({
                 timeZone: 'Asia/Bangkok',
               }).format(new Date())}
             </span>
+            {configured && (
+              <button
+                className="session-logout"
+                aria-label="ออกจากระบบ"
+                title="ออกจากระบบ"
+                onClick={() => void logout().catch((e) => setError(message(e)))}
+              >
+                <LogOut size={20} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </header>
         <main className="workspace-main" id="main-content" tabIndex={-1}>
@@ -692,7 +718,8 @@ export default function App({
               </h1>
               <p>{pageDescription(page)}</p>
             </div>
-            {['projects', 'masters', 'trips'].includes(page) &&
+            {canRecord &&
+              ['projects', 'masters', 'trips'].includes(page) &&
               (page !== 'trips' || tripView === 'records') &&
               (canManage || !['projects', 'masters'].includes(page)) && (
                 <button
@@ -735,6 +762,7 @@ export default function App({
               {page === 'sync' && (
                 <>
                   <CloudSyncPanel
+                    readOnly={!canRecord}
                     owner={owner}
                     data={data}
                     configured={configured}
@@ -792,7 +820,7 @@ export default function App({
                         ด้วยข้อมูลที่พร้อมกว่า
                       </h2>
                       <p>ติดตามโครงการ บันทึกเที่ยวรถ และดูความคืบหน้าของวันนี้</p>
-                      <button onClick={() => open('trip')}>
+                      <button disabled={!canRecord} onClick={() => open('trip')}>
                         บันทึกเที่ยวรถแรกของวัน <ArrowUpRight size={17} />
                       </button>
                     </div>
@@ -1305,6 +1333,7 @@ export default function App({
                                 <button
                                   className="text-button"
                                   aria-label={`แก้ไขเที่ยวรถ ${t.time}`}
+                                  disabled={!canRecord}
                                   onClick={() => open('trip', t)}
                                 >
                                   แก้ไข
@@ -1328,6 +1357,13 @@ export default function App({
                 </>
               )}
               {page === 'survey' && <Calculation />}
+              {page === 'users' &&
+                workspace?.role === 'owner' &&
+                workspace.accessPolicy === 'allowlist-v1' && (
+                  <Suspense fallback={<p>กำลังเปิดรายชื่อผู้ใช้งาน…</p>}>
+                    <UserManagementPanel key={`${owner}:users`} scope={workspace} online={online} />
+                  </Suspense>
+                )}
               {page === 'settings' && (
                 <div className="settings-grid">
                   <section className="panel padded">
@@ -1378,8 +1414,20 @@ export default function App({
                       online={online}
                     />
                   )}
-                  {workspace?.role === 'owner' && <CompanyMembersPanel scope={workspace} />}
+                  {workspace?.role === 'owner' && !workspace.accessPolicy && (
+                    <CompanyMembersPanel scope={workspace} />
+                  )}
+                  {workspace?.role === 'owner' && workspace.accessPolicy === 'allowlist-v1' && (
+                    <button className="secondary" onClick={() => navigate('users')}>
+                      เปิดหน้าผู้ใช้งานและสิทธิ์
+                    </button>
+                  )}
                   {onSwitchCompany && <button onClick={onSwitchCompany}>เปลี่ยนบริษัท</button>}
+                  {configured && (
+                    <Suspense fallback={<p role="status">กำลังโหลดความปลอดภัยบัญชี…</p>}>
+                      <AccountSecurityPanel key={owner} uid={actorUid(owner)} online={online} />
+                    </Suspense>
+                  )}
                   <section className="panel padded audit-panel">
                     <h2>ประวัติการเปลี่ยนแปลง</h2>
                     <p>{data.audit.length} เหตุการณ์ในเครื่อง</p>
@@ -1414,331 +1462,315 @@ export default function App({
         </main>
       </div>
       {modal && (
-        <div className="modal-backdrop">
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">WORKSPACE RECORD</span>
-                <h2 id="modal-title">
-                  {editing ? 'แก้ไข' : 'เพิ่ม'}
-                  {modal === 'project' ? 'โครงการ' : modal === 'master' ? labels[kind] : 'เที่ยวรถ'}
-                </h2>
-              </div>
-              <button aria-label="ปิดฟอร์ม" onClick={() => setModal(null)}>
-                <X />
-              </button>
+        <RecordDialog onDismiss={() => setModal(null)}>
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">WORKSPACE RECORD</span>
+              <h2 id="modal-title">
+                {editing ? 'แก้ไข' : 'เพิ่ม'}
+                {modal === 'project' ? 'โครงการ' : modal === 'master' ? labels[kind] : 'เที่ยวรถ'}
+              </h2>
             </div>
-            <form onSubmit={submit}>
-              {editing && canManage && (
-                <div>
-                  <button type="button" onClick={() => setConfirmDelete(true)}>
-                    ลบรายการโดยเก็บประวัติ
-                  </button>
-                  {confirmDelete && (
-                    <div>
-                      <p>รายการจะถูกซ่อนจากการใช้งาน โดยเก็บข้อมูลและประวัติไว้</p>
-                      <button type="button" onClick={() => void remove()}>
-                        ยืนยันลบรายการ
-                      </button>
-                      <button type="button" onClick={() => setConfirmDelete(false)}>
-                        ยกเลิกการลบ
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="form-grid">
-                {modal === 'project' ? (
-                  <>
-                    {input('name', 'ชื่อโครงการ', 'text', true)}
-                    {input('customer', 'ชื่อลูกค้า')}
-                    {input('location', 'สถานที่')}
-                    <Field label="พิกัด (Lat, Lng)">
-                      <input
-                        name="coordinates"
-                        aria-label="พิกัด (Lat, Lng)"
-                        type="text"
-                        placeholder="เช่น 13.7563, 100.5018"
-                        defaultValue={
-                          editing &&
-                          'latitude' in editing &&
-                          editing.latitude !== undefined &&
-                          editing.longitude !== undefined
-                            ? `${editing.latitude}, ${editing.longitude}`
-                            : ''
-                        }
-                      />
-                      <small>ละติจูด, ลองจิจูด คั่นด้วยเครื่องหมาย ,</small>
-                    </Field>
-                    {input('startDate', 'วันเริ่มต้น', 'date')}
-                    {input('endDate', 'วันสิ้นสุด', 'date')}
-                    <Field label="สถานะ">
-                      <SearchableSelect
-                        name="status"
-                        aria-label="สถานะโครงการ"
-                        defaultValue={editing && 'status' in editing ? editing.status : 'active'}
-                      >
-                        {Object.entries(statusText).map(([key, title]) => (
-                          <option key={key} value={key}>
-                            {title}
-                          </option>
-                        ))}
-                      </SearchableSelect>
-                    </Field>
-                    {input('description', 'รายละเอียด')}
-                  </>
-                ) : modal === 'master' ? (
-                  <>
-                    {input(
-                      'name',
-                      kind === 'truck'
-                        ? 'ทะเบียนรถ'
-                        : kind === 'soilType'
-                          ? 'ชื่อชนิดดิน'
-                          : kind === 'tag'
-                            ? 'ชื่อแท็ก / ทีม'
-                            : 'ชื่อ',
-                      'text',
-                      true,
-                    )}
-                    {input(
-                      'detail',
-                      kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด',
-                    )}
-                    {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
-                    {kind === 'driver' && (
-                      <>
-                        {input('phone', 'เบอร์โทร', 'tel')}
-                        {input('nickname', 'ชื่อเล่น')}
-                        <p>
-                          รถประจำ:{' '}
-                          {data.masters.find(
-                            (truck) => truck.kind === 'truck' && truck.driverId === editing?.id,
-                          )?.name ?? 'ยังไม่ผูกกับรถ'}{' '}
-                          · ผูกหรือยกเลิกได้จากการแก้ไขรถบรรทุก
-                        </p>
-                      </>
-                    )}
-                    {kind === 'truck' && (
-                      <>
-                        {input('province', 'จังหวัดทะเบียน')}
-                        {input('phone', 'เบอร์โทร', 'tel')}
-                        {input('nickname', 'ชื่อเล่น')}
-                        <Field label="คนขับประจำรถ">
-                          <SearchableSelect
-                            name="driverId"
-                            aria-label="คนขับประจำรถ"
-                            defaultValue={
-                              editing && 'kind' in editing ? (editing.driverId ?? '') : ''
-                            }
-                          >
-                            <option value="">ยังไม่ผูกคนขับ / เพิ่มคนขับใหม่ด้านล่าง</option>
-                            {data.masters
-                              .filter(
-                                (item) =>
-                                  item.kind === 'driver' &&
-                                  (item.active ||
-                                    (editing && 'kind' in editing && editing.driverId === item.id)),
-                              )
-                              .map((driver) => {
-                                const assigned = data.masters.find(
-                                  (truck) =>
-                                    truck.kind === 'truck' &&
-                                    truck.id !== editing?.id &&
-                                    truck.driverId === driver.id,
-                                );
-                                return (
-                                  <option
-                                    key={driver.id}
-                                    value={driver.id}
-                                    disabled={Boolean(assigned)}
-                                    data-search={[
-                                      driver.nickname,
-                                      driver.phone,
-                                      driver.detail,
-                                    ].join(' ')}
-                                  >
-                                    {driver.name}
-                                    {assigned
-                                      ? ` (รถ ${assigned.name} · ต้องยกเลิกการผูกเดิมก่อน)`
-                                      : ''}
-                                    {driver.active ? '' : ' (ปิดใช้งาน)'}
-                                  </option>
-                                );
-                              })}
-                          </SearchableSelect>
-                        </Field>
-                        <Field label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)">
-                          <input
-                            name="newDriverName"
-                            aria-label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)"
-                            maxLength={200}
-                          />
-                          <small>
-                            เลือกคนขับเดิมหรือกรอกชื่อใหม่อย่างใดอย่างหนึ่ง
-                            ชื่อใหม่จะใช้ชื่อเล่นและเบอร์โทรที่กรอกในรถนี้เป็นข้อมูลเริ่มต้น
-                            บันทึกพร้อมรถในครั้งเดียว
-                          </small>
-                        </Field>
-                        <Field label="ประเภทรถ">
-                          <SearchableSelect
-                            name="truckType"
-                            aria-label="ประเภทรถ"
-                            defaultValue={
-                              editing && 'kind' in editing ? (editing.truckType ?? '') : ''
-                            }
-                          >
-                            <option value="">ไม่ระบุ</option>
-                            {Object.entries(truckTypes).map(([id, title]) => (
-                              <option value={id} key={id}>
-                                {title}
-                              </option>
-                            ))}
-                          </SearchableSelect>
-                        </Field>
-                      </>
-                    )}
-                    {kind !== 'tag' && (
-                      <TagFields
-                        masters={data.masters}
-                        record={editing && 'kind' in editing ? editing : null}
-                      />
-                    )}
-                    <Field label="สถานะ">
-                      <SearchableSelect
-                        name="active"
-                        defaultValue={
-                          editing && 'active' in editing ? String(editing.active) : 'true'
-                        }
-                      >
-                        <option value="true">ใช้งาน</option>
-                        <option value="false">ปิดใช้งาน</option>
-                      </SearchableSelect>
-                    </Field>
-                  </>
-                ) : (
-                  <>
-                    <ProjectPicker
-                      projects={data.projects}
-                      value={tripProject}
-                      onChange={setTripProject}
-                      onManage={() => {
-                        setModal(null);
-                        navigate('projects');
-                        if (!data.projects.length) open('project');
-                      }}
-                    />
-                    {(['truck', 'driver', 'source'] as const).map((type) => (
-                      <Field key={type} label={labels[type] + (type === 'truck' ? ' *' : '')}>
-                        <SearchableSelect
-                          aria-label={labels[type] + (type === 'truck' ? ' *' : '')}
-                          name={type + 'Id'}
-                          required={type === 'truck'}
-                          value={
-                            type === 'truck'
-                              ? tripTruck
-                              : type === 'driver'
-                                ? tripDriver
-                                : tripSource
-                          }
-                          onChange={(event) => {
-                            const id = event.target.value;
-                            if (type === 'truck') {
-                              setTripTruck(id);
-                              setTripDriver(assignedDriver(data.masters, id));
-                            }
-                            if (type === 'driver') {
-                              setTripDriver(id);
-                              const truck = data.masters.find(
-                                (item) =>
-                                  item.kind === 'truck' &&
-                                  item.active &&
-                                  item.driverId === id &&
-                                  id,
-                              );
-                              if (truck) setTripTruck(truck.id);
-                            }
-                            if (type === 'source') setTripSource(id);
-                          }}
-                        >
-                          <option value="">เลือก{labels[type]}</option>
-                          {data.masters
-                            .filter((m) => m.kind === type && m.active)
-                            .map((m) => (
-                              <option
-                                key={m.id}
-                                value={m.id}
-                                data-search={[
-                                  m.nickname,
-                                  m.phone,
-                                  m.province,
-                                  m.detail,
-                                  m.kind === 'driver'
-                                    ? data.masters.find((truck) => truck.driverId === m.id)?.name
-                                    : masterName(m.driverId ?? ''),
-                                ].join(' ')}
-                              >
-                                {m.name}
-                              </option>
-                            ))}
-                        </SearchableSelect>
-                        {!data.masters.some((m) => m.kind === type && m.active) && (
-                          <small>
-                            {data.masters.some((m) => m.kind === type)
-                              ? `ข้อมูล${labels[type]}ถูกปิดใช้งาน เปิดใช้งานที่หน้าข้อมูลพื้นฐานก่อนเลือก`
-                              : `ยังไม่มี${labels[type]}ในบัญชีและที่อยู่เว็บนี้ เพิ่มที่หน้าข้อมูลพื้นฐาน`}
-                          </small>
-                        )}
-                      </Field>
-                    ))}
-                    {input('date', 'วันที่ทำงาน', 'date', true)}
-                    <Field label="เวลา *">
-                      <input
-                        name="time"
-                        type="time"
-                        required
-                        defaultValue={
-                          editing && 'time' in editing
-                            ? editing.time
-                            : new Intl.DateTimeFormat('en-GB', {
-                                timeZone: 'Asia/Bangkok',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }).format(new Date())
-                        }
-                      />
-                    </Field>
-                    <SoilTypePicker
-                      masters={data.masters}
-                      value={tripSoilType}
-                      onChange={setTripSoilType}
-                      sourceId={tripSource}
-                      previousValue={
-                        editing && 'soilType' in editing ? editing.soilType : undefined
-                      }
-                    />
-                    {input('notes', 'หมายเหตุ')}
-                  </>
+            <button aria-label="ปิดฟอร์ม" onClick={() => setModal(null)}>
+              <X />
+            </button>
+          </div>
+          <form onSubmit={submit}>
+            {editing && canManage && (
+              <div>
+                <button type="button" onClick={() => setConfirmDelete(true)}>
+                  ลบรายการโดยเก็บประวัติ
+                </button>
+                {confirmDelete && (
+                  <div>
+                    <p>รายการจะถูกซ่อนจากการใช้งาน โดยเก็บข้อมูลและประวัติไว้</p>
+                    <button type="button" onClick={() => void remove()}>
+                      ยืนยันลบรายการ
+                    </button>
+                    <button type="button" onClick={() => setConfirmDelete(false)}>
+                      ยกเลิกการลบ
+                    </button>
+                  </div>
                 )}
               </div>
-              {error && (
-                <p className="form-error" role="alert">
-                  {error}
-                </p>
+            )}
+            <div className="form-grid">
+              {modal === 'project' ? (
+                <>
+                  {input('name', 'ชื่อโครงการ', 'text', true)}
+                  {input('customer', 'ชื่อลูกค้า')}
+                  {input('location', 'สถานที่')}
+                  <Field label="พิกัด (Lat, Lng)">
+                    <input
+                      name="coordinates"
+                      aria-label="พิกัด (Lat, Lng)"
+                      type="text"
+                      placeholder="เช่น 13.7563, 100.5018"
+                      defaultValue={
+                        editing &&
+                        'latitude' in editing &&
+                        editing.latitude !== undefined &&
+                        editing.longitude !== undefined
+                          ? `${editing.latitude}, ${editing.longitude}`
+                          : ''
+                      }
+                    />
+                    <small>ละติจูด, ลองจิจูด คั่นด้วยเครื่องหมาย ,</small>
+                  </Field>
+                  {input('startDate', 'วันเริ่มต้น', 'date')}
+                  {input('endDate', 'วันสิ้นสุด', 'date')}
+                  <Field label="สถานะ">
+                    <SearchableSelect
+                      name="status"
+                      aria-label="สถานะโครงการ"
+                      defaultValue={editing && 'status' in editing ? editing.status : 'active'}
+                    >
+                      {Object.entries(statusText).map(([key, title]) => (
+                        <option key={key} value={key}>
+                          {title}
+                        </option>
+                      ))}
+                    </SearchableSelect>
+                  </Field>
+                  {input('description', 'รายละเอียด')}
+                </>
+              ) : modal === 'master' ? (
+                <>
+                  {input(
+                    'name',
+                    kind === 'truck'
+                      ? 'ทะเบียนรถ'
+                      : kind === 'soilType'
+                        ? 'ชื่อชนิดดิน'
+                        : kind === 'tag'
+                          ? 'ชื่อแท็ก / ทีม'
+                          : 'ชื่อ',
+                    'text',
+                    true,
+                  )}
+                  {input('detail', kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด')}
+                  {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
+                  {kind === 'driver' && (
+                    <>
+                      {input('phone', 'เบอร์โทร', 'tel')}
+                      {input('nickname', 'ชื่อเล่น')}
+                      <p>
+                        รถประจำ:{' '}
+                        {data.masters.find(
+                          (truck) => truck.kind === 'truck' && truck.driverId === editing?.id,
+                        )?.name ?? 'ยังไม่ผูกกับรถ'}{' '}
+                        · ผูกหรือยกเลิกได้จากการแก้ไขรถบรรทุก
+                      </p>
+                    </>
+                  )}
+                  {kind === 'truck' && (
+                    <>
+                      {input('province', 'จังหวัดทะเบียน')}
+                      {input('phone', 'เบอร์โทร', 'tel')}
+                      {input('nickname', 'ชื่อเล่น')}
+                      <Field label="คนขับประจำรถ">
+                        <SearchableSelect
+                          name="driverId"
+                          aria-label="คนขับประจำรถ"
+                          defaultValue={
+                            editing && 'kind' in editing ? (editing.driverId ?? '') : ''
+                          }
+                        >
+                          <option value="">ยังไม่ผูกคนขับ / เพิ่มคนขับใหม่ด้านล่าง</option>
+                          {data.masters
+                            .filter(
+                              (item) =>
+                                item.kind === 'driver' &&
+                                (item.active ||
+                                  (editing && 'kind' in editing && editing.driverId === item.id)),
+                            )
+                            .map((driver) => {
+                              const assigned = data.masters.find(
+                                (truck) =>
+                                  truck.kind === 'truck' &&
+                                  truck.id !== editing?.id &&
+                                  truck.driverId === driver.id,
+                              );
+                              return (
+                                <option
+                                  key={driver.id}
+                                  value={driver.id}
+                                  disabled={Boolean(assigned)}
+                                  data-search={[driver.nickname, driver.phone, driver.detail].join(
+                                    ' ',
+                                  )}
+                                >
+                                  {driver.name}
+                                  {assigned
+                                    ? ` (รถ ${assigned.name} · ต้องยกเลิกการผูกเดิมก่อน)`
+                                    : ''}
+                                  {driver.active ? '' : ' (ปิดใช้งาน)'}
+                                </option>
+                              );
+                            })}
+                        </SearchableSelect>
+                      </Field>
+                      <Field label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)">
+                        <input
+                          name="newDriverName"
+                          aria-label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)"
+                          maxLength={200}
+                        />
+                        <small>
+                          เลือกคนขับเดิมหรือกรอกชื่อใหม่อย่างใดอย่างหนึ่ง
+                          ชื่อใหม่จะใช้ชื่อเล่นและเบอร์โทรที่กรอกในรถนี้เป็นข้อมูลเริ่มต้น
+                          บันทึกพร้อมรถในครั้งเดียว
+                        </small>
+                      </Field>
+                      <Field label="ประเภทรถ">
+                        <SearchableSelect
+                          name="truckType"
+                          aria-label="ประเภทรถ"
+                          defaultValue={
+                            editing && 'kind' in editing ? (editing.truckType ?? '') : ''
+                          }
+                        >
+                          <option value="">ไม่ระบุ</option>
+                          {Object.entries(truckTypes).map(([id, title]) => (
+                            <option value={id} key={id}>
+                              {title}
+                            </option>
+                          ))}
+                        </SearchableSelect>
+                      </Field>
+                    </>
+                  )}
+                  {kind !== 'tag' && (
+                    <TagFields
+                      masters={data.masters}
+                      record={editing && 'kind' in editing ? editing : null}
+                    />
+                  )}
+                  <Field label="สถานะ">
+                    <SearchableSelect
+                      name="active"
+                      defaultValue={
+                        editing && 'active' in editing ? String(editing.active) : 'true'
+                      }
+                    >
+                      <option value="true">ใช้งาน</option>
+                      <option value="false">ปิดใช้งาน</option>
+                    </SearchableSelect>
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <ProjectPicker
+                    projects={data.projects}
+                    value={tripProject}
+                    onChange={setTripProject}
+                    onManage={() => {
+                      setModal(null);
+                      navigate('projects');
+                      if (!data.projects.length) open('project');
+                    }}
+                  />
+                  {(['truck', 'driver', 'source'] as const).map((type) => (
+                    <Field key={type} label={labels[type] + (type === 'truck' ? ' *' : '')}>
+                      <SearchableSelect
+                        aria-label={labels[type] + (type === 'truck' ? ' *' : '')}
+                        name={type + 'Id'}
+                        required={type === 'truck'}
+                        value={
+                          type === 'truck' ? tripTruck : type === 'driver' ? tripDriver : tripSource
+                        }
+                        onChange={(event) => {
+                          const id = event.target.value;
+                          if (type === 'truck') {
+                            setTripTruck(id);
+                            setTripDriver(assignedDriver(data.masters, id));
+                          }
+                          if (type === 'driver') {
+                            setTripDriver(id);
+                            const truck = data.masters.find(
+                              (item) =>
+                                item.kind === 'truck' && item.active && item.driverId === id && id,
+                            );
+                            if (truck) setTripTruck(truck.id);
+                          }
+                          if (type === 'source') setTripSource(id);
+                        }}
+                      >
+                        <option value="">เลือก{labels[type]}</option>
+                        {data.masters
+                          .filter((m) => m.kind === type && m.active)
+                          .map((m) => (
+                            <option
+                              key={m.id}
+                              value={m.id}
+                              data-search={[
+                                m.nickname,
+                                m.phone,
+                                m.province,
+                                m.detail,
+                                m.kind === 'driver'
+                                  ? data.masters.find((truck) => truck.driverId === m.id)?.name
+                                  : masterName(m.driverId ?? ''),
+                              ].join(' ')}
+                            >
+                              {m.name}
+                            </option>
+                          ))}
+                      </SearchableSelect>
+                      {!data.masters.some((m) => m.kind === type && m.active) && (
+                        <small>
+                          {data.masters.some((m) => m.kind === type)
+                            ? `ข้อมูล${labels[type]}ถูกปิดใช้งาน เปิดใช้งานที่หน้าข้อมูลพื้นฐานก่อนเลือก`
+                            : `ยังไม่มี${labels[type]}ในบัญชีและที่อยู่เว็บนี้ เพิ่มที่หน้าข้อมูลพื้นฐาน`}
+                        </small>
+                      )}
+                    </Field>
+                  ))}
+                  {input('date', 'วันที่ทำงาน', 'date', true)}
+                  <Field label="เวลา *">
+                    <input
+                      name="time"
+                      type="time"
+                      required
+                      defaultValue={
+                        editing && 'time' in editing
+                          ? editing.time
+                          : new Intl.DateTimeFormat('en-GB', {
+                              timeZone: 'Asia/Bangkok',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }).format(new Date())
+                      }
+                    />
+                  </Field>
+                  <SoilTypePicker
+                    masters={data.masters}
+                    value={tripSoilType}
+                    onChange={setTripSoilType}
+                    sourceId={tripSource}
+                    previousValue={editing && 'soilType' in editing ? editing.soilType : undefined}
+                  />
+                  {input('notes', 'หมายเหตุ')}
+                </>
               )}
-              <div className="form-actions">
-                <span>บันทึกลงอุปกรณ์ก่อนซิงก์</span>
-                <button type="button" className="secondary" onClick={() => setModal(null)}>
-                  ยกเลิก
-                </button>
-                <button className="primary" type="submit">
-                  <Check size={17} />
-                  บันทึกข้อมูล
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+            </div>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="form-actions">
+              <span>บันทึกลงอุปกรณ์ก่อนซิงก์</span>
+              <button type="button" className="secondary" onClick={() => setModal(null)}>
+                ยกเลิก
+              </button>
+              <button className="primary" type="submit">
+                <Check size={17} />
+                บันทึกข้อมูล
+              </button>
+            </div>
+          </form>
+        </RecordDialog>
       )}
     </div>
   );

@@ -29,6 +29,10 @@ export const login = async () => {
 export const logout = async () => {
   if (auth) await signOut(auth);
 };
+export function sessionAuth() {
+  if (!auth) throw Error('ยังไม่ได้ตั้งค่า Firebase');
+  return auth;
+}
 export function getSessionIdentity() {
   return auth?.currentUser
     ? { uid: auth.currentUser.uid, email: auth.currentUser.email ?? '' }

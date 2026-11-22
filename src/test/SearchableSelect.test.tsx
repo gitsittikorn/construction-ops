@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import SearchableSelect from '../SearchableSelect';
+import RecordDialog from '../RecordDialog';
 import { searchRank } from '../searchOptions';
 
 function Picker() {
@@ -28,6 +29,28 @@ function Picker() {
     </form>
   );
 }
+
+it('keeps the search picker inside the native modal focus boundary and Escape cancels only the picker', async () => {
+  const user = userEvent.setup();
+  const dismiss = vi.fn();
+  render(
+    <RecordDialog onDismiss={dismiss}>
+      <h2 id="modal-title">Fleet record</h2>
+      <Picker />
+    </RecordDialog>,
+  );
+  const dialog = screen.getByRole('dialog');
+  await user.click(within(dialog).getByRole('combobox', { name: 'รถ' }));
+  const search = within(dialog).getByRole('combobox', { name: 'ค้นหาตัวเลือก' });
+  expect(search).toHaveFocus();
+  await user.type(search, '811234');
+  await user.keyboard('{Enter}');
+  expect(within(dialog).getByRole('combobox', { name: 'รถ' })).toHaveValue('one');
+  await user.keyboard('{ArrowDown}{Escape}');
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  expect(within(dialog).getByRole('combobox', { name: 'รถ' })).toHaveFocus();
+  expect(dismiss).not.toHaveBeenCalled();
+});
 
 it('ranks normalized plates, partial names and one typo, without matching unrelated short queries', () => {
   expect(searchRank('81-1234', '811234')).toBe(0);

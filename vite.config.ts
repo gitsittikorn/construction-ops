@@ -3,9 +3,8 @@ import react from '@vitejs/plugin-react';
 import { devDiagnosticsPlugin } from './devDiagnosticsPlugin';
 import { precachePlugin } from './precachePlugin';
 
-export default defineConfig(({ command, isPreview }) => ({
-  // GitHub Pages
-  base: command === 'serve' && !isPreview ? '/' : '/construction-ops/',
+export default defineConfig({
+  base: '/',
 
   plugins: [react(), devDiagnosticsPlugin(), precachePlugin()],
 
@@ -29,4 +28,4 @@ export default defineConfig(({ command, isPreview }) => ({
       },
     },
   },
-}));
+});

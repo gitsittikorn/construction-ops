@@ -6,6 +6,7 @@ import { loadData, persistData, updateData } from '../storage';
 import { firestoreTransport } from '../cloudFirestore';
 import { fixture } from './syncFixtures';
 import userEvent from '@testing-library/user-event';
+import { logout } from '../firebase';
 const authMock = vi.hoisted(() => ({
   callback: null as null | ((user: { uid: string } | null) => void),
   initiallySignedIn: true,
@@ -29,7 +30,7 @@ vi.mock('../firebase', () => ({
     };
   },
   login: authMock.login,
-  logout: vi.fn(),
+  logout: vi.fn().mockResolvedValue(undefined),
   syncTrip: vi.fn(),
   getSessionIdentity: () => ({ uid: 'test-owner', email: 'test@company.com' }),
   resolveDriveFolders: vi.fn(),
@@ -38,7 +39,19 @@ vi.mock('../firebase', () => ({
 beforeEach(() => {
   authMock.initiallySignedIn = true;
   authMock.login.mockReset();
+  vi.mocked(logout).mockClear();
   vi.mocked(firestoreTransport.pull).mockReset().mockResolvedValue({ records: [], cursors: {} });
+});
+it('offers logout in the workspace header without relying on the desktop-only profile', async () => {
+  await persistData('test-owner', fixture());
+  render(<App />);
+  await screen.findByText('Site', { exact: true });
+  const button = screen.getByRole('button', { name: 'ออกจากระบบ' });
+  expect(button.closest('header')).not.toBeNull();
+  expect(button.closest('.sidebar-bottom')).toBeNull();
+  await userEvent.click(button);
+  expect(logout).toHaveBeenCalledOnce();
+  expect((await loadData('test-owner')).projects[0].name).toBe('Site');
 });
 it.each(['permission-denied', 'unauthenticated'])(
   'closes the workspace when %s occurs after authorization without losing pending data',

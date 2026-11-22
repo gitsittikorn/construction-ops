@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { emailKey } from '../backend/accessModel.mjs';
 import { before, after, test } from 'node:test';
 import {
   initializeTestEnvironment,
@@ -689,4 +690,314 @@ test('evidence cannot be reparented out of a sealed day or rewritten after a lat
   };
   await assertFails(setDoc(ref(worker, unused.id), envelope(unused)));
   await assertSucceeds(setDoc(ref(root, unused.id), envelope(unused)));
+});
+
+test('allowlist policy enforces live verified-Google grants, viewer reads, staff writes and backend-only role changes', async () => {
+  const cid = 'policy-root',
+    at = '2026-11-10T00:00:00Z';
+  const entries = [
+    ['policy-root', 'super_admin', 'owner'],
+    ['policy-super', 'super_admin', 'owner'],
+    ['policy-admin', 'admin', 'manager'],
+    ['policy-staff', 'staff', 'operator'],
+    ['policy-viewer', 'viewer', 'viewer'],
+  ];
+  const client = (uid, extra = {}) =>
+    env
+      .authenticatedContext(uid, {
+        email: `${uid}@example.com`,
+        email_verified: true,
+        firebase: { sign_in_provider: 'google.com' },
+        ...extra,
+      })
+      .firestore();
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'admins', cid), { enabled: true });
+    await setDoc(doc(db, 'companies', cid), {
+      ownerUid: cid,
+      name: 'Policy company',
+      createdAt: at,
+      updatedAt: at,
+      accessPolicy: 'allowlist-v1',
+    });
+    await setDoc(
+      doc(db, 'users', cid, 'projects', 'policy-project'),
+      envelope(project('policy-project')),
+    );
+    await setDoc(
+      doc(db, 'users', cid, 'masters', 'policy-truck'),
+      envelope(master('policy-truck')),
+    );
+    for (const [uid, role, alias] of entries) {
+      const email = `${uid}@example.com`,
+        grantId = emailKey(email);
+      await setDoc(doc(db, 'companies', cid, 'authorized_users', grantId), {
+        uid,
+        email,
+        role,
+        status: 'enabled',
+      });
+      await setDoc(doc(db, 'companies', cid, 'members', uid), {
+        uid,
+        email,
+        name: uid,
+        role: alias,
+        accessRole: role,
+        enabled: true,
+        accessPolicy: 'allowlist-v1',
+        grantId,
+        updatedAt: at,
+      });
+    }
+  });
+  const root = client(cid),
+    admin = client('policy-admin'),
+    staff = client('policy-staff'),
+    viewer = client('policy-viewer');
+  await assertSucceeds(getDoc(doc(viewer, 'users', cid, 'projects', 'policy-project')));
+  const trip = {
+    id: 'policy-trip',
+    createdAt: at,
+    updatedAt: at,
+    projectId: 'policy-project',
+    truckId: 'policy-truck',
+    driverId: '',
+    sourceId: '',
+    soilType: '',
+    date: '2026-11-10',
+    time: '10:00',
+    notes: '',
+    revision: 1,
+  };
+  await assertFails(setDoc(doc(viewer, 'users', cid, 'trips', trip.id), envelope(trip)));
+  await assertSucceeds(setDoc(doc(staff, 'users', cid, 'trips', trip.id), envelope(trip)));
+  await assertFails(
+    setDoc(
+      doc(staff, 'users', cid, 'projects', 'staff-project'),
+      envelope(project('staff-project')),
+    ),
+  );
+  await assertSucceeds(
+    setDoc(
+      doc(admin, 'users', cid, 'projects', 'manager-project'),
+      envelope(project('manager-project')),
+    ),
+  );
+  // Integration of Windows fleet/pricing invariants with the trusted four-role policy.
+  const masterPath = (db, id) => doc(db, 'users', cid, 'masters', id);
+  const driver = master('policy-driver', 'driver');
+  await assertSucceeds(setDoc(masterPath(admin, driver.id), envelope(driver)));
+  const linkedTruck = { ...master('policy-linked-truck'), driverId: driver.id };
+  const claim = (db) => doc(db, 'users', cid, 'uniqueKeys', `driver-${driver.id}`);
+  await assertFails(setDoc(masterPath(admin, linkedTruck.id), envelope(linkedTruck)));
+  await assertSucceeds(
+    runTransaction(admin, async (tx) => {
+      tx.set(masterPath(admin, linkedTruck.id), envelope(linkedTruck));
+      tx.set(claim(admin), { entityId: linkedTruck.id, active: true });
+    }),
+  );
+  await assertFails(
+    runTransaction(admin, async (tx) => {
+      tx.set(
+        masterPath(admin, 'policy-second-truck'),
+        envelope({ ...linkedTruck, id: 'policy-second-truck' }),
+      );
+      tx.set(claim(admin), { entityId: 'policy-second-truck', active: true });
+    }),
+  );
+  for (const db of [staff, viewer])
+    await assertFails(
+      setDoc(masterPath(db, driver.id), envelope({ ...driver, name: 'forged' }, 2)),
+    );
+  await assertSucceeds(
+    setDoc(masterPath(admin, 'policy-soil'), envelope(master('policy-soil', 'soilType'))),
+  );
+  await assertSucceeds(
+    setDoc(masterPath(admin, 'policy-source'), envelope(master('policy-source', 'source'))),
+  );
+  const price = {
+    ...master('policy-price', 'soilPrice'),
+    soilPrice: {
+      id: 'policy-price',
+      soilTypeId: 'policy-soil',
+      sourceId: 'policy-source',
+      sourceName: 'Policy source',
+      soilName: 'Policy soil',
+      satang: 12050,
+      unit: 'm3',
+      at: '2026-11-05T00:00:00Z',
+      by: 'policy-admin',
+      note: '',
+    },
+  };
+  await assertSucceeds(setDoc(masterPath(admin, price.id), envelope(price)));
+  await assertSucceeds(getDoc(masterPath(viewer, price.id)));
+  await assertFails(setDoc(masterPath(admin, price.id), envelope(price, 2)));
+  await assertFails(deleteDoc(masterPath(admin, price.id)));
+  for (const [db, uid] of [
+    [staff, 'policy-staff'],
+    [viewer, 'policy-viewer'],
+  ]) {
+    const id = `price-${uid}`;
+    await assertFails(
+      setDoc(
+        masterPath(db, id),
+        envelope({ ...price, id, soilPrice: { ...price.soilPrice, id, by: uid } }),
+      ),
+    );
+  }
+  await assertSucceeds(getDocs(collection(root, 'companies', cid, 'authorized_users')));
+  await assertFails(getDocs(collection(admin, 'companies', cid, 'authorized_users')));
+  await assertFails(getDocs(collection(staff, 'companies', cid, 'audit_logs')));
+  const finance = {
+    id: 'policy-rate',
+    createdAt: at,
+    updatedAt: at,
+    recordType: 'finance',
+    projectId: 'policy-project',
+    name: 'Rate',
+    body: {
+      kind: 'rate',
+      entry: {
+        id: 'policy-rate',
+        side: 'revenue',
+        partyId: '',
+        effectiveFrom: '2026-11-10',
+        unit: 'trip',
+        satang: 1000,
+        revision: 1,
+        reason: 'fixture rate',
+        at,
+        by: cid,
+      },
+    },
+  };
+  await assertSucceeds(
+    setDoc(doc(root, 'users', cid, 'workspaces', finance.id), envelope(finance)),
+  );
+  await assertSucceeds(getDoc(doc(admin, 'users', cid, 'workspaces', finance.id)));
+  await assertFails(getDoc(doc(viewer, 'users', cid, 'workspaces', finance.id)));
+  await assertFails(getDoc(doc(staff, 'users', cid, 'workspaces', finance.id)));
+  const day = {
+    id: 'daily-policy-project-2026-11-10',
+    createdAt: at,
+    updatedAt: at,
+    recordType: 'daily',
+    projectId: 'policy-project',
+    name: 'Daily',
+    body: {
+      date: '2026-11-10',
+      version: 1,
+      state: 'open',
+      rows: [],
+      verifications: {},
+      closures: [],
+      reason: '',
+    },
+  };
+  await assertSucceeds(setDoc(doc(staff, 'users', cid, 'workspaces', day.id), envelope(day)));
+  const proof = {
+    id: 'policy-proof',
+    createdAt: at,
+    updatedAt: at,
+    recordType: 'evidence',
+    projectId: 'policy-project',
+    name: 'Proof',
+    body: {
+      sessionId: day.id,
+      rowId: 'row',
+      date: day.body.date,
+      truckId: 'policy-truck',
+      driverId: 'driver',
+      fingerprint: 'fixture-fingerprint',
+      files: [],
+      closureGeneration: 0,
+    },
+  };
+  await assertFails(setDoc(doc(viewer, 'users', cid, 'workspaces', proof.id), envelope(proof)));
+  await assertSucceeds(setDoc(doc(staff, 'users', cid, 'workspaces', proof.id), envelope(proof)));
+  await assertFails(getDocs(collection(viewer, 'users', cid, 'workspaces')));
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(viewer, 'users', cid, 'workspaces'),
+        where('payload.recordType', 'in', ['daily', 'evidence', 'survey']),
+      ),
+    ),
+  );
+  for (const db of [root, admin, staff, viewer]) {
+    await assertFails(
+      setDoc(doc(db, 'companies', cid, 'members', 'policy-staff'), {
+        uid: 'policy-staff',
+        name: 'forged',
+        role: 'owner',
+        enabled: true,
+        updatedAt: at,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'companies', cid, 'authorized_users', emailKey('policy-staff@example.com')), {
+        uid: 'policy-staff',
+        email: 'policy-staff@example.com',
+        role: 'super_admin',
+        status: 'enabled',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'companies', cid, 'access_control', 'state'), { enabledSuperAdmins: 999 }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'companies', cid, 'audit_logs', 'forged'), { actor: 'policy-root' }),
+    );
+  }
+  for (const db of [
+    client('policy-viewer', { email_verified: false }),
+    client('policy-viewer', { firebase: { sign_in_provider: 'password' } }),
+    client('policy-viewer', { email: 'foreign@example.com' }),
+    client('foreign'),
+  ])
+    await assertFails(getDoc(doc(db, 'users', cid, 'projects', 'policy-project')));
+  const forged = client('policy-staff', { role: 'super_admin', super_admin: true });
+  await assertFails(getDocs(collection(forged, 'companies', cid, 'authorized_users')));
+  // Deny based on the live allowlist even if the membership mirror and token are stale.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(
+      doc(
+        ctx.firestore(),
+        'companies',
+        cid,
+        'authorized_users',
+        emailKey('policy-viewer@example.com'),
+      ),
+      {
+        uid: 'policy-viewer',
+        email: 'policy-viewer@example.com',
+        role: 'viewer',
+        status: 'disabled',
+      },
+    );
+    await setDoc(
+      doc(ctx.firestore(), 'companies', cid, 'authorized_users', emailKey(`${cid}@example.com`)),
+      { uid: cid, email: `${cid}@example.com`, role: 'super_admin', status: 'disabled' },
+    );
+  });
+  await assertFails(getDoc(doc(viewer, 'users', cid, 'projects', 'policy-project')));
+  await assertFails(getDoc(doc(root, 'users', cid, 'projects', 'policy-project')));
+  await assertSucceeds(
+    getDoc(doc(client('policy-super'), 'users', cid, 'projects', 'policy-project')),
+  );
+});
+
+test('clients cannot activate or remove the trusted allowlist policy', async () => {
+  const uid = 'policy-activation',
+    at = '2026-11-10T00:00:00Z',
+    body = { ownerUid: uid, name: 'Legacy company', createdAt: at, updatedAt: at };
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'admins', uid), { enabled: true });
+    await setDoc(doc(ctx.firestore(), 'companies', uid), body);
+  });
+  const db = env.authenticatedContext(uid).firestore();
+  await assertFails(setDoc(doc(db, 'companies', uid), { ...body, accessPolicy: 'allowlist-v1' }));
+  await assertSucceeds(setDoc(doc(db, 'companies', uid), { ...body, name: 'Updated legacy name' }));
 });

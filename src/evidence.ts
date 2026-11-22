@@ -1,7 +1,7 @@
 import { loadData, updateDataAndUploads } from './storage';
 import { readBlobBytes } from './files';
 import { commitWorkspace, dailySessions, evidenceFor, rowFingerprint, updateDaily } from './daily';
-import { companyId, managesBusiness } from './workspaceIdentity';
+import { companyId, managesBusiness, recordsBusiness } from './workspaceIdentity';
 import { canonical } from './syncModel';
 import type { EvidenceCategory, EvidenceRecord } from './workspaceModels';
 import type { UploadRecord } from './uploads';
@@ -21,6 +21,7 @@ export async function saveEvidence(
   category: EvidenceCategory,
   files: File[],
 ) {
+  if (!recordsBusiness(owner)) throw Error('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถบันทึกหลักฐานได้');
   if (!files.length) throw Error('กรุณาเลือกหลักฐานก่อนบันทึก');
   if (category !== 'trip-slip' && files.length !== 1)
     throw Error('รูปคนขับและลายเซ็นบันทึกครั้งละหนึ่งไฟล์');

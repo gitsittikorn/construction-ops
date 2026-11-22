@@ -3,6 +3,11 @@ import { canonical } from './syncModel';
 import { companyRole } from './workspaceIdentity';
 // UX guard before local enqueue; Firestore rules enforce this independently.
 export function assertCompanyMutation(previous: Data, next: Data, owner: string) {
+  if (companyRole(owner) === 'viewer') {
+    if (canonical(previous) !== canonical(next))
+      throw Error('สิทธิ์ดูข้อมูลเท่านั้น ไม่สามารถบันทึกหรือแก้ไขข้อมูลได้');
+    return;
+  }
   if (companyRole(owner) !== 'operator') return;
   const deny = () => {
     throw Error('สิทธิ์พนักงานบันทึกข้อมูลไม่อนุญาตรายการนี้ กรุณาให้ผู้จัดการดำเนินการ');

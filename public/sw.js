@@ -1,10 +1,12 @@
-const BASE = new URL('./', self.location.href).pathname;
-const CACHE_PREFIX = `construction-shell-${BASE === '/' ? '' : encodeURIComponent(BASE) + '-'}`;
-const CACHE = CACHE_PREFIX + 'v5';
+const VERSION = 'v5';
+const BASE = new URL(self.registration.scope).pathname;
+const PREFIX = `construction-shell-${encodeURIComponent(BASE)}-`;
+const CACHE = `${PREFIX}${VERSION}`;
+const ASSETS = `${BASE}assets/`;
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {
-      const response = await fetch(BASE + 'precache-manifest.json', { cache: 'no-store' });
+      const response = await fetch(`${BASE}precache-manifest.json`, { cache: 'no-store' });
       if (!response.ok) throw Error('App assets are not ready');
       const assets = await response.json();
       if (
@@ -12,19 +14,19 @@ self.addEventListener('install', (event) => {
         assets.some(
           (url) =>
             typeof url !== 'string' ||
-            !url.startsWith(BASE + 'assets/') ||
-            !/^[^/]+\.(js|css)$/.test(url.slice((BASE + 'assets/').length)),
+            !url.startsWith(ASSETS) ||
+            !/^[A-Za-z0-9_.-]+\.(js|css)$/.test(url.slice(ASSETS.length)),
         )
       )
         throw Error('Invalid app asset manifest');
       return cache.addAll([
         BASE,
-        BASE + 'icon.svg',
-        BASE + 'company-logo.jpg',
-        BASE + 'login-earthwork.png',
-        BASE + 'manifest.webmanifest',
-        BASE + 'icon-192.png',
-        BASE + 'icon-512.png',
+        `${BASE}icon.svg`,
+        `${BASE}company-logo.jpg`,
+        `${BASE}login-earthwork.png`,
+        `${BASE}manifest.webmanifest`,
+        `${BASE}icon-192.png`,
+        `${BASE}icon-512.png`,
         ...assets,
       ]);
     }),
@@ -42,9 +44,9 @@ self.addEventListener('activate', (event) =>
           keys
             .filter(
               (key) =>
-                key.startsWith(CACHE_PREFIX) &&
                 key !== CACHE &&
-                (BASE !== '/' || !key.startsWith('construction-shell-%2F')),
+                (key.startsWith(PREFIX) ||
+                  (BASE === '/' && /^construction-shell-(?:v\d+|[a-f0-9]{16})$/.test(key))),
             )
             .map((key) => caches.delete(key)),
         ),
@@ -61,9 +63,9 @@ self.addEventListener('fetch', (event) => {
   )
     return;
   if (
-    url.pathname.startsWith(BASE + 'assets/') ||
-    url.pathname === BASE + 'company-logo.jpg' ||
-    url.pathname === BASE + 'login-earthwork.png'
+    url.pathname.startsWith(ASSETS) ||
+    url.pathname === `${BASE}company-logo.jpg` ||
+    url.pathname === `${BASE}login-earthwork.png`
   ) {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
@@ -78,12 +80,20 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  if (event.request.mode === 'navigate')
+  if (
+    event.request.mode === 'navigate' &&
+    (url.pathname === BASE || url.pathname === `${BASE}index.html`)
+  )
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
+        // Keep HTML and immutable modules from the same installed release.
+        // A waiting worker owns the new shell until the user activates it.
+        const shell = await cache.match(BASE);
+        if (shell) return shell;
         try {
           const response = await fetch(event.request);
-          if (response.ok) await cache.put(BASE, response.clone());
+          if (response.ok && response.headers.get('content-type')?.includes('text/html'))
+            await cache.put(BASE, response.clone());
           return response;
         } catch {
           return (await cache.match(BASE)) || Response.error();

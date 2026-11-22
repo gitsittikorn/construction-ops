@@ -32,6 +32,7 @@ export default function TruckSheetsPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [progress, setProgress] = useState('');
   const lock = useRef(false);
   const generation = useRef(0);
   useEffect(() => {
@@ -62,46 +63,62 @@ export default function TruckSheetsPanel({
     setNotice('');
     onBusy(true);
     const current = generation.current;
+    let stage = 'ตรวจลิงก์และบัญชี';
+    const advance = (value: string) => {
+      stage = value;
+      setProgress(value);
+    };
     try {
       const { id, sheetId } = spreadsheetSelection(link);
       const user = getSessionIdentity();
       if (!user || !workspaceMatches(owner, user.uid))
         throw Error('กรุณาเข้าสู่ระบบ Google ก่อนนำเข้าจากชีต');
+      const assertActive = () => {
+        const active = getSessionIdentity();
+        if (
+          generation.current !== current ||
+          !workspaceMatches(owner, active?.uid) ||
+          active?.uid !== user.uid ||
+          active?.email !== user.email
+        )
+          throw Error('บัญชีหรือบริษัทเปลี่ยนแล้ว กรุณาเริ่มรายการใหม่');
+      };
+      advance('โหลดบริการ Google');
       await loadGoogleIdentity();
-      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
-        return;
+      assertActive();
+      advance('ขอสิทธิ์เข้าถึง Google Sheets');
       const auth = await requestSheetsToken(
         user.email,
         prepare ? sheetsWriteScope : sheetsReadScope,
       );
-      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
-        return;
+      assertActive();
+      advance('ตรวจบัญชี Google ที่อนุญาต');
       await verifySheetsAccount(auth.token, user.email);
-      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
-        return;
+      assertActive();
       if (prepare) {
-        await prepareTruckSheet(auth.token, id);
-        if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
-          return;
+        advance('เตรียมหัวคอลัมน์ Google Sheets');
+        await prepareTruckSheet(auth.token, id, assertActive);
+        assertActive();
+        advance('บันทึกลิงก์ชีตในเครื่อง');
         await saveTruckSheet(owner, id);
-        if (generation.current !== current) return;
+        assertActive();
         setSaved(spreadsheetUrl(id));
         setNotice('เตรียมชีต Trucks และหัวคอลัมน์ครบแล้ว กดเปิดชีตข้อมูลรถเพื่อกรอกข้อมูล');
         return;
       }
+      advance('อ่านข้อมูลรถจาก Google Sheets');
       const source = await readTruckSheetSource(auth.token, id, sheetId);
-      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
-        return;
+      assertActive();
+      advance('บันทึกลิงก์ชีตในเครื่อง');
       await saveTruckSheet(owner, id, source.sheetId);
-      if (generation.current !== current || !workspaceMatches(owner, getSessionIdentity()?.uid))
-        return;
+      assertActive();
       setSaved(spreadsheetUrl(id, source.sheetId));
       setNotice(
         `อ่านจากแท็บ “${source.title}” จำนวน ${source.rows.length} รายการ กรุณาตรวจรายการก่อนยืนยัน`,
       );
       onRows(source.rows);
     } catch (e) {
-      if (generation.current === current) setError((e as Error).message);
+      if (generation.current === current) setError(`${stage}: ${(e as Error).message}`);
     } finally {
       lock.current = false;
       if (generation.current === current) {
@@ -154,7 +171,7 @@ export default function TruckSheetsPanel({
         ใช้บัญชีเดียวกับที่เข้าสู่ระบบ ปุ่มสร้างหัวคอลัมน์ขอสิทธิ์แก้ไขเพื่อเตรียมชีต Trucks
         ส่วนการนำเข้าจะอ่านข้อมูลเท่านั้น
       </small>
-      {busy && <p role="status">กำลังเชื่อมต่อและอ่าน Google Sheets…</p>}
+      {busy && <p role="status">{progress}…</p>}
       {notice && <p role="status">{notice}</p>}
       {error && (
         <div className="alert error" role="alert">
