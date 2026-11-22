@@ -1,5 +1,13 @@
 # Bug tracker
 
+## BUG-023 — fleet E2E reloads before the trip save finishes — 2026-11-13
+
+**FIXED in test / Low / Phase 1/8 verification.** On baseline `b8452d3`, the first complete rerun reached E2E with **75 passed / 1 failed**, exit **1**. The new fleet scenario clicked Save and immediately reloaded without waiting for the async IndexedDB save to close the form. Its later edit lookup timed out with no trip row. The application already awaits persistence before closing the dialog; no application data-loss defect was established. Regression now waits for dialog closure and explicitly asserts one pending row with the original driver before reload, and the original driver/note after assignment removal. Targeted `npm.cmd run test:e2e -- e2e/search-fleet-prices.spec.ts`: **3/3**, exit **0**. No sleep, timeout increase, skipped test or reduced assertion; final full rerun recorded in [SESSION_REVIEW_2026-11-13.md](SESSION_REVIEW_2026-11-13.md).
+
+## BUG-022 — resumed source fails the formatting gate — 2026-11-13
+
+**FIXED formatting / Low / Phase 8 verification.** Clean baseline `b8452d3`: `npm.cmd run check` exited **1** at Prettier for src/ReportsPanel.tsx and src/SoilPricesPanel.tsx, before runtime tests. Reproduction: run the supported full gate on that baseline. Applied Prettier to only those files; no application behavior or data changed. Existing whole-tree `format:check` now passes in the rerun. Full-gate/cleanup evidence is recorded in [SESSION_REVIEW_2026-11-13.md](SESSION_REVIEW_2026-11-13.md); no test disabled or weakened.
+
 ## DATA-002 / UX-007 — missing master parents and inconsistent local origins — 2026-11-12
 
 **RESOLVED for the reported missing-parent error / High availability / Phase 1/4/8.** Actual Firestore had three trips without project/master parents; fresh restoration correctly failed with missing-project/truck/driver/source errors. Original same-account Chrome Profile 2 localhost IndexedDB retained 2 projects/92 masters/3 trips. Existing validated missing-only restoration plus normal sync recovered all **97 operational records**, confirmed by real server reads. No validators bypassed, records deleted or relationships invented. Historical Drive-file bytes/access remain NOT VERIFIED. [Exact source location, backup and evidence](DATA_RECOVERY_2026-11-12.md).

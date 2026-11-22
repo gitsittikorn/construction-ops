@@ -137,7 +137,7 @@ export default function SoilPricesPanel({
               {entry.sourceName} ·{' '}
               {(entry.satang / 100).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท/
               {entry.unit === 'm3' ? 'ลบ.ม. (ดินหลวม)' : 'เที่ยว'} · อัปเดตล่าสุด{' '}
-            {workTimestamp(entry.at, true)}
+              {workTimestamp(entry.at, true)}
             </p>
           ))}
           <p>
@@ -166,7 +166,9 @@ export default function SoilPricesPanel({
                 {history.map((entry) => (
                   <tr key={entry.id}>
                     <td>{entry.sequence}</td>
-                    <td><time dateTime={entry.at}>{workTimestamp(entry.at, true)}</time></td>
+                    <td>
+                      <time dateTime={entry.at}>{workTimestamp(entry.at, true)}</time>
+                    </td>
                     <td>{entry.sourceName}</td>
                     <td>{entry.soilName}</td>
                     <td>

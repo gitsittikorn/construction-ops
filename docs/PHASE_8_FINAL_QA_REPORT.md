@@ -1,5 +1,11 @@
 # Phase 8 — tablet, performance and production QA checkpoint
 
+## Resumed fleet/pricing readiness review — 2026-11-13
+
+Clean baseline `b8452d3` is newer than the November 12 recovery gate. Fixed two formatting failures (BUG-022) and an E2E reload-before-save-completion race (BUG-023), adding pending-row/original-driver/note assertions without changing application persistence or disabling tests. Initial gate **exit 1** at formatting; first complete rerun **exit 1**, E2E **75 passed / 1 failed**; targeted fleet suite **3/3**, **exit 0**. Final full Windows `npm.cmd run check` **exit 0**: frontend **413/413** (66 files), backend **20/20**, Rules/storage **16/16**, emulator integration **11/11**, tooling **4/4**, E2E **76/76** (4.1 minutes). Formatting/lint/typecheck/build/HTTP smoke PASS; 59 existing lint warnings/zero errors, no skipped/disabled tests. `npm.cmd run clean` **exit 0**; pre-test Phase 2 images restored, canonical review URL HTTP **200**.
+
+Real read-only Render health **200** and canonical company-header CORS **204** today. These do not verify deployed revision/Rules, authenticated access, OAuth or files. No new real Firebase/Google/Drive/Sheets acceptance, production publication or phase completion. November 12's 97 acknowledged-record recovery remains dated evidence; three historical file originals remain NOT VERIFIED. Physical Android/tablet stays deferred. [Detailed commands, fixes, source state and exact next actions](SESSION_REVIEW_2026-11-13.md).
+
 ## Canonical local origin and real recovery — 2026-11-12
 
 Daily use is fixed to 127.0.0.1:5173 with strict port. Empty localhost redirects; existing records/backups/attachments retain a dedicated backup screen, account isolation and read-error protection. Actual restored Firestore operational data verified separately from synthetic tests. Targeted 26/26 PASS. Full Windows gate **exit 0**: frontend 392/backend 20/Rules-storage 14/integration 10/E2E 73/tooling 4; format/lint/typecheck/build/smoke PASS, 59 existing warnings/zero errors, no skips. Cleanup **exit 0**. [Recovery, reproduction and acceptance boundaries](DATA_RECOVERY_2026-11-12.md). Three historical Drive files and physical Android remain NOT VERIFIED/deferred; no deployment or phase-completion claim.

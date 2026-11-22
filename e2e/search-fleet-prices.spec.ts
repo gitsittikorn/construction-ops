@@ -56,16 +56,24 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.keyboard.press('Escape');
   await page.getByLabel('หมายเหตุ', { exact: true }).fill('ประวัติคนขับเดิม');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const tripRow = page.getByRole('row').filter({ hasText: '81-1234' });
+  await expect(tripRow).toHaveCount(1);
+  await expect(tripRow).toContainText('สมชาย');
+  await expect(tripRow).toContainText('รอซิงก์');
   await page.reload();
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
   await page.getByRole('button', { name: /81-1234.*คนขับประจำ: สมชาย/ }).click();
   await page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true }).selectOption('');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await expect(tripRow).toContainText('สมชาย');
   await page.getByRole('button', { name: /แก้ไขเที่ยวรถ/ }).click();
   await expect(
     page.getByRole('combobox', { name: 'คนขับรถ', exact: true }).locator('option:checked'),
   ).toHaveText('สมชาย');
+  await expect(page.getByLabel('หมายเหตุ', { exact: true })).toHaveValue('ประวัติคนขับเดิม');
 });
 
 test('source-specific soil prices retain descending history after offline writes and reconnected reload, and reject invalid amounts', async ({

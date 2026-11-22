@@ -52,7 +52,11 @@ export default function ReportsPanel({
     return (
       <label>
         {label}
-        <SearchableSelect aria-label={label} value={filter[key]} onChange={(e) => set(key, e.target.value)}>
+        <SearchableSelect
+          aria-label={label}
+          value={filter[key]}
+          onChange={(e) => set(key, e.target.value)}
+        >
           <option value="">ทั้งหมด</option>
           {data.masters
             .filter((m) => m.kind === kind)
