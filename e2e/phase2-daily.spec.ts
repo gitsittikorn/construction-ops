@@ -151,7 +151,7 @@ test('P2 production PWA daily pending transactions and draft survive an offline 
   page,
   context,
 }) => {
-  await page.goto('http://127.0.0.1:5175/construction-ops/');
+  await page.goto('http://localhost:5175/construction-ops/');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -163,7 +163,7 @@ test('P2 production PWA daily pending transactions and draft survive an offline 
     .getByRole('navigation')
     .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
     .click();
-  await page.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
+  await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('P2-OFFLINE');
   await page.getByLabel('ความจุ (m³)', { exact: true }).fill('6');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();

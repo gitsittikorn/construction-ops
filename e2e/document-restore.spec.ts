@@ -121,7 +121,7 @@ test('P4: a second isolated browser has no inherited cache and must independentl
           else await route.fulfill({ json: metadata });
         },
       );
-      await page.goto('http://127.0.0.1:5174/e2e/restore-harness.html');
+      await page.goto('http://localhost:5174/e2e/restore-harness.html');
       await expect(
         page.getByRole('button', { name: 'เก็บต้นฉบับไว้ดูออฟไลน์', exact: true }),
       ).toBeVisible();

@@ -13,7 +13,10 @@ import {
   sheetsWriteScope,
   defaultTruckSheetId,
   prepareTruckSheet,
+  loadTruckSync,
+  type TruckSyncSummary,
 } from './truckSheets';
+import { workTimestamp } from './domain';
 import type { TruckImportRow } from './truckImport';
 
 export default function TruckSheetsPanel({
@@ -21,8 +24,10 @@ export default function TruckSheetsPanel({
   disabled,
   onRows,
   onBusy,
+  syncVersion = 0,
 }: {
   owner: string;
+  syncVersion?: number;
   disabled: boolean;
   onRows: (rows: TruckImportRow[]) => void;
   onBusy: (busy: boolean) => void;
@@ -34,6 +39,34 @@ export default function TruckSheetsPanel({
   const [notice, setNotice] = useState('');
   const lock = useRef(false);
   const generation = useRef(0);
+  const [lastSync, setLastSync] = useState<TruckSyncSummary>();
+  useEffect(() => {
+    let active = true;
+    setLastSync(undefined);
+    void loadTruckSync(owner)
+      .then((value) => {
+        if (active) setLastSync(value);
+      })
+      .catch(() => {
+        if (active) setError('อ่านเวลาซิงก์ล่าสุดไม่สำเร็จ');
+      });
+    return () => {
+      active = false;
+    };
+  }, [owner, syncVersion]);
+  async function saveLink() {
+    if (lock.current || disabled) return;
+    setError('');
+    setNotice('');
+    try {
+      const { id, sheetId } = spreadsheetSelection(link);
+      await saveTruckSheet(owner, id, sheetId);
+      setSaved(spreadsheetUrl(id, sheetId));
+      setNotice('บันทึกลิงก์แล้ว ยังไม่ได้อ่านข้อมูล กดนำเข้าเพื่อตรวจรายการ');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   useEffect(() => {
     const current = ++generation.current;
     setLink('');
@@ -133,6 +166,13 @@ export default function TruckSheetsPanel({
         <button
           className="secondary"
           disabled={busy || disabled || !link.trim()}
+          onClick={() => void saveLink()}
+        >
+          บันทึกลิงก์
+        </button>
+        <button
+          className="secondary"
+          disabled={busy || disabled || !link.trim()}
           onClick={() => void importSheet(true)}
         >
           สร้างหัวคอลัมน์ในชีต
@@ -154,6 +194,11 @@ export default function TruckSheetsPanel({
         ใช้บัญชีเดียวกับที่เข้าสู่ระบบ ปุ่มสร้างหัวคอลัมน์ขอสิทธิ์แก้ไขเพื่อเตรียมชีต Trucks
         ส่วนการนำเข้าจะอ่านข้อมูลเท่านั้น
       </small>
+      <p>
+        {lastSync
+          ? `ซิงก์ล่าสุด ${workTimestamp(lastSync.at)} · เพิ่ม ${lastSync.creates} แก้ไข ${lastSync.updates} ผูกคนขับ ${lastSync.links} ข้าม ${lastSync.skips}`
+          : 'ยังไม่เคยนำเข้าจากชีตในเครื่องนี้'}
+      </p>
       {busy && <p role="status">กำลังเชื่อมต่อและอ่าน Google Sheets…</p>}
       {notice && <p role="status">{notice}</p>}
       {error && (

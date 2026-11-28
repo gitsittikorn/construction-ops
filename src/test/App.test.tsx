@@ -23,11 +23,11 @@ it('creates a project, a truck and a trip through the UI and restores it on relo
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
   await screen.findByText('โครงการทดสอบ');
   await user.click(screen.getByRole('button', { name: 'ข้อมูลพื้นฐาน' }));
-  await user.click(screen.getByRole('button', { name: 'เพิ่มข้อมูล' }));
+  await user.click(screen.getByRole('button', { name: 'เพิ่มรถและคนขับ' }));
   await user.type(screen.getByLabelText('ทะเบียนรถ'), '81-1234');
   await user.type(screen.getByLabelText('ความจุ (m³)'), '12');
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
-  await screen.findByText('81-1234');
+  await screen.findByText('81-1234 — ยังไม่ระบุคนขับ');
   await user.click(screen.getByRole('button', { name: 'บันทึกเที่ยวรถ' }));
   await user.click(screen.getAllByRole('button', { name: 'บันทึกเที่ยวรถ' })[1]);
   await user.selectOptions(
@@ -55,11 +55,17 @@ it('creates and deactivates each kind of master data', async () => {
     ['แหล่งดิน', 'บ่อดิน A'],
     ['ลูกค้า', 'ลูกค้า A'],
   ]) {
-    await user.click(screen.getByRole('button', { name: kind }));
-    await user.click(screen.getByRole('button', { name: 'เพิ่มข้อมูล' }));
+    if (kind === 'คนขับรถ')
+      await user.click(screen.getByRole('button', { name: 'เพิ่มคนขับที่ยังไม่มีรถ' }));
+    else {
+      await user.click(screen.getByRole('button', { name: kind }));
+      await user.click(screen.getByRole('button', { name: 'เพิ่มข้อมูล' }));
+    }
     await user.type(screen.getByLabelText('ชื่อ'), name);
     await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
-    await user.click(await screen.findByRole('button', { name: new RegExp(name) }));
+    await user.click(
+      await screen.findByRole('button', { name: new RegExp(`^แก้ไข (คนขับ )?${name}`) }),
+    );
     await user.selectOptions(screen.getByLabelText('สถานะ'), 'false');
     await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
     await screen.findByText('ปิดใช้งาน');
@@ -83,7 +89,7 @@ it('edits and archives projects and filters search results', async () => {
   render(<App />);
   await screen.findByText('Original');
   await user.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'โครงการ' }));
-  await user.click(screen.getByRole('button', { name: /ดู \/ แก้ไข/ }));
+  await user.click(screen.getByRole('button', { name: 'แก้ไข Original' }));
   await user.clear(screen.getByLabelText('ชื่อโครงการ'));
   await user.type(screen.getByLabelText('ชื่อโครงการ'), 'Changed');
   await user.selectOptions(screen.getByLabelText('สถานะโครงการ'), 'archived');

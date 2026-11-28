@@ -32,7 +32,7 @@ for (const viewport of [
     await expect(
       page.getByRole('button', { name: 'ส่งออกรายงาน CSV', exact: true }),
     ).toBeDisabled();
-    await expect(page.getByRole('button', { name: /แก้ไขเที่ยวรถ/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ })).toHaveCount(0);
     await expect(
       page.getByRole('columnheader', { name: 'วันที่ / เวลา', exact: true }),
     ).toHaveCount(0);
@@ -42,7 +42,7 @@ for (const viewport of [
     await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
     await page.getByRole('checkbox', { name: 'ทุกวันที่' }).check();
     await expect(page.locator('tbody tr')).toHaveCount(2);
-    await expect(page.getByRole('button', { name: /แก้ไขเที่ยวรถ/ })).toHaveCount(2);
+    await expect(page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ })).toHaveCount(2);
     const event = page.waitForEvent('download');
     await page.getByRole('button', { name: 'CSV', exact: true }).click();
     const stream = await (await event).createReadStream();

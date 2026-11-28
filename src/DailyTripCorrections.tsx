@@ -3,6 +3,9 @@ import type { Master } from './models';
 import type { DailySession } from './workspaceModels';
 import type { DailyFormDraft } from './dailyDrafts';
 import { activeDailyTrips } from './dailyTrips';
+import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function DailyTripCorrections({
   session,
@@ -11,6 +14,8 @@ export default function DailyTripCorrections({
   onDraft,
   onSave,
   busy,
+  canRemove = false,
+  onRemove,
 }: {
   session: DailySession;
   masters: Master[];
@@ -18,7 +23,10 @@ export default function DailyTripCorrections({
   onDraft: (draft: DailyFormDraft) => void;
   onSave: () => void;
   busy: boolean;
+  canRemove?: boolean;
+  onRemove?: (rowId: string, tripId: string, version: number, reason: string) => Promise<void>;
 }) {
+  const [removing, setRemoving] = useState(false);
   const values = draft?.values ?? {};
   const name = (id: string) => masters.find((m) => m.id === id)?.name ?? id;
   const field = (key: string, value: string) =>
@@ -132,8 +140,33 @@ export default function DailyTripCorrections({
               />
             </label>
             <button type="submit">บันทึกแก้ไขเที่ยว</button>
+            {canRemove && onRemove && (
+              <button type="button" className="danger-outline" onClick={() => setRemoving(true)}>
+                <Trash2 size={15} aria-hidden="true" /> ลบเที่ยวนี้
+              </button>
+            )}
           </fieldset>
         </form>
+      )}
+      {removing && values.tripId && onRemove && (
+        <ConfirmDialog
+          title="ลบเที่ยวนี้"
+          message={`เที่ยวความจุ ${values.capacity} m³ ของรถนี้จะไม่นับในยอด โดยเก็บไว้ในประวัติแก้ไข`}
+          disabled={!values.reason?.trim()}
+          onCancel={() => setRemoving(false)}
+          onConfirm={async () => {
+            await onRemove(values.rowId, values.tripId, draft!.version ?? -1, values.reason);
+            setRemoving(false);
+          }}
+        >
+          <label className="field">
+            <span>เหตุผลที่ลบเที่ยว</span>
+            <input
+              value={values.reason ?? ''}
+              onChange={(event) => field('reason', event.target.value)}
+            />
+          </label>
+        </ConfirmDialog>
       )}
     </details>
   );

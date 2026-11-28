@@ -3,6 +3,7 @@ import type { Data, Master } from './models';
 import { validateMaster } from './domain';
 import { validatePriceHistory } from './soilPriceValidation';
 export const truckTypes = { 'six-wheel': 'หกล้อ', 'ten-wheel': 'สิบล้อ', other: 'อื่น ๆ' } as const;
+export const usesTags = (kind: Master['kind']) => kind === 'truck' || kind === 'driver';
 export const normalizeName = (value: string) =>
   value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 export const plateKey = (plate: string, province = '') =>
@@ -134,6 +135,23 @@ export function saveTruckWithDriver(
 export function assignedDriver(masters: Master[], truckId: string) {
   const id = masters.find((item) => item.kind === 'truck' && item.id === truckId)?.driverId;
   return masters.find((item) => item.kind === 'driver' && item.id === id && item.active)?.id ?? '';
+}
+// Last team recorded for this truck in the project, otherwise the truck's only tag.
+export function assignedTeam(data: Data, projectId: string, truckId: string, date: string) {
+  const usable = (id: string) =>
+    data.masters.some((item) => item.id === id && item.kind === 'tag' && item.active);
+  const recent = (data.workspaces ?? [])
+    .flatMap((record) =>
+      record.recordType === 'daily' && record.projectId === projectId && record.body.date <= date
+        ? [record.body]
+        : [],
+    )
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .flatMap((body) => body.rows)
+    .find((row) => row.truckId === truckId && usable(row.teamId));
+  if (recent) return recent.teamId;
+  const tags = data.masters.find((item) => item.id === truckId)?.tagIds ?? [];
+  return tags.length === 1 && usable(tags[0]) ? tags[0] : '';
 }
 export function tagNames(record: Master, masters: Master[]) {
   return (record.tagIds ?? []).map(

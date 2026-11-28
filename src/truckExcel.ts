@@ -1,18 +1,19 @@
 import { validateWorkbookArchive } from './workbookSafety';
 import type { SheetData } from 'write-excel-file/universal';
 import type { Master } from './models';
-import { truckHeaders, legacyTruckHeaders, parseTruckRows } from './truckImport';
+import { truckHeaders, legacyTruckHeaders, driverHeader, parseTruckRows } from './truckImport';
 import { tagNames, truckTypes } from './masterData';
 const textCell = (value: string) => ({ value, type: String, format: '@' });
+const workbookHeaders = [...truckHeaders, driverHeader];
 const header = () =>
-  truckHeaders.map((value) => ({
+  workbookHeaders.map((value) => ({
     ...textCell(value),
     fontWeight: 'bold' as const,
     backgroundColor: '#244D3C',
     textColor: '#FFFFFF',
   }));
-const columns = truckHeaders.map((_, index) => ({
-  width: [38, 20, 23, 18, 23, 22, 34, 18, 36, 18][index],
+const columns = workbookHeaders.map((_, index) => ({
+  width: [38, 20, 23, 18, 23, 22, 34, 18, 36, 18, 28][index],
 }));
 export async function createTruckWorkbook(
   trucks: Master[],
@@ -22,7 +23,7 @@ export async function createTruckWorkbook(
   const { default: write } = await import('write-excel-file/universal');
   const data: SheetData = [header()];
   if (template) {
-    for (let index = 0; index < 100; index++) data.push(truckHeaders.map(() => textCell('')));
+    for (let index = 0; index < 100; index++) data.push(workbookHeaders.map(() => textCell('')));
   } else
     for (const truck of trucks) {
       data.push([
@@ -36,6 +37,9 @@ export async function createTruckWorkbook(
         { value: truck.capacity, type: Number, format: '0.###' },
         textCell(truck.detail),
         textCell(truck.active ? 'ใช้งาน' : 'ปิดใช้งาน'),
+        textCell(
+          masters.find((item) => item.kind === 'driver' && item.id === truck.driverId)?.name ?? '',
+        ),
       ]);
     }
   const example: SheetData = [
@@ -51,6 +55,7 @@ export async function createTruckWorkbook(
       6,
       'ตัวอย่างรถหกล้อ',
       'ใช้งาน',
+      'สมชาย',
     ].map((value) => (typeof value === 'number' ? { value, type: Number } : textCell(value))),
     [
       '',
@@ -63,6 +68,7 @@ export async function createTruckWorkbook(
       12,
       'ตัวอย่างรถสิบล้อ',
       'ใช้งาน',
+      'สมศักดิ์',
     ].map((value) => (typeof value === 'number' ? { value, type: Number } : textCell(value))),
   ];
   const instructions: SheetData = [
@@ -71,6 +77,7 @@ export async function createTruckWorkbook(
     ['ทะเบียนรถเป็นข้อมูลบังคับ ช่องอื่นเว้นว่างได้'],
     ['รหัสรถ: เว้นว่างเพื่อเพิ่มใหม่ หรือใช้รหัสเดิมจากไฟล์ส่งออกเมื่อต้องการแก้ไข'],
     ['เบอร์โทรและทะเบียนต้องเป็นข้อความ เพื่อรักษาเลข 0 นำหน้า'],
+    ['ชื่อคนขับ: ระบบสร้างและผูกคนขับประจำรถให้ หากเว้นว่างจะใช้ชื่อเล่นเป็นชื่อคนขับ'],
     ['ประเภทรถ: หกล้อ / สิบล้อ / อื่น ๆ หรือเว้นว่าง'],
     ['แท็กทีม: คั่นแต่ละแท็กด้วย , เช่น ทีม A, งานประจำ'],
     ['แท็กใหม่จะถูกสร้างเมื่อยืนยันนำเข้า ไม่สร้างจากชีตตัวอย่างหรือรายการแท็ก'],

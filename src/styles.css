@@ -2048,3 +2048,143 @@ header.company-header {
 .search-select-popup [role='option'][aria-selected='true'] {
   font-weight: 700;
 }
+
+.combo {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.combo input {
+  min-height: 46px;
+  width: 100%;
+}
+.combo ul {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #b9c4bb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 15%);
+}
+.combo li {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.combo li:hover,
+.combo li[data-highlighted='true'] {
+  background: #e3ebe4;
+}
+.operations-filters button[aria-pressed='true'] {
+  background: #dce5dd;
+  font-weight: 600;
+}
+
+/* Shared record actions and confirmation dialog */
+.danger,
+.danger-outline {
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.danger {
+  background: #a3342a;
+  color: #fff;
+}
+.danger-outline {
+  background: #fff;
+  color: #a3342a;
+  border: 1px solid #d9a29c;
+}
+.row-actions,
+.data-row-actions,
+.page-actions,
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.row-actions > button,
+.page-actions > button,
+.confirm-actions button {
+  min-height: 44px;
+}
+.page-actions,
+.confirm-actions {
+  justify-content: flex-end;
+}
+.data-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #edf0e8;
+}
+.data-row-text {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.data-row-actions {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+.card-foot {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.confirm-backdrop {
+  z-index: 40;
+}
+.modal.confirm-dialog {
+  width: min(460px, 100%);
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+.detail-list {
+  display: grid;
+  gap: 10px;
+}
+.detail-list > div {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+}
+.detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.fleet-reset summary {
+  cursor: pointer;
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .data-row-actions,
+  .page-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .page-title {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}

@@ -8,7 +8,7 @@ test('project coordinates can be added, edited, opened in Maps and cleared witho
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Coordinate site');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'โครงการ', exact: true }).click();
-  await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
+  await page.getByRole('button', { name: /^แก้ไข / }).click();
   await page.getByLabel('พิกัด (Lat, Lng)', { exact: true }).fill('0');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('ให้ครบ');
@@ -28,14 +28,14 @@ test('project coordinates can be added, edited, opened in Maps and cleared witho
   await popup.waitForLoadState();
   expect(new URL(popup.url()).searchParams.get('query')).toBe('0,0');
   await popup.close();
-  await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
+  await page.getByRole('button', { name: /^แก้ไข / }).click();
   await expect(page.getByLabel('พิกัด (Lat, Lng)', { exact: true })).toHaveValue('0, 0');
   await page.getByLabel('พิกัด (Lat, Lng)', { exact: true }).fill('-13.1234567, 100.7654321');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(
     page.getByRole('link', { name: 'เปิด Google Maps ที่พิกัด -13.1234567, 100.7654321' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
+  await page.getByRole('button', { name: /^แก้ไข / }).click();
   await page.getByLabel('พิกัด (Lat, Lng)', { exact: true }).clear();
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -110,17 +110,17 @@ test('soil types can be created, edited and selected, while old trip names survi
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
-  await page.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
+  await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('81-2222');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page.getByRole('button', { name: 'ชนิดดิน', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
   await page.getByLabel('ชื่อชนิดดิน', { exact: true }).fill('ดินถม');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await page.getByRole('button', { name: /ดินถม.*ใช้งาน/ }).click();
+  await page.getByRole('button', { name: 'แก้ไข ดินถม', exact: true }).click();
   await page.getByLabel('ชื่อชนิดดิน', { exact: true }).fill('ดินลูกรัง');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await expect(page.getByRole('button', { name: /ดินลูกรัง.*ใช้งาน/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'แก้ไข ดินลูกรัง', exact: true })).toBeVisible();
   await page.reload();
   await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
@@ -133,11 +133,11 @@ test('soil types can be created, edited and selected, while old trip names survi
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
   await page.getByRole('button', { name: 'ชนิดดิน', exact: true }).click();
-  await page.getByRole('button', { name: /ดินลูกรัง.*ใช้งาน/ }).click();
+  await page.getByRole('button', { name: 'แก้ไข ดินลูกรัง', exact: true }).click();
   await page.getByRole('combobox', { name: 'สถานะ', exact: true }).selectOption('false');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await nav.getByRole('button', { name: /^บันทึกเที่ยวรถ/ }).click();
-  await page.getByRole('button', { name: /แก้ไขเที่ยวรถ/ }).click();
+  await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await expect(page.getByRole('combobox', { name: 'ชนิดดิน', exact: true })).toHaveValue(
     'ดินลูกรัง',
   );
@@ -168,7 +168,7 @@ test('a draft project stays visible and can be activated before selecting it in 
     page.getByRole('dialog').getByRole('option', { name: /Draft site/ }),
   ).toHaveJSProperty('disabled', true);
   await page.getByRole('button', { name: 'จัดการสถานะโครงการ', exact: true }).click();
-  await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
+  await page.getByRole('button', { name: /^แก้ไข / }).click();
   await page.getByRole('combobox', { name: 'สถานะโครงการ', exact: true }).selectOption('active');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page
@@ -222,12 +222,23 @@ test('all master categories remain selectable in a trip after entry and reload',
     ['แหล่งดิน', 'Source A'],
     ['ลูกค้า', 'Customer A'],
   ]) {
-    await page.getByRole('button', { name: kind, exact: true }).click();
-    await page.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
+    if (kind === 'คนขับรถ')
+      await page.getByRole('button', { name: 'เพิ่มคนขับที่ยังไม่มีรถ', exact: true }).click();
+    else {
+      if (kind !== 'รถบรรทุก') await page.getByRole('button', { name: kind, exact: true }).click();
+      await page
+        .getByRole('button', {
+          name: kind === 'รถบรรทุก' ? 'เพิ่มรถและคนขับ' : 'เพิ่มข้อมูล',
+          exact: true,
+        })
+        .click();
+    }
     await page.getByLabel(kind === 'รถบรรทุก' ? 'ทะเบียนรถ' : 'ชื่อ', { exact: true }).fill(name);
     if (kind === 'รถบรรทุก') await page.getByLabel('ความจุ (m³)', { exact: true }).fill('12');
     await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-    await expect(page.getByText(name, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(kind === 'รถบรรทุก' ? `${name} — ยังไม่ระบุคนขับ` : name, { exact: true }),
+    ).toBeVisible();
   }
   await page.reload();
   await page
@@ -268,10 +279,10 @@ test('a trip form receives trucks created in another open tab', async ({ page, c
     .getByRole('navigation')
     .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
     .click();
-  await other.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
+  await other.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await other.getByLabel('ทะเบียนรถ', { exact: true }).fill('99-9999');
   await other.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await expect(other.getByText('99-9999', { exact: true })).toBeVisible();
+  await expect(other.getByText('99-9999 — ยังไม่ระบุคนขับ', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'รถบรรทุก *', exact: true })).toContainText(
     '99-9999',
   );

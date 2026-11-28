@@ -1,5 +1,5 @@
 import SearchableSelect from './SearchableSelect';
-import { assignedDriver } from './masterData';
+import { assignedDriver, assignedTeam } from './masterData';
 import { managesBusiness } from './workspaceIdentity';
 import { useRef, useState, type FormEvent } from 'react';
 import type { Data, Master } from './models';
@@ -20,6 +20,9 @@ import {
   verifyDaily,
   closeDaily,
   reopenDaily,
+  deleteDailyRow,
+  dailyRowDeleteBlockers,
+  removeDailyTrip,
   verificationState,
   summarizeDaily,
   rowFingerprint,
@@ -28,6 +31,8 @@ import { listUploads } from './uploads';
 import EvidencePanel from './EvidencePanel';
 import DrivePanel from './DrivePanel';
 import { connectionMessage } from './async';
+import { Trash2 } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
 import { verificationLabels } from './workspaceLabels';
 
 export default function DailyPanel({
@@ -54,6 +59,8 @@ export default function DailyPanel({
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [evidenceRow, setEvidenceRow] = useState(''),
+    [deleteRow, setDeleteRow] = useState(''),
+    [deleteReason, setDeleteReason] = useState(''),
     [busy, setBusy] = useState(false),
     [driveVisible, setDriveVisible] = useState(false),
     [copyPreview, setCopyPreview] = useState<ReturnType<typeof duplicatePreview> | null>(null),
@@ -144,6 +151,11 @@ export default function DailyPanel({
       values.driverId = assignedDriver(data.masters, values.truckId);
       const driver = form.elements.namedItem('driverId') as HTMLSelectElement | null;
       if (driver) driver.value = values.driverId;
+      values.teamId = session
+        ? assignedTeam(data, session.projectId, values.truckId, session.body.date)
+        : '';
+      const team = form.elements.namedItem('teamId') as HTMLSelectElement | null;
+      if (team) team.value = values.teamId;
     }
     ui.update((s) => ({
       ...s,
@@ -610,6 +622,20 @@ export default function DailyPanel({
                         −1
                       </button>
                       <button onClick={() => edit(row)}>แก้ไข {name(row.truckId)}</button>
+                      {canVerify && (
+                        <button
+                          type="button"
+                          className="danger-outline"
+                          aria-label={`ลบ ${name(row.truckId)}`}
+                          disabled={busy}
+                          onClick={() => {
+                            setDeleteReason('');
+                            setDeleteRow(row.id);
+                          }}
+                        >
+                          <Trash2 size={15} aria-hidden="true" /> ลบ
+                        </button>
+                      )}
                       <button onClick={() => setEvidenceRow(row.id)}>
                         หลักฐาน {name(row.truckId)}
                       </button>
@@ -733,7 +759,59 @@ export default function DailyPanel({
             </form>
           )}
           {!shownRows.length && <p>ยังไม่มีรถตามตัวกรอง เลือกรถและคนขับเพื่อเริ่มบันทึก</p>}
+          {rows.some((r) => r.id === deleteRow) &&
+            (() => {
+              const row = rows.find((r) => r.id === deleteRow)!;
+              return (
+                <ConfirmDialog
+                  title={`ลบรถ ${name(row.truckId)} ออกจากวันทำงาน`}
+                  message={`เที่ยวบันทึก ${row.tripCount} เที่ยวของรถคันนี้จะไม่นับในยอดวันนี้ โดยเก็บไว้ในประวัติแก้ไข`}
+                  blockers={dailyRowDeleteBlockers(data, session, row.id)}
+                  disabled={row.tripCount > 0 && !deleteReason.trim()}
+                  onCancel={() => setDeleteRow('')}
+                  onConfirm={async () => {
+                    await onChange((old) =>
+                      deleteDailyRow(
+                        old,
+                        session.id,
+                        session.body.version,
+                        row.id,
+                        owner,
+                        deleteReason,
+                      ),
+                    );
+                    setDeleteRow('');
+                    if (editing?.id === row.id) edit(null);
+                    setNotice('ลบรถออกจากวันทำงานแล้ว ประวัติเดิมยังอยู่');
+                  }}
+                >
+                  {(row.tripCount > 0 || session.body.state === 'reopened') && (
+                    <label className="field">
+                      <span>เหตุผลที่ลบ</span>
+                      <input
+                        value={deleteReason}
+                        onChange={(event) => setDeleteReason(event.target.value)}
+                      />
+                    </label>
+                  )}
+                </ConfirmDialog>
+              );
+            })()}
           <DailyTripCorrections
+            onRemove={async (rowId, tripId, version, removeReason) => {
+              await onChange((old) =>
+                removeDailyTrip(old, session.id, version, rowId, tripId, owner, removeReason),
+              );
+              ui.update((s) => ({
+                ...s,
+                drafts: {
+                  ...s.drafts,
+                  [`correction-${session.id}`]: { id: crypto.randomUUID(), values: {} },
+                },
+              }));
+              setNotice('ลบเที่ยวแล้ว ประวัติเดิมยังอยู่');
+            }}
+            canRemove={canVerify}
             session={session}
             masters={data.masters}
             draft={ui.state.drafts[`correction-${session.id}`]}

@@ -1,5 +1,9 @@
 # Bug tracker
 
+## ENV: Drive OAuth client has no registered origin — 2026-11-28
+
+**OPEN / High configuration / Phase 1/4/8.** User reports `401 invalid_client, no registered origin`. Reproduced without signing in: Google Identity Services with the local `VITE_GOOGLE_CLIENT_ID` (number prefix 245282823476, suffix `...cl2`) returns the same error from both `http://localhost:5173` and `http://127.0.0.1:5173`. The Firebase login button uses a different client and reached Google's e-mail page. Fix is in Google Cloud Console (add the JavaScript origins to that client); no application change, so no automated regression applies. Retest: Drive connect from `http://localhost:5173`.
+
 ## DATA-002 / UX-007 — missing master parents and inconsistent local origins — 2026-11-12
 
 **RESOLVED for the reported missing-parent error / High availability / Phase 1/4/8.** Actual Firestore had three trips without project/master parents; fresh restoration correctly failed with missing-project/truck/driver/source errors. Original same-account Chrome Profile 2 localhost IndexedDB retained 2 projects/92 masters/3 trips. Existing validated missing-only restoration plus normal sync recovered all **97 operational records**, confirmed by real server reads. No validators bypassed, records deleted or relationships invented. Historical Drive-file bytes/access remain NOT VERIFIED. [Exact source location, backup and evidence](DATA_RECOVERY_2026-11-12.md).
@@ -181,3 +185,14 @@ Reproductions, scanner versions/scope and regression details: [SECURITY_SCAN_202
 | BUG-013 | 6 / Medium         | Reference index mixed identical-fingerprint historical/current proof and included stale verification Drive IDs                                                                                                        | Select exact verified record or current generation only; reference/totals and 5,000-record benchmark pass. FIXED                                                                                             |
 
 SEC-DEV-001 remains OPEN: fresh full development audit is **23 moderate**, 0 high/critical; frontend/backend runtime audits both 0. Earlier 31-finding totals are historical. Compatible dry-run made zero installed version changes; no lockfile change or forced upgrade. Semgrep retains four manually reviewed HTML warnings at two escaped-report locations and one parser limitation; no suppressions were added. Redacted Gitleaks history/current-tree scans found no secrets within their documented scope. Real-service/hardware and staging hardening follow-ups remain open.
+
+## Delete actions, fleet drivers and Sheets import - 2026-11-28
+
+- BUG-014 (High / data mapping, fixed): importing the truck sheet left every truck at "no driver". Reproduction: import the ten-column sheet; the person's name is in the nickname column, the importer stored it on the truck and never created a driver or set driverId. Import now creates/links drivers and can repair existing trucks without overwriting them. Regression: src/test/driverImport.test.ts, e2e/delete-and-fleet.spec.ts
+- UX-007 (Medium / master data, fixed): the Google Sheets link field looked removed. It was still rendered, but the uncommitted fleet simplification of the same day moved it below the full truck list. It now opens from a button in the page header, above the list. Regression: e2e/delete-and-fleet.spec.ts
+- BUG-015 (Medium / master data, fixed): a team-tag filter chosen on trucks stayed applied on source, customer and soil tabs and hid their records. Team tags are now limited to trucks and drivers. Regression: src/test/deleteUi.test.tsx
+- UX-008 (Medium / all record lists, fixed): delete was only inside the edit form, unstyled, with no explanation of references. Shared row actions and confirmation dialog added. Regression: src/test/deleteUi.test.tsx, src/test/dailyDelete.test.ts
+- BUG-016 (Medium / data integrity, fixed, found by review): delete checks missed evidence truck/driver IDs, upload truck/driver IDs and customer names used by projects
+- BUG-017 (Medium / sync, preventive, found by review, not reproduced before the fix): a deleted truck could be pushed after its replacement with the same plate and be refused by the plate claim. Truck/tag deletions are now pushed first. Emulator regression: reset then re-import in one sync
+
+Open: the truck sheet itself has incomplete plates (0357, 6942, 80-006), a blank province, province text "สุราษ" and two rows without a name. These are source data and were not altered.

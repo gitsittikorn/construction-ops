@@ -279,6 +279,8 @@ export async function synchronize(
 function dependencyPriority(entry: SyncEntry) {
   const payload = entry.desired.payload;
   if ('kind' in payload) {
+    // A deletion releases its plate/driver claim, so it must reach Cloud before a replacement.
+    if (entry.desired.deletedAt && (payload.kind === 'truck' || payload.kind === 'tag')) return -1;
     if (payload.kind === 'soilPrice') return 2;
     if (payload.kind === 'truck' && payload.driverId && !entry.desired.deletedAt) return 1;
   }

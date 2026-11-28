@@ -24,7 +24,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
-  await page.getByRole('button', { name: 'เพิ่มรถพร้อมคนขับ', exact: true }).click();
+  await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('81-1234');
   await page.getByLabel('ชื่อเล่น', { exact: true }).fill('ชาย');
   await page.getByLabel('เบอร์โทร', { exact: true }).fill('0812345678');
@@ -32,11 +32,9 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByLabel('ความจุ (m³)', { exact: true }).fill('12');
   await searchChoose(page, 'ประเภทรถ', 'สิบ', 'สิบล้อ');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await expect(page.getByRole('button', { name: /81-1234.*คนขับประจำ: สมชาย/ })).toBeVisible();
-  await page.getByRole('button', { name: 'คนขับรถ', exact: true }).click();
-  await expect(page.getByRole('button', { name: /สมชาย.*รถประจำ: 81-1234/ })).toBeVisible();
-  await page.getByRole('button', { name: 'รถบรรทุก', exact: true }).click();
-  await page.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
+  await expect(page.getByText('81-1234 — สมชาย')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'แก้ไข คนขับ สมชาย', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('82-9999');
   const driver = page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true });
   await driver.click();
@@ -58,11 +56,11 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page.reload();
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
-  await page.getByRole('button', { name: /81-1234.*คนขับประจำ: สมชาย/ }).click();
+  await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
   await page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true }).selectOption('');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
-  await page.getByRole('button', { name: /แก้ไขเที่ยวรถ/ }).click();
+  await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await expect(
     page.getByRole('combobox', { name: 'คนขับรถ', exact: true }).locator('option:checked'),
   ).toHaveText('สมชาย');

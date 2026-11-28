@@ -173,3 +173,32 @@ it('does not verify or read the old account after the signed in user changes dur
   expect(mocks.save).not.toHaveBeenCalled();
   expect(onRows).not.toHaveBeenCalled();
 });
+
+it('saves a link without signing in, rejects a bad one and shows the last sync', async () => {
+  const { saveTruckSync } =
+    await vi.importActual<typeof import('../truckSheets')>('../truckSheets');
+  await saveTruckSync('link-owner', {
+    at: '2026-11-28T03:00:00.000Z',
+    creates: 2,
+    updates: 1,
+    links: 3,
+    skips: 4,
+  });
+  render(
+    <TruckSheetsPanel owner="link-owner" disabled={false} onRows={vi.fn()} onBusy={vi.fn()} />,
+  );
+  expect(await screen.findByText(/ซิงก์ล่าสุด .*เพิ่ม 2 แก้ไข 1 ผูกคนขับ 3 ข้าม 4/)).toBeVisible();
+  const input = screen.getByLabelText('ลิงก์ Google Sheets สำหรับข้อมูลรถ');
+  await screen.findByRole('link');
+  fireEvent.change(input, { target: { value: 'https://drive.google.com/file/d/abc/view' } });
+  fireEvent.click(screen.getByRole('button', { name: 'บันทึกลิงก์' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Google Sheets');
+  expect(mocks.save).not.toHaveBeenCalled();
+  fireEvent.change(input, {
+    target: { value: 'https://docs.google.com/spreadsheets/d/abc123/edit#gid=7' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'บันทึกลิงก์' }));
+  expect(await screen.findByText(/บันทึกลิงก์แล้ว/)).toBeVisible();
+  expect(mocks.save).toHaveBeenCalledWith('link-owner', 'abc123', 7);
+  expect(mocks.auth).not.toHaveBeenCalled();
+});

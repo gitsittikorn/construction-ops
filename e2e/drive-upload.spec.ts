@@ -9,7 +9,7 @@ test('browser uploads original image bytes and verifies the private Drive file',
   let uploaded: Buffer | null = null;
   let creates = 0;
   const headers = {
-    'Access-Control-Allow-Origin': 'http://127.0.0.1:5174',
+    'Access-Control-Allow-Origin': 'http://localhost:5174',
     'Access-Control-Allow-Headers':
       'authorization,content-type,x-upload-content-type,x-upload-content-length',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',

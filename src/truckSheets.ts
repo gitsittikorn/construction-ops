@@ -1,4 +1,4 @@
-import { parseTruckRows, truckHeaders, legacyTruckHeaders } from './truckImport';
+import { parseTruckRows, truckHeaders, legacyTruckHeaders, driverHeader } from './truckImport';
 import { openLocalDatabase } from './storage';
 
 export const sheetsReadScope = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -59,6 +59,29 @@ export async function saveTruckSheet(owner: string, id: string, sheetId?: number
       await transaction.done.catch(() => {});
       throw error;
     }
+  } finally {
+    database.close();
+  }
+}
+export interface TruckSyncSummary {
+  at: string;
+  creates: number;
+  updates: number;
+  links: number;
+  skips: number;
+}
+export async function saveTruckSync(owner: string, summary: TruckSyncSummary) {
+  const database = await openLocalDatabase();
+  try {
+    await database.put('driveSettings', summary, `truck-sheet-sync:${owner}`);
+  } finally {
+    database.close();
+  }
+}
+export async function loadTruckSync(owner: string): Promise<TruckSyncSummary | undefined> {
+  const database = await openLocalDatabase();
+  try {
+    return await database.get('driveSettings', `truck-sheet-sync:${owner}`);
   } finally {
     database.close();
   }
@@ -128,7 +151,7 @@ export async function prepareTruckSheet(token: string, id: string) {
     if (
       nonempty &&
       (legacyTruckHeaders.some((value) => !labels.includes(value)) ||
-        labels.some((value) => !truckHeaders.includes(value)) ||
+        labels.some((value) => value !== driverHeader && !truckHeaders.includes(value)) ||
         new Set(labels).size !== labels.length)
     )
       throw Error(

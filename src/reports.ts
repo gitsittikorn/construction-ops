@@ -4,6 +4,7 @@ import { dailySessions, verificationState, rowFingerprint } from './daily';
 import { dailyTripSegments } from './dailyTrips';
 import { validDate } from './daily';
 import type { SheetData } from 'write-excel-file/universal';
+import { teamOf, teamTable } from './teamReport';
 
 export const reportTypes = {
   daily: 'เที่ยวรถรายวัน',
@@ -13,6 +14,7 @@ export const reportTypes = {
   source: 'สรุปแหล่งดิน',
   verification: 'ตรวจยอดประจำวัน',
   cumulative: 'ปริมาตรสะสม',
+  team: 'เที่ยวรถตามทีม',
   weekly: 'สรุปรายสัปดาห์',
   monthly: 'สรุปรายเดือน',
 } as const;
@@ -142,7 +144,7 @@ export function reportRows(data: Data, filter: ReportFilter): ReportRow[] {
         (!filter.to || r.date <= filter.to) &&
         (!filter.truck || r.truck === filter.truck) &&
         (!filter.driver || r.driver === filter.driver) &&
-        (!filter.team || r.team === filter.team) &&
+        (!filter.team || teamOf(data, r) === filter.team) &&
         (!filter.source || r.source === filter.source) &&
         (!filter.verification || (filter.verification === 'verified' ? r.verified : !r.verified)),
     )
@@ -165,7 +167,9 @@ export function reportTable(
   rows: ReportRow[],
   type: ReportType,
   includeEvidence = false,
+  money = false,
 ): (string | number)[][] {
+  if (type === 'team') return teamTable(data, rows, money);
   const name = (id: string) => data.masters.find((m) => m.id === id)?.name ?? id;
   const project = (id: string) => data.projects.find((p) => p.id === id)?.name ?? id;
   if (type === 'verification') {
@@ -335,10 +339,15 @@ export async function reportWorkbook(
   data: Data,
   rows: ReportRow[],
   type: ReportType,
-  context: { filter?: ReportFilter; generatedAt?: string; includeEvidence?: boolean } = {},
+  context: {
+    filter?: ReportFilter;
+    generatedAt?: string;
+    includeEvidence?: boolean;
+    money?: boolean;
+  } = {},
 ) {
   const { default: write } = await import('write-excel-file/universal');
-  const table = reportTable(data, rows, type, context.includeEvidence),
+  const table = reportTable(data, rows, type, context.includeEvidence, context.money),
     totals = reportTotals(rows);
   const totalRow: (string | number)[] = table[0].map(() => '');
   totalRow[0] = 'รวม';
@@ -354,7 +363,8 @@ export async function reportWorkbook(
     const index = table[0].indexOf(label);
     if (index >= 0) totalRow[index] = value;
   }
-  table.push(totalRow);
+  // The team table already carries its own team and grand totals.
+  if (type !== 'team') table.push(totalRow);
   const cells = (table: (string | number)[][]): SheetData =>
     table.map((r, i) =>
       r.map((value, column) => ({

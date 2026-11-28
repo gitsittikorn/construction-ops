@@ -1,5 +1,33 @@
 # Roadmap progress — Construction Ops
 
+## Delete actions, driver mapping and Sheets import - 2026-11-28
+
+User request: standard delete everywhere records are editable, project view/edit/delete, fleet add buttons at the top like soil sources, no team tags outside trucks/drivers, plate and driver shown together, fleet reset preparation and restoration of the Sheets link feature. Baseline 5407060 plus the earlier uncommitted changes of the same day, which are preserved. Work is uncommitted; no push, deploy, cloud write or real data reset. Reset is a user-operated tool in the master data page and was not run on real data. Finance entries, soil price history, evidence and originals stay append-only by design and have no delete button. Windows 2026-11-28 from C:, CI=true npm.cmd run check: format, lint (0 errors, 63 warnings), tooling 4/4, typecheck, frontend 442/442, backend 20/20, Rules 16/16, integration 13/13, build and smoke PASS; its E2E step could not start (exit 1) because another local project held port 5174. npm.cmd run test:e2e was then run with the test port temporarily changed to 5184 and the files restored: exit 0, 79/79. A single uninterrupted check exit 0 is therefore NOT claimed. Real Google login, real Sheets import with this build, real Cloud sync of the new deletions and physical devices are NOT VERIFIED. Observed: origin/feat/integrate-local-cloud-20261122 and origin/feat/google-allowlist-rbac hold commits that main does not contain; not merged here.
+
+## Data reset requested by the user - 2026-11-28
+
+On explicit user instruction to delete all data and start again, ran firebase firestore:delete users --recursive --force on khok-kloi-backhoe-engineering with the owner account, exit 0, after the console delete had failed. admins and companies were not targeted. No cloud backup was taken; an earlier file copy of local site data is in Documents/ConstructionOps-Recovery/2026-11-28-chrome-profile1 (restore NOT VERIFIED). Emptiness of the collection and removal of local browser data are NOT VERIFIED. Drive files were not touched.
+
+## Simpler report filters and fleet screen - 2026-11-28
+
+User request (low-tech users): report page has an all-dates button and type-ahead boxes for team and plate/driver; the team filter now matches the team report grouping. Trucks and drivers are one list with one search, add buttons under the list, driver edit on the same row; import tools moved below the list. Storage and Rules unchanged. Full npm run check exit status recorded at delivery: frontend 423/423, E2E 77/77. Not tried with real data or by an end user. No commit or push.
+
+## Team trip report and team autofill - 2026-11-28
+
+User request: trips per truck per day by team, project totals and trip pay. Picking a truck now fills the team (latest daily row for that truck in the project, else its only tag). New report type team (truck by date matrix, team subtotals, grand total, CSV/Excel/print). Pay reuses existing finance truck rates, shown to owner/manager only; unpriced trips are counted, never guessed. Rate maths moved to financeRates.ts. No data model, sync or Rules change. Full gate exit 0: frontend 419/419, backend 20/20, Rules 16/16, integration 11/11, E2E 77/77. Run from an upper-case C: path (a lower-case drive letter made Vitest fail). Real data, real account and printed layout with many dates NOT VERIFIED. No commit or push.
+
+## Canonical origin back to localhost — 2026-11-28
+
+User instruction: use this machine only, with `http://localhost:5173/`. Read-only size check of Chrome/Edge/Brave profiles found site storage only for `localhost:5173` (Chrome "Profile 1"), none for `127.0.0.1`; sizes, not record counts, were inspected. Copied that storage folder to `Documents/ConstructionOps-Recovery/2026-11-28-chrome-profile1` (file copy, restore NOT VERIFIED). Reversed the origin redirect, moved dev/preview/E2E hosts to `localhost`, updated AGENTS.md and removed the push trigger from the Pages workflow (manual dispatch kept; takes effect only once pushed). Binding `localhost` in Vite refused `127.0.0.1` (74/76 E2E), so servers keep listening on `127.0.0.1` and only the browser address changed. Final `CI=true npm run check` **exit 0**: frontend 413/413, backend 20/20, Rules 16/16, integration 11/11, E2E 76/76. No commit, push or deploy.
+
+## Repository tidy-up and gate recheck — 2026-11-28
+
+Baseline/latest commit `5407060`. Before changes: unit, Rules, build, smoke and browser E2E passed; `format:check` and `lint` failed (all lint errors in the committed, unreferenced `dist-pages/` build output; two source files unformatted). Removed `dist-pages/` from Git (recoverable from history) and ignored it; applied Prettier to `ReportsPanel.tsx` and `SoilPricesPanel.tsx`; the Pages workflow now passes repository variables `VITE_*` to the build (variables themselves NOT set or verified).
+
+After changes, `CI=true npm run check` **exit 0**: frontend 413/413, backend 20/20, Node Rules/storage 16/16, emulator integration 11/11, E2E 76/76, tooling 4/4, 59 lint warnings, zero errors. `npm run clean` run; the two regenerated Phase 2 screenshots restored. No commit, push or deploy.
+
+NOT VERIFIED: publication of the current `firestore.rules` (soil prices, driver claims) to the real project; real Drive/Sheets; the deployed Pages site. Open decision: pushing `main` still auto-deploys. Next: publish Rules with the user's authorization, then real sign-in and Drive acceptance. Physical Android remains deferred.
+
 ## Missing data recovery and canonical origin checkpoint — 2026-11-12
 
 Current task: fix missing-parent sync and locate imported masters; use only `127.0.0.1:5173`. Baseline/latest existing commit `f39c3ea`; preserve earlier connection-review edits. **Real recovery succeeded**: original same-account Chrome Profile 2 localhost data matched the missing IDs. Saved create-only backup outside Git: `C:/Users/jane_/Documents/ConstructionOps-Recovery/2026-11-12/localhost-recovered-1.json`. Validated on an offline copy, then applied existing guarded missing-only restoration to empty canonical workspaces. Actual server reads: **2 projects, 92 masters, 3 trips**; both responding canonical contexts: **97 acknowledged, 0 pending, 0 conflicts, 0 failed**. Three historical file records retain Drive IDs but have no recovered local Blobs; private bytes/access remain NOT VERIFIED.

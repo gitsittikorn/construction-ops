@@ -34,6 +34,10 @@ const initial: SurveyBody = {
   cutSwell: 0,
   points: [],
 };
+import { Trash2 } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
+import { deleteSurvey } from './deletion';
+
 export default function SurveyPanel({
   data,
   owner,
@@ -52,6 +56,7 @@ export default function SurveyPanel({
     [id, setId] = useState<string>(() => crypto.randomUUID()),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
+    [confirming, setConfirming] = useState(false),
     [page, setPage] = useState(0),
     [reading, setReading] = useState<LevelObservation>({ type: 'BS', point: 'BM1', reading: 0 }),
     [pointId, setPointId] = useState('G0-0'),
@@ -278,6 +283,32 @@ export default function SurveyPanel({
         >
           เริ่มงานสำรวจใหม่
         </button>
+        {saved && managesBusiness(owner) && (
+          <button type="button" className="danger-outline" onClick={() => setConfirming(true)}>
+            <Trash2 size={15} aria-hidden="true" /> ลบงานสำรวจนี้
+          </button>
+        )}
+        {confirming && saved && (
+          <ConfirmDialog
+            title={`ลบงานสำรวจ ${saved.name}`}
+            message="งานสำรวจจะถูกซ่อนจากประวัติ โดยเก็บข้อมูลและประวัติการแก้ไขไว้"
+            onCancel={() => setConfirming(false)}
+            onConfirm={async () => {
+              await onChange((data) => {
+                const latest = data.workspaces?.find((r) => r.id === saved.id);
+                if (!latest || canonical(latest) !== canonical(saved))
+                  throw Error('งานสำรวจเปลี่ยนแล้ว กรุณาโหลดฉบับล่าสุด');
+                return deleteSurvey(data, saved.id, owner);
+              });
+              setConfirming(false);
+              setSaved(null);
+              setId(crypto.randomUUID());
+              setBody(structuredClone(initial));
+              setNotice('ลบงานสำรวจแล้ว');
+              setError('');
+            }}
+          />
+        )}
         <label>
           ชื่องานสำรวจ
           <input value={name} onChange={(e) => setName(e.target.value)} />

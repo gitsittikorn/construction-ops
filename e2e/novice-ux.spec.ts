@@ -74,7 +74,12 @@ for (const viewport of [
     const advanced = page.getByText(/^กรองเพิ่มเติม ·/);
     await advanced.focus();
     await advanced.press('Enter');
-    await page.getByLabel('กรองรถ', { exact: true }).selectOption(`${demoId}-truck-a`);
+    const truckBox = page.getByRole('combobox', { name: 'กรองทะเบียนรถ / คนขับ', exact: true });
+    await truckBox.click();
+    await page
+      .getByRole('listbox')
+      .getByRole('option', { name: /12 คิว/ })
+      .click();
     await expect(summary).toContainText('600');
     await expect(summary).toContainText('50');
     await page.getByRole('button', { name: 'ล้างตัวกรองรายงาน', exact: true }).click();
@@ -130,7 +135,7 @@ for (const viewport of [
       has: page.getByRole('heading', { name: 'DEMO · โครงการถมดินตัวอย่าง', exact: true }),
     });
     await expect(demo).toContainText('80 เที่ยวรถ');
-    await demo.getByRole('button', { name: 'ดู / แก้ไข' }).click();
+    await demo.getByRole('button', { name: /^แก้ไข / }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('สถานะโครงการ', { exact: true }).selectOption('draft');
     await dialog.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();

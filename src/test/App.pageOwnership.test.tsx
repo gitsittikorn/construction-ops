@@ -23,14 +23,14 @@ it('owns summaries in one report menu and keeps the original editable list and e
   expect(screen.getByRole('alert')).toHaveTextContent('ช่วงวันที่รายงานไม่ถูกต้อง');
   expect(screen.getByRole('button', { name: 'ส่งออกรายงาน CSV' })).toBeDisabled();
   const main = within(screen.getByRole('main'));
-  expect(main.queryByRole('button', { name: /แก้ไขเที่ยวรถ/ })).not.toBeInTheDocument();
+  expect(main.queryByRole('button', { name: /แก้ไข เที่ยวรถ/ })).not.toBeInTheDocument();
   expect(main.queryByRole('button', { name: 'บันทึกเที่ยวรถ' })).not.toBeInTheDocument();
   expect(main.queryByRole('columnheader', { name: 'วันที่ / เวลา' })).not.toBeInTheDocument();
   await user.click(nav.getByRole('button', { name: 'บันทึกเที่ยวรถ' }));
   await user.click(screen.getByRole('checkbox', { name: 'ทุกวันที่' }));
   expect(screen.getByRole('cell', { name: /2026-11-06/ })).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: /AB123/ })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /แก้ไขเที่ยวรถ/ })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /แก้ไข เที่ยวรถ/ })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'CSV' })).toBeEnabled();
   expect(await loadData('local')).toEqual(original);
 });
@@ -84,7 +84,7 @@ it('owns duplicate review in trips and clears a completed task notice when navig
   await user.selectOptions(screen.getByLabelText('มุมมองเที่ยวรถ'), 'records');
   expect(screen.queryByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' })).not.toBeInTheDocument();
   await user.click(nav.getByRole('button', { name: 'โครงการ' }));
-  await user.click(screen.getByRole('button', { name: /ดู \/ แก้ไข/ }));
+  await user.click(screen.getByRole('button', { name: /^แก้ไข / }));
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
   await screen.findByText('บันทึกในเครื่องเรียบร้อย');
   await user.click(nav.getByRole('button', { name: 'รายงาน' }));

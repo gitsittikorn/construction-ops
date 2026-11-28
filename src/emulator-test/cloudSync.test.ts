@@ -18,7 +18,9 @@ import { emptyData } from '../models';
 import { saveMaster, saveTruckWithDriver } from '../masterData';
 import { saveSoilPrice, priceHistory } from '../soilPrices';
 import { fixture, project, truck, trip } from '../test/syncFixtures';
-import { deleteRecord } from '../deletion';
+import { deleteRecord, deleteSurvey } from '../deletion';
+import { fleetSnapshot, resetFleet } from '../fleetReset';
+import { applyTruckImport, parseTruckRows, truckHeaders } from '../truckImport';
 import {
   createDaily,
   dailySessions,
@@ -28,6 +30,7 @@ import {
   duplicateNextDay,
 } from '../daily';
 import { deliveredVolume } from '../dailyTrips';
+import { gridPoints } from '../surveying';
 import { saveEvidence } from '../evidence';
 import { listUploads, putUpload } from '../uploads';
 import { webcrypto } from 'node:crypto';
@@ -711,4 +714,65 @@ it('company: manager and operator share data with isolated caches, actual actors
     'permission-denied',
   );
   expect(await loadData(operatorKey)).toEqual(pending);
+});
+it('syncs a fleet reset and re-import with real rules, releasing plate and driver claims first', async () => {
+  const owner = session.owner;
+  const rows = parseTruckRows([
+    truckHeaders,
+    ['', '80-1111', 'พังงา', '', '', 'สมชาย', 'เคน', '6', '', ''],
+    ['', '80-2222', 'พังงา', '', '', 'วิชัย', 'เคน', '6', '', ''],
+  ]);
+  const first = applyTruckImport(fixture(), rows, false, owner, fixture().masters);
+  await persistData(owner, first);
+  await synchronize(owner, firestoreTransport);
+  await updateData(owner, (data) => resetFleet(data, owner, [], fleetSnapshot(data)));
+  // Reset and re-import are both queued before the next sync.
+  await updateData(owner, (data) => applyTruckImport(data, rows, true, owner, data.masters));
+  await synchronize(owner, firestoreTransport);
+  const saved = await loadData(owner);
+  expect(
+    Object.values(saved.sync!.entries).filter((entry) => entry.status !== 'synced' || entry.error),
+  ).toEqual([]);
+  const trucks = saved.masters.filter((item) => item.kind === 'truck' && item.active);
+  expect(trucks.filter((item) => item.name.startsWith('80-') && item.driverId)).toHaveLength(2);
+});
+it('syncs a survey soft delete through real rules', async () => {
+  const owner = session.owner;
+  const data = fixture();
+  data.trips = [];
+  data.workspaces = [
+    {
+      id: 'survey-1',
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      recordType: 'survey',
+      projectId: project.id,
+      name: 'สำรวจ',
+      body: {
+        benchmark: 'BM1',
+        elevation: 0,
+        datum: 'x',
+        notes: '',
+        observations: [],
+        width: 20,
+        length: 20,
+        spacingX: 10,
+        spacingY: 10,
+        design: 'uniform',
+        designLevel: 1,
+        slopeX: 0,
+        slopeY: 0,
+        allowance: 30,
+        cutSwell: 0,
+        points: gridPoints(20, 20, 10, 10, 0),
+      },
+    },
+  ];
+  await persistData(owner, data);
+  await synchronize(owner, firestoreTransport);
+  await updateData(owner, (old) => deleteSurvey(old, 'survey-1', owner));
+  await synchronize(owner, firestoreTransport);
+  const saved = await loadData(owner);
+  expect(saved.sync!.entries['workspaces/survey-1']).toMatchObject({ status: 'synced' });
+  expect(saved.workspaces).toEqual([]);
 });

@@ -23,6 +23,8 @@ export const truckHeaders = [
   'รายละเอียด',
   'สถานะ',
 ];
+// Optional extra column: the user's established sheet layout above stays unchanged.
+export const driverHeader = 'ชื่อคนขับ';
 export interface TruckImportRow {
   row: number;
   id: string;
@@ -30,6 +32,7 @@ export interface TruckImportRow {
   province: string;
   phone: string;
   nickname?: string;
+  driver?: string;
   truckType: Master['truckType'];
   capacity: number;
   tags: string[];
@@ -37,14 +40,23 @@ export interface TruckImportRow {
   active: boolean;
   errors: string[];
 }
+export interface DriverAssignment {
+  id: string;
+  name: string;
+  isNew: boolean;
+}
 export interface TruckImportPlan {
   rows: {
     source: TruckImportRow;
-    action: 'create' | 'update' | 'skip' | 'error';
+    action: 'create' | 'update' | 'link' | 'skip' | 'error';
     existingId?: string;
     errors: string[];
+    notes: string[];
+    driver?: DriverAssignment;
   }[];
   newTags: string[];
+  links: number;
+  newDrivers: number;
   creates: number;
   updates: number;
   skips: number;
@@ -76,6 +88,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
         province = '',
         phone = '',
         nickname: string | undefined,
+        driver: string | undefined,
         id = '',
         detail = '',
         tags: string[] = [],
@@ -87,6 +100,8 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
         province = get('จังหวัดทะเบียน');
         phone = get('เบอร์โทร');
         nickname = headers.includes('ชื่อเล่น') ? get('ชื่อเล่น') : undefined;
+        driver = headers.includes(driverHeader) ? get(driverHeader) : undefined;
+        if (driver && driver.length > 200) errors.push('ชื่อคนขับยาวเกิน 200 ตัวอักษร');
         id = get('รหัสรถ');
         detail = get('รายละเอียด');
         if (!plate) errors.push('กรุณาระบุทะเบียนรถ');
@@ -157,6 +172,7 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
         province,
         phone,
         ...(nickname !== undefined ? { nickname } : {}),
+        ...(driver !== undefined ? { driver } : {}),
         truckType,
         capacity,
         tags,
@@ -167,17 +183,69 @@ export function parseTruckRows(rows: unknown[][]): TruckImportRow[] {
     })
     .filter((row): row is TruckImportRow => row !== null);
 }
+const phoneDigits = (value = '') => value.replace(/\D/g, '');
+// A sheet may have no driver column; its nickname column then holds the driver's name.
+export const sheetDriverName = (row: TruckImportRow) => (row.driver || row.nickname || '').trim();
+
+function driverPlanner(masters: Master[]) {
+  const drivers = masters.filter((item) => item.kind === 'driver');
+  const taken = new Set(
+    masters.flatMap((item) => (item.kind === 'truck' && item.driverId ? [item.driverId] : [])),
+  );
+  const created: { name: string; phone: string }[] = [];
+  return (source: TruckImportRow, notes: string[]): DriverAssignment | undefined => {
+    const name = sheetDriverName(source),
+      key = normalizeName(name),
+      phone = phoneDigits(source.phone);
+    const use = (driver: Master) => {
+      taken.add(driver.id);
+      return { id: driver.id, name: driver.name, isNew: false };
+    };
+    const skip = (text: string) => {
+      notes.push(text);
+      return undefined;
+    };
+    const named = drivers.filter((item) => normalizeName(item.name) === key);
+    const samePerson = phone
+      ? drivers.filter(
+          (item) =>
+            phoneDigits(item.phone) === phone &&
+            (normalizeName(item.name) === key || normalizeName(item.nickname ?? '') === key),
+        )
+      : [];
+    if (samePerson.length) {
+      const free = samePerson.find((item) => !taken.has(item.id));
+      return free ? use(free) : skip(`คนขับ ${name} เบอร์เดียวกันมีรถประจำแล้ว จึงไม่ผูกซ้ำ`);
+    }
+    const free = named.filter(
+      (item) => !taken.has(item.id) && (!phone || !phoneDigits(item.phone)),
+    );
+    if (free.length === 1) return use(free[0]);
+    if (free.length > 1) return skip(`พบคนขับชื่อ ${name} หลายคน กรุณาเลือกผูกเองในหน้ารถ`);
+    if (phone && created.some((item) => item.name === key && item.phone === phone))
+      return skip(`คนขับ ${name} เบอร์เดียวกันอยู่ในแถวก่อนหน้าแล้ว จึงไม่สร้างซ้ำ`);
+    if (named.length || created.some((item) => item.name === key))
+      notes.push(`ชื่อ ${name} ซ้ำกับคนขับของรถคันอื่น ตรวจว่าเป็นคนละคน`);
+    created.push({ name: key, phone });
+    return { id: crypto.randomUUID(), name, isNew: true };
+  };
+}
+
 export function planTruckImport(
   rows: TruckImportRow[],
   masters: Master[],
   updateExisting: boolean,
+  linkDrivers = true,
 ): TruckImportPlan {
+  const assignDriver = driverPlanner(masters);
   const seen = new Set<string>(),
     targets = new Set<string>(),
     newTags = new Map<string, string>();
   const result: TruckImportPlan = {
     rows: [],
     newTags: [],
+    links: 0,
+    newDrivers: 0,
     creates: 0,
     updates: 0,
     skips: 0,
@@ -221,14 +289,43 @@ export function planTruckImport(
       if (found && !found.active && !existing?.tagIds?.includes(found.id))
         errors.push(`แท็ก ${tag} ถูกปิดใช้งาน`);
     }
-    const action = errors.length
+    let action: TruckImportPlan['rows'][number]['action'] = errors.length
       ? 'error'
       : existing
         ? updateExisting
           ? 'update'
           : 'skip'
         : 'create';
-    result.rows.push({ source, action, existingId: existing?.id, errors });
+    const notes: string[] = [];
+    let driver: DriverAssignment | undefined;
+    const name = sheetDriverName(source);
+    if (linkDrivers && !errors.length && name) {
+      const current = masters.find(
+        (item) => item.kind === 'driver' && item.id === existing?.driverId,
+      );
+      const matches =
+        current &&
+        [current.name, current.nickname ?? ''].some(
+          (value) => normalizeName(value) === normalizeName(name),
+        );
+      // An existing assignment only changes in update mode, and only when the sheet itself changed.
+      const replace =
+        current &&
+        !matches &&
+        action === 'update' &&
+        (Boolean(source.driver) || normalizeName(existing?.nickname ?? '') !== normalizeName(name));
+      if (!current || replace) {
+        driver = assignDriver(source, notes);
+        if (driver && action === 'skip') action = 'link';
+      } else if (!matches) notes.push(`คงคนขับเดิม ${current.name}`);
+    }
+    if (existing && !existing.active && source.active && (action === 'skip' || action === 'link'))
+      notes.push('รถคันนี้ปิดใช้งานอยู่ เปิดตัวเลือกอัปเดตเพื่อเปิดใช้งานตามไฟล์');
+    result.rows.push({ source, action, existingId: existing?.id, errors, notes, driver });
+    if (driver) {
+      result.links++;
+      if (driver.isNew) result.newDrivers++;
+    }
     if (action === 'create' || action === 'update')
       for (const tag of source.tags)
         if (
@@ -240,7 +337,7 @@ export function planTruckImport(
     if (action === 'create') result.creates++;
     else if (action === 'update') result.updates++;
     else if (action === 'skip') result.skips++;
-    else result.errors++;
+    else if (action === 'error') result.errors++;
   }
   result.newTags = [...newTags.values()];
   return result;
@@ -251,10 +348,11 @@ export function applyTruckImport(
   updateExisting: boolean,
   actor: string,
   previewMasters: Master[],
+  linkDrivers = true,
 ): Data {
   if (JSON.stringify(data.masters) !== JSON.stringify(previewMasters))
     throw Error('ข้อมูลพื้นฐานเปลี่ยนระหว่างตรวจไฟล์ กรุณาตรวจรายการนำเข้าใหม่ก่อนบันทึก');
-  const plan = planTruckImport(rows, data.masters, updateExisting);
+  const plan = planTruckImport(rows, data.masters, updateExisting, linkDrivers);
   if (plan.errors) throw Error('กรุณาแก้แถวที่มีข้อผิดพลาดก่อนนำเข้า');
   let next = data;
   const now = new Date().toISOString();
@@ -273,9 +371,40 @@ export function applyTruckImport(
       },
       actor,
     );
-  for (const row of plan.rows.filter((row) => row.action === 'create' || row.action === 'update')) {
+  for (const row of plan.rows) {
+    if (row.action === 'skip' || row.action === 'error') continue;
     const old = next.masters.find((item) => item.id === row.existingId);
     const source = row.source;
+    if (row.driver) {
+      const driver = next.masters.find((item) => item.id === row.driver!.id);
+      if (!driver)
+        next = saveMaster(
+          next,
+          {
+            id: row.driver.id,
+            kind: 'driver',
+            name: row.driver.name,
+            detail: '',
+            capacity: 0,
+            active: true,
+            phone: source.phone,
+            nickname: source.nickname ?? '',
+            createdAt: now,
+            updatedAt: now,
+          },
+          actor,
+        );
+      else if (!driver.active || (!driver.phone && source.phone))
+        next = saveMaster(
+          next,
+          { ...driver, active: true, phone: driver.phone || source.phone, updatedAt: now },
+          actor,
+        );
+    }
+    if (row.action === 'link') {
+      next = saveMaster(next, { ...old!, driverId: row.driver!.id, updatedAt: now }, actor);
+      continue;
+    }
     const tagIds = source.tags.map(
       (name) =>
         next.masters.find(
@@ -297,6 +426,7 @@ export function applyTruckImport(
       detail: source.detail,
       active: source.active,
       tagIds,
+      ...(row.driver ? { driverId: row.driver.id } : {}),
     };
     next = saveMaster(next, record, actor);
   }

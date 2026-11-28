@@ -17,11 +17,11 @@ it('redirects an empty alias before business UI mounts', async () => {
   vi.mocked(legacyOriginHasData).mockResolvedValue(false);
   const navigate = vi.fn();
   render(
-    <LocalOriginGate url="http://localhost:5173/" navigate={navigate}>
+    <LocalOriginGate url="http://127.0.0.1:5173/" navigate={navigate}>
       <p>Business UI</p>
     </LocalOriginGate>,
   );
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith('http://127.0.0.1:5173/'));
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('http://localhost:5173/'));
   expect(screen.queryByText('Business UI')).not.toBeInTheDocument();
 });
 it('keeps legacy records reachable for backup without starting business writes on the alias', async () => {
@@ -29,34 +29,34 @@ it('keeps legacy records reachable for backup without starting business writes o
   vi.mocked(legacyRecoveryOwners).mockResolvedValue(['local']);
   const navigate = vi.fn();
   render(
-    <LocalOriginGate url="http://localhost:5173/" navigate={navigate}>
+    <LocalOriginGate url="http://127.0.0.1:5173/" navigate={navigate}>
       <p>Business UI</p>
     </LocalOriginGate>,
   );
   expect(await screen.findByRole('button', { name: 'ดาวน์โหลดข้อมูลก่อนล็อกอิน' })).toBeVisible();
   expect(navigate).not.toHaveBeenCalled();
   expect(screen.queryByText('Business UI')).not.toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'เปิดที่อยู่หลัก 127.0.0.1' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'เปิดที่อยู่หลัก localhost' })).toHaveAttribute(
     'href',
-    'http://127.0.0.1:5173/',
+    'http://localhost:5173/',
   );
 });
 it('does not redirect or claim an empty database when storage inspection fails', async () => {
   vi.mocked(legacyOriginHasData).mockRejectedValue(Error('storage unavailable'));
   const navigate = vi.fn();
   render(
-    <LocalOriginGate url="http://localhost:5173/" navigate={navigate}>
+    <LocalOriginGate url="http://127.0.0.1:5173/" navigate={navigate}>
       <p>Business UI</p>
     </LocalOriginGate>,
   );
   expect(await screen.findByRole('alert')).toHaveTextContent('ตรวจข้อมูลเดิมไม่สำเร็จ');
   expect(navigate).not.toHaveBeenCalled();
-  expect(screen.queryByText(/พบข้อมูลเดิมใน localhost/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/พบข้อมูลเดิมใน 127.0.0.1/)).not.toBeInTheDocument();
 });
 it('runs normally on the canonical address without touching legacy storage', () => {
   vi.mocked(legacyOriginHasData).mockClear();
   render(
-    <LocalOriginGate url="http://127.0.0.1:5173/">
+    <LocalOriginGate url="http://localhost:5173/">
       <p>Business UI</p>
     </LocalOriginGate>,
   );

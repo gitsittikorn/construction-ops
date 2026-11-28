@@ -1,4 +1,5 @@
 import SearchableSelect from './SearchableSelect';
+import ComboBox from './ComboBox';
 import { useState } from 'react';
 import type { Data, Master } from './models';
 import { demoProjectId } from './demoProjectInfo';
@@ -21,7 +22,9 @@ import {
 export default function ReportsPanel({
   data,
   initialProject = '',
+  showMoney = false,
 }: {
+  showMoney?: boolean;
   data: Data;
   initialProject?: string;
 }) {
@@ -37,34 +40,30 @@ export default function ReportsPanel({
   } catch (e) {
     problem = (e as Error).message;
   }
-  const table = reportTable(data, rows, type, includeEvidence),
-    totals = reportTotals(rows),
+  let table: (string | number)[][] = [[]];
+  try {
+    table = reportTable(data, rows, type, includeEvidence, showMoney);
+  } catch (e) {
+    problem ||= (e as Error).message;
+  }
+  const totals = reportTotals(rows),
     visible = table.slice(1 + page * 100, 1 + (page + 1) * 100);
   const set = (key: keyof typeof filter, value: string) => {
     setFilter((f) => ({ ...f, [key]: value }));
     setPage(0);
   };
-  function master(
-    key: 'truck' | 'driver' | 'team' | 'source',
-    label: string,
-    kind: Master['kind'],
-  ) {
-    return (
-      <label>
-        {label}
-        <SearchableSelect aria-label={label} value={filter[key]} onChange={(e) => set(key, e.target.value)}>
-          <option value="">ทั้งหมด</option>
-          {data.masters
-            .filter((m) => m.kind === kind)
-            .map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-        </SearchableSelect>
-      </label>
-    );
-  }
+  const named = (id?: string) => data.masters.find((m) => m.id === id)?.name;
+  const assigned = new Set(data.masters.map((m) => (m.kind === 'truck' ? m.driverId : '')));
+  const fleetOptions = data.masters
+    .filter((m) => m.kind === 'truck' || (m.kind === 'driver' && !assigned.has(m.id)))
+    .map((m) => ({
+      value: m.id,
+      label:
+        m.kind === 'driver'
+          ? `${m.name} (ยังไม่มีรถ)`
+          : [m.name, named(m.driverId)].filter(Boolean).join(' · '),
+      search: [m.nickname, m.phone, m.province].filter(Boolean).join(' '),
+    }));
   const subtitle = `เที่ยว ${totals.trips} · ปริมาตรที่ทราบ ${totals.volume} m³ · ยืนยัน ${totals.verifiedTrips} เที่ยว / ${totals.verifiedVolume} m³ · ไม่ทราบความจุ ${totals.unknownVolumeTrips} เที่ยว`;
   return (
     <section aria-label="รายงานธุรกิจ" className="content-stack reports-panel">
@@ -127,6 +126,16 @@ export default function ReportsPanel({
         </label>
         <button
           className="secondary"
+          aria-pressed={!filter.from && !filter.to}
+          onClick={() => {
+            setFilter((f) => ({ ...f, from: '', to: '' }));
+            setPage(0);
+          }}
+        >
+          ทุกวันที่
+        </button>
+        <button
+          className="secondary"
           onClick={() => {
             setFilter(emptyReportFilter);
             setIncludeEvidence(false);
@@ -137,20 +146,55 @@ export default function ReportsPanel({
           ล้างตัวกรองรายงาน
         </button>
       </div>
+      <p className="report-context" role="status">
+        ช่วงวันที่:{' '}
+        {filter.from || filter.to
+          ? `${filter.from || 'วันแรกสุด'} ถึง ${filter.to || 'วันล่าสุด'}`
+          : 'ทุกวันที่'}
+      </p>
+      <div className="operations-filters">
+        <ComboBox
+          label="กรองทีม"
+          value={filter.team}
+          onChange={(value) => set('team', value)}
+          options={data.masters
+            .filter((m) => m.kind === 'tag')
+            .map((m) => ({ value: m.id, label: m.name }))}
+        />
+        <ComboBox
+          label="กรองทะเบียนรถ / คนขับ"
+          value={filter.truck || filter.driver}
+          onChange={(value) => {
+            const driver = data.masters.some((m) => m.id === value && m.kind === 'driver');
+            set('truck', driver ? '' : value);
+            set('driver', driver ? value : '');
+          }}
+          options={fleetOptions}
+        />
+      </div>
       <details className="advanced-options">
         <summary>
-          กรองเพิ่มเติม · รถ คนขับ ทีม และสถานะยืนยัน
-          {[filter.truck, filter.driver, filter.team, filter.source, filter.verification].filter(
-            Boolean,
-          ).length > 0
-            ? ' (มีตัวกรองที่ใช้อยู่)'
-            : ''}
+          กรองเพิ่มเติม · แหล่งดินและสถานะยืนยัน
+          {filter.source || filter.verification ? ' (มีตัวกรองที่ใช้อยู่)' : ''}
         </summary>
         <div className="operations-filters">
-          {master('truck', 'กรองรถ', 'truck')}
-          {master('driver', 'กรองคนขับ', 'driver')}
-          {master('team', 'กรองทีม', 'tag')}
-          {master('source', 'กรองแหล่งดิน', 'source')}
+          <label>
+            กรองแหล่งดิน
+            <SearchableSelect
+              aria-label="กรองแหล่งดิน"
+              value={filter.source}
+              onChange={(e) => set('source', e.target.value)}
+            >
+              <option value="">ทั้งหมด</option>
+              {data.masters
+                .filter((m) => m.kind === 'source')
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </SearchableSelect>
+          </label>
           <label>
             การยืนยัน
             <SearchableSelect
@@ -214,6 +258,13 @@ export default function ReportsPanel({
           </p>
         )}
       </details>
+      {type === 'team' && (
+        <p className="report-context">
+          ตัวเลขใต้วันที่คือจำนวนเที่ยว เที่ยวที่ไม่ได้ระบุทีมจะใช้แท็กของรถเมื่อรถมีแท็กเดียว
+          {showMoney &&
+            ' ค่าเที่ยวคิดจากเรต “ค่ารถ” ในเมนูการเงิน ยอดเงินไม่รวมเที่ยวที่ยังไม่มีเรต'}
+        </p>
+      )}
       {(error || problem) && <p role="alert">{error || problem}</p>}
       <div className="operations-actions">
         <button
@@ -234,7 +285,7 @@ export default function ReportsPanel({
           className="primary"
           disabled={!!problem}
           onClick={() =>
-            void reportWorkbook(data, rows, type, { filter, includeEvidence })
+            void reportWorkbook(data, rows, type, { filter, includeEvidence, money: showMoney })
               .then((blob) => downloadBlob(blob, 'daily-report.xlsx'))
               .catch((e) => setError(e.message))
           }

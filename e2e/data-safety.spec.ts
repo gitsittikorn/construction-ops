@@ -58,7 +58,7 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   page,
   context,
 }) => {
-  await page.goto('http://127.0.0.1:5175/construction-ops/');
+  await page.goto('http://localhost:5175/construction-ops/');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -70,7 +70,7 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
-  await page.getByRole('button', { name: 'เพิ่มข้อมูล', exact: true }).click();
+  await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('P1-1234');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
@@ -80,13 +80,13 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
     .selectOption({ label: 'P1-1234' });
   await page.getByLabel('หมายเหตุ', { exact: true }).fill('original offline trip');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await page.getByRole('button', { name: /แก้ไขเที่ยวรถ/ }).click();
+  await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await page.getByLabel('หมายเหตุ', { exact: true }).fill('revised offline trip');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.close();
   const restarted = await context.newPage();
-  await restarted.goto('http://127.0.0.1:5175/construction-ops/');
+  await restarted.goto('http://localhost:5175/construction-ops/');
   await expect(restarted.getByText('P1 offline site', { exact: true })).toBeVisible();
   await restarted
     .getByRole('navigation')
@@ -180,7 +180,7 @@ test('stale edits from another tab are rejected and deletion retains a tombstone
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Original');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
+  await page.getByRole('button', { name: /^แก้ไข / }).click();
   const other = await context.newPage();
   await other.goto('/');
   await other.evaluate(async () => {
@@ -196,7 +196,7 @@ test('stale edits from another tab are rejected and deletion retains a tombstone
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('ข้อมูลเปลี่ยนแปลงแล้ว');
   await page.getByRole('button', { name: 'ปิดฟอร์ม', exact: true }).click();
-  await page.getByRole('button', { name: /ดู \/ แก้ไข/ }).click();
+  await page.getByRole('button', { name: /^แก้ไข / }).click();
   await page.getByRole('button', { name: 'ลบรายการโดยเก็บประวัติ' }).click();
   await page.getByRole('button', { name: 'ยืนยันลบรายการ' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);

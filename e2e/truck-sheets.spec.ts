@@ -103,9 +103,7 @@ test('the URL input selects the file, discovers a Thai tab and requires confirma
     });
   expect((await state()).masters).toHaveLength(0);
   await page.getByRole('button', { name: 'ยืนยันนำเข้ารถ', exact: true }).click();
-  await expect(
-    page.getByText('นำเข้าสำเร็จ เพิ่ม 1 แก้ไข 0 ข้าม 0 รายการ', { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(/^นำเข้าสำเร็จ เพิ่ม 1 แก้ไข 0 ข้าม 0 รายการ/)).toBeVisible();
   expect((await state()).masters[0].phone).toBe('0812345678');
   expect(Object.keys((await state()).sync!.entries)).not.toHaveLength(0);
   await page.reload();

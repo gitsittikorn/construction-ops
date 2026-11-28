@@ -651,3 +651,81 @@ export function reopenDaily(
     reason,
   );
 }
+
+/** Why a daily row must be kept. Empty means it can be removed with the history preserved. */
+export function dailyRowDeleteBlockers(data: Data, session: DailySession, rowId: string) {
+  const reasons: string[] = [];
+  if (session.body.state === 'closed') reasons.push('ปิดวันแล้ว ต้องเปิดวันใหม่ก่อน');
+  if (
+    (data.workspaces ?? []).some(
+      (item) =>
+        item.recordType === 'evidence' &&
+        item.body.sessionId === session.id &&
+        item.body.rowId === rowId,
+    )
+  )
+    reasons.push('มีหลักฐานของรถคันนี้แล้ว');
+  if (session.body.verifications[rowId]) reasons.push('ยอดของรถคันนี้ยืนยันแล้ว');
+  if (session.body.closures.some((closure) => closure.rows.some((row) => row.id === rowId)))
+    reasons.push('อยู่ในประวัติปิดวันแล้ว');
+  return reasons;
+}
+export function deleteDailyRow(
+  data: Data,
+  id: string,
+  version: number,
+  rowId: string,
+  actor: string,
+  reason = '',
+) {
+  const session = dailySessions(data).find((s) => s.id === id);
+  const row = session?.body.rows.find((r) => r.id === rowId);
+  if (!session || !row) throw Error('ไม่พบรายการรถในวันทำงาน อาจถูกลบแล้ว');
+  const blockers = dailyRowDeleteBlockers(data, session, rowId);
+  if (blockers.length) throw Error(`ลบไม่ได้: ${blockers.join(' · ')}`);
+  if (row.tripCount > 0 && !reason.trim())
+    throw Error('กรุณาระบุเหตุผลเมื่อลบรถที่มีเที่ยวบันทึกแล้ว');
+  return updateDaily(
+    data,
+    id,
+    version,
+    actor,
+    'daily-delete-row',
+    (s) => {
+      s.body.rows = s.body.rows.filter((r) => r.id !== rowId);
+    },
+    reason,
+  );
+}
+export function removeDailyTrip(
+  data: Data,
+  id: string,
+  version: number,
+  rowId: string,
+  tripId: string,
+  actor: string,
+  reason: string,
+) {
+  if (!reason.trim()) throw Error('กรุณาระบุเหตุผลลบเที่ยว');
+  const row = dailySessions(data)
+    .find((s) => s.id === id)
+    ?.body.rows.find((r) => r.id === rowId);
+  if (!row || !activeDailyTrips(row).some((t) => t.id === tripId))
+    throw Error('ไม่พบเที่ยวที่ยังใช้งาน');
+  return updateDaily(
+    data,
+    id,
+    version,
+    actor,
+    'daily-remove-trip',
+    (s) => {
+      const target = s.body.rows.find((r) => r.id === rowId)!;
+      // Transactions are voided, never erased; the older snapshot format keeps history entries.
+      if (target.transactions)
+        target.transactions.find((t) => t.id === tripId)!.voidedAt = new Date().toISOString();
+      else target.trips = target.trips!.filter((t) => t.id !== tripId);
+      target.tripCount--;
+    },
+    reason,
+  );
+}

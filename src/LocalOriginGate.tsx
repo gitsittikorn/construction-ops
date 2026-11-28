@@ -74,7 +74,7 @@ export default function LocalOriginGate({
       const href = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = href;
-      link.download = 'construction-ops-localhost-backup.json';
+      link.download = 'construction-ops-127-backup.json';
       link.click();
       setTimeout(() => URL.revokeObjectURL(href), 1000);
     } catch (e) {
@@ -85,7 +85,7 @@ export default function LocalOriginGate({
   }
   return (
     <main className="panel padded content-stack" aria-label="ข้อมูลจากที่อยู่เว็บเดิม">
-      <h1>ใช้ 127.0.0.1 เป็นที่อยู่หลัก</h1>
+      <h1>ใช้ localhost เป็นที่อยู่หลัก</h1>
       {state === 'checking' ? (
         <p role="status">กำลังตรวจข้อมูลเดิมก่อนเปลี่ยนที่อยู่…</p>
       ) : state === 'blocked' ? (
@@ -95,11 +95,11 @@ export default function LocalOriginGate({
       ) : (
         <>
           <p>
-            พบข้อมูลเดิมใน localhost ซึ่งแยกจาก 127.0.0.1 ข้อมูลเดิมยังอยู่ครบในที่เก็บเดิม
+            พบข้อมูลเดิมใน 127.0.0.1 ซึ่งแยกจาก localhost ข้อมูลเดิมยังอยู่ครบในที่เก็บเดิม
             หน้านี้ใช้สำรองข้อมูลก่อนย้ายไปที่อยู่หลัก
           </p>
           <p>
-            ดาวน์โหลดสำรอง แล้วเข้าสู่บัญชีและบริษัทเดิมที่ 127.0.0.1
+            ดาวน์โหลดสำรอง แล้วเข้าสู่บัญชีและบริษัทเดิมที่ localhost
             เปิดซิงก์และสำรองข้อมูลเพื่อตรวจรายการก่อนนำเข้า
             ข้อมูลที่ยังรอซิงก์จะไม่ถูกนับว่ายืนยันจาก Cloud
           </p>
@@ -127,7 +127,7 @@ export default function LocalOriginGate({
             </button>
           ))}
           <a className="button primary" href={target}>
-            เปิดที่อยู่หลัก 127.0.0.1
+            เปิดที่อยู่หลัก localhost
           </a>
         </>
       )}

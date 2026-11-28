@@ -13,6 +13,7 @@ import {
   Calculator,
   Settings,
   Plus,
+  Trash2,
   ArrowUpRight,
   Search,
   Wifi,
@@ -40,8 +41,10 @@ import { loadData, updateData, subscribeDataChanges } from './storage';
 import { configured, observeAuth, login, logout } from './firebase';
 import { synchronize, resolveConflict } from './cloudSync';
 import { canonical, integrityIssues, payloadOf } from './syncModel';
-import { deleteRecord } from './deletion';
-import { listUploads } from './uploads';
+import type { DeletableType } from './deletion';
+import DeleteRecordDialog from './DeleteRecordDialog';
+import RowActions from './RowActions';
+import FleetResetPanel from './FleetResetPanel';
 import CloudSyncPanel from './CloudSyncPanel';
 import OperationsDashboard from './OperationsDashboard';
 import { reportRows, reportTotals, emptyReportFilter } from './reports';
@@ -66,8 +69,10 @@ import {
   matchesMaster,
   tagNames,
   truckTypes,
+  usesTags,
 } from './masterData';
 import SoilPricesPanel from './SoilPricesPanel';
+import FleetList, { fleetRows } from './FleetList';
 import TagFields from './TagFields';
 import TruckExcelPanel from './TruckExcelPanel';
 import PageGuide, { pageDescription } from './PageGuide';
@@ -134,7 +139,13 @@ export default function App({
     [date, setDate] = useState(workDate()),
     [modal, setModal] = useState<'project' | 'master' | 'trip' | null>(null),
     [editing, setEditing] = useState<Project | Master | Trip | null>(null),
-    [confirmDelete, setConfirmDelete] = useState(false),
+    [deleting, setDeleting] = useState<{
+      type: DeletableType;
+      record: Project | Master | Trip;
+      label: string;
+    } | null>(null),
+    [viewing, setViewing] = useState(''),
+    [importOpen, setImportOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [kind, setKind] = useState<Master['kind']>('truck');
   const projectPreference = useProjectPreference(owner, data.projects);
@@ -192,6 +203,8 @@ export default function App({
         setReportProject('');
         setDemoBusy(false);
         setModal(null);
+        setDeleting(null);
+        setViewing('');
       }),
     [],
   );
@@ -354,6 +367,8 @@ export default function App({
     setQuery('');
     if (ready) setError('');
     setNotice('');
+    setDeleting(null);
+    setViewing('');
     document.documentElement.scrollTop = 0;
   }
   async function createDemo() {
@@ -378,7 +393,7 @@ export default function App({
       setError('พนักงานดูข้อมูลนี้ได้ การแก้ไขต้องให้ผู้จัดการดำเนินการ');
       return;
     }
-    setConfirmDelete(false);
+    setViewing('');
     if (type === 'trip') setTripSoilType(record && 'soilType' in record ? record.soilType : '');
     if (type === 'trip') {
       setTripTruck(record && 'truckId' in record ? record.truckId : '');
@@ -444,7 +459,7 @@ export default function App({
           detail: get('detail'),
           capacity: Number(get('capacity') || 0),
           active: get('active') === 'true',
-          tagIds: kind === 'tag' ? [] : form.getAll('tagIds').map(String),
+          tagIds: usesTags(kind) ? form.getAll('tagIds').map(String) : [],
           ...(kind === 'truck'
             ? {
                 province: get('province'),
@@ -480,18 +495,18 @@ export default function App({
       setError(message(e));
     }
   }
-  async function remove() {
-    if (!canManage || !editing || !modal || writeLock.current) return;
-    try {
-      const uploads = await listUploads(owner);
-      await change((old) => deleteRecord(old, modal, editing.id, owner, uploads));
-      if (!alive.current || account.current !== owner) return;
-      setModal(null);
-      setConfirmDelete(false);
-      setNotice('ลบออกจากรายการใช้งานแล้ว โดยเก็บข้อมูลและประวัติไว้');
-    } catch (e) {
-      setError(message(e));
-    }
+  function askDelete(type: DeletableType, record: Project | Master | Trip) {
+    if (!canManage) return;
+    setError('');
+    setNotice('');
+    setViewing('');
+    const label =
+      'date' in record
+        ? `เที่ยวรถ ${record.date} ${record.time}`
+        : 'kind' in record
+          ? `${labels[record.kind]} ${record.name}`
+          : `โครงการ ${record.name}`;
+    setDeleting({ type, record, label });
   }
   const todayTrips = data.trips.filter((t) => t.date === workDate()),
     pending = data.sync
@@ -515,12 +530,13 @@ export default function App({
     for (const row of reportRows(data, emptyReportFilter))
       projectTripCounts.set(row.project, (projectTripCounts.get(row.project) ?? 0) + row.trips);
   const masterName = (id: string) => data.masters.find((m) => m.id === id)?.name ?? '—';
+  const fleetView = kind === 'truck' || kind === 'driver';
+  // Team tags are a fleet concept; other master kinds never filter or show them.
   const visibleMasters = data.masters.filter(
     (master) =>
-      master.kind === kind &&
-      matchesMaster(master, data.masters, query, kind === 'tag' ? '' : masterTagFilter) &&
-      (kind !== 'truck' || !truckTypeFilter || master.truckType === truckTypeFilter),
+      master.kind === kind && matchesMaster({ ...master, tagIds: [] }, data.masters, query, ''),
   );
+  const viewed = data.projects.find((p) => p.id === viewing);
   function exportCSV() {
     const content = csv([
       ['วันที่', 'เวลา', 'โครงการ', 'ทะเบียนรถ', 'คนขับ', 'แหล่งดิน', 'ชนิดดิน', 'สถานะ'],
@@ -692,9 +708,40 @@ export default function App({
               </h1>
               <p>{pageDescription(page)}</p>
             </div>
+            {page === 'masters' && fleetView && canManage && (
+              <div className="page-actions">
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setKind('truck');
+                    open('master');
+                  }}
+                >
+                  <Plus size={18} aria-hidden="true" /> เพิ่มรถและคนขับ
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setKind('driver');
+                    open('master');
+                  }}
+                >
+                  เพิ่มคนขับที่ยังไม่มีรถ
+                </button>
+                <button
+                  className="secondary"
+                  aria-expanded={importOpen}
+                  aria-controls="fleet-import"
+                  onClick={() => setImportOpen((value) => !value)}
+                >
+                  <RefreshCw size={16} aria-hidden="true" /> นำเข้า / ซิงก์ Google Sheets
+                </button>
+              </div>
+            )}
             {['projects', 'masters', 'trips'].includes(page) &&
               (page !== 'trips' || tripView === 'records') &&
-              (canManage || !['projects', 'masters'].includes(page)) && (
+              (canManage || !['projects', 'masters'].includes(page)) &&
+              !(page === 'masters' && fleetView) && (
                 <button
                   className="primary"
                   onClick={() =>
@@ -933,6 +980,7 @@ export default function App({
                     key={`${owner}:${reportProject}`}
                     data={data}
                     initialProject={reportProject}
+                    showMoney={canManage}
                   />
                 </Suspense>
               )}
@@ -986,17 +1034,20 @@ export default function App({
                           </p>
                           <div className="card-foot">
                             <b>{projectTripCounts.get(p.id) ?? 0} เที่ยวรถ</b>
-                            <button
-                              disabled={!canManage}
-                              className="text-button"
-                              onClick={() => open('project', p)}
-                            >
-                              ดู / แก้ไข <ArrowUpRight size={16} />
-                            </button>
+                            <RowActions
+                              name={p.name}
+                              onView={() => setViewing(p.id)}
+                              onEdit={canManage ? () => open('project', p) : undefined}
+                              onDelete={canManage ? () => askDelete('project', p) : undefined}
+                            />
                           </div>
                         </article>
                       ))}
                   </div>
+                  {data.projects.length > 0 &&
+                    !data.projects.some((p) =>
+                      [p.name, p.customer, p.location].join(' ').includes(query),
+                    ) && <p className="empty">ไม่พบโครงการตามคำค้น</p>}
                   {!data.projects.length && (
                     <Empty text="ยังไม่มีโครงการ" action={() => open('project')} />
                   )}
@@ -1004,58 +1055,6 @@ export default function App({
               )}
               {page === 'masters' && (
                 <>
-                  {(kind === 'truck' || kind === 'driver') && (
-                    <div className="panel padded">
-                      <h2>รถและคนขับ</h2>
-                      <p>
-                        จัดการรถและคนขับในที่เดียว ผูกคนขับประจำได้หนึ่งคนต่อหนึ่งคันที่หน้ารถ
-                        เลือกทะเบียนในเที่ยวรถเพื่อเติมคนขับให้อัตโนมัติ
-                        การเปลี่ยนรถประจำไม่แก้ประวัติเที่ยวรถเก่า
-                      </p>
-                      <div className="form-actions">
-                        <button
-                          type="button"
-                          className={kind === 'truck' ? 'primary' : ''}
-                          onClick={() => {
-                            setKind('truck');
-                            setQuery('');
-                          }}
-                        >
-                          รถบรรทุก
-                        </button>
-                        <button
-                          type="button"
-                          className={kind === 'driver' ? 'primary' : ''}
-                          onClick={() => {
-                            setKind('driver');
-                            setQuery('');
-                          }}
-                        >
-                          คนขับรถ
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!canManage}
-                          onClick={() => {
-                            setKind('truck');
-                            open('master');
-                          }}
-                        >
-                          เพิ่มรถพร้อมคนขับ
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!canManage}
-                          onClick={() => {
-                            setKind('driver');
-                            open('master');
-                          }}
-                        >
-                          เพิ่มคนขับรถ
-                        </button>
-                      </div>
-                    </div>
-                  )}
                   <div className="tabs">
                     {Object.entries(labels)
                       .filter(([id]) => id !== 'soilPrice' && id !== 'driver')
@@ -1078,11 +1077,15 @@ export default function App({
                     <Search size={17} />
                     <input
                       aria-label="ค้นหาข้อมูลพื้นฐาน"
-                      placeholder="ค้นหาทะเบียน จังหวัด เบอร์โทร ชื่อเล่น หรือแท็ก"
+                      placeholder={
+                        fleetView
+                          ? 'พิมพ์ทะเบียน ชื่อคนขับ เบอร์โทร หรือทีม'
+                          : 'ค้นหาชื่อหรือรายละเอียด'
+                      }
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                     />
-                    {kind !== 'tag' && (
+                    {fleetView && (
                       <SearchableSelect
                         aria-label="กรองแท็กทีม"
                         value={masterTagFilter}
@@ -1099,7 +1102,7 @@ export default function App({
                           ))}
                       </SearchableSelect>
                     )}
-                    {kind === 'truck' && (
+                    {fleetView && (
                       <SearchableSelect
                         aria-label="กรองประเภทรถ"
                         value={truckTypeFilter}
@@ -1114,61 +1117,71 @@ export default function App({
                       </SearchableSelect>
                     )}
                   </div>
-                  {kind === 'truck' && canManage && (
-                    <TruckExcelPanel
+                  {fleetView && canManage && (
+                    <div id="fleet-import" className="content-stack" hidden={!importOpen}>
+                      <TruckExcelPanel
+                        data={data}
+                        visibleTrucks={
+                          fleetRows(data, query, masterTagFilter, truckTypeFilter).trucks
+                        }
+                        actor={owner}
+                        onChange={change}
+                      />
+                      {importOpen && (
+                        <FleetResetPanel data={data} actor={owner} onChange={change} />
+                      )}
+                    </div>
+                  )}
+                  {fleetView ? (
+                    <FleetList
                       data={data}
-                      visibleTrucks={visibleMasters}
-                      actor={owner}
-                      onChange={change}
+                      query={query}
+                      tagId={masterTagFilter}
+                      truckType={truckTypeFilter}
+                      canManage={canManage}
+                      onEdit={(record) => {
+                        setKind(record.kind);
+                        open('master', record);
+                      }}
+                      onDelete={(record) => askDelete('master', record)}
                     />
-                  )}
-                  <div className="panel list">
-                    {visibleMasters.map((m) => (
-                      <button
-                        disabled={!canManage}
-                        className="project-row"
-                        key={m.id}
-                        onClick={() => open('master', m)}
-                      >
-                        <span className="project-symbol">
-                          <Truck size={20} />
-                        </span>
-                        <span>
-                          <b>{m.name}</b>
-                          <small>
-                            {m.detail || 'ไม่มีรายละเอียดเพิ่มเติม'}
-                            {m.kind === 'truck' ? ` · ${number(m.capacity)} m³` : ''}
-                            {m.kind === 'truck' && m.province ? ` · ${m.province}` : ''}
-                            {m.phone ? ` · ${m.phone}` : ''}
-                            {m.nickname ? ` · ${m.nickname}` : ''}
-                            {m.truckType ? ` · ${truckTypes[m.truckType]}` : ''}
-                            {m.kind === 'truck' && m.driverId
-                              ? ` · คนขับประจำ: ${masterName(m.driverId)}`
-                              : ''}
-                            {m.kind === 'driver'
-                              ? ` · รถประจำ: ${data.masters.find((truck) => truck.kind === 'truck' && truck.driverId === m.id)?.name ?? 'ยังไม่ผูกกับรถ'}`
-                              : ''}
-                          </small>
-                          <span className="tag-badges">
-                            {tagNames(m, data.masters).map((name, index) => (
-                              <span className="badge" key={index}>
-                                {name}
+                  ) : (
+                    <>
+                      <div className="panel list">
+                        {visibleMasters.map((m) => (
+                          <div className="data-row" key={m.id}>
+                            <span className="project-symbol">
+                              <Database size={20} aria-hidden="true" />
+                            </span>
+                            <span className="data-row-text">
+                              <b>{m.name}</b>
+                              <small>{m.detail || 'ไม่มีรายละเอียดเพิ่มเติม'}</small>
+                            </span>
+                            <span className={'badge ' + (!m.active ? 'archived' : '')}>
+                              {m.active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                            </span>
+                            {canManage && (
+                              <span className="data-row-actions">
+                                <RowActions
+                                  name={m.name}
+                                  onEdit={() => open('master', m)}
+                                  onDelete={() => askDelete('master', m)}
+                                />
                               </span>
-                            ))}
-                          </span>
-                        </span>
-                        <span className={'badge ' + (!m.active ? 'archived' : '')}>
-                          {m.active ? 'ใช้งาน' : 'ปิดใช้งาน'}
-                        </span>
-                        <ArrowUpRight size={16} />
-                      </button>
-                    ))}
-                  </div>
-                  {data.masters.some((m) => m.kind === kind) && !visibleMasters.length && (
-                    <p className="empty">ไม่พบข้อมูลตามตัวกรองที่เลือก</p>
-                  )}
-                  {!data.masters.some((m) => m.kind === kind) && (
-                    <Empty text={`ยังไม่มีข้อมูล${labels[kind]}`} action={() => open('master')} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {data.masters.some((m) => m.kind === kind) && !visibleMasters.length && (
+                        <p className="empty">ไม่พบข้อมูลตามตัวกรองที่เลือก</p>
+                      )}
+                      {!data.masters.some((m) => m.kind === kind) && (
+                        <Empty
+                          text={`ยังไม่มีข้อมูล${labels[kind]}`}
+                          action={() => open('master')}
+                        />
+                      )}
+                    </>
                   )}
                   {kind === 'soilType' && (
                     <SoilPricesPanel
@@ -1302,13 +1315,11 @@ export default function App({
                                 </span>
                               </td>
                               <td>
-                                <button
-                                  className="text-button"
-                                  aria-label={`แก้ไขเที่ยวรถ ${t.time}`}
-                                  onClick={() => open('trip', t)}
-                                >
-                                  แก้ไข
-                                </button>
+                                <RowActions
+                                  name={`เที่ยวรถ ${t.time}`}
+                                  onEdit={() => open('trip', t)}
+                                  onDelete={canManage ? () => askDelete('trip', t) : undefined}
+                                />
                               </td>
                             </tr>
                           ))}
@@ -1413,6 +1424,54 @@ export default function App({
           </footer>
         </main>
       </div>
+      {viewed && (
+        <div
+          className="modal-backdrop"
+          onKeyDown={(event) => event.key === 'Escape' && setViewing('')}
+        >
+          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="view-title">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">PROJECT</span>
+                <h2 id="view-title">{viewed.name}</h2>
+              </div>
+              <button autoFocus aria-label="ปิดรายละเอียด" onClick={() => setViewing('')}>
+                <X />
+              </button>
+            </div>
+            <div className="padded">
+              <dl className="detail-list">
+                {(
+                  [
+                    ['สถานะ', statusText[viewed.status]],
+                    ['ลูกค้า', viewed.customer],
+                    ['สถานที่', viewed.location],
+                    ['วันเริ่มต้น', viewed.startDate],
+                    ['วันสิ้นสุด', viewed.endDate],
+                    ['รายละเอียด', viewed.description],
+                    ['เที่ยวรถ', `${projectTripCounts.get(viewed.id) ?? 0} เที่ยว`],
+                  ] as const
+                ).map(([term, value]) => (
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{value || '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+              <ProjectCoordinates latitude={viewed.latitude} longitude={viewed.longitude} />
+              {canManage && (
+                <div className="confirm-actions">
+                  <RowActions
+                    name="โครงการนี้"
+                    onEdit={() => open('project', viewed)}
+                    onDelete={() => askDelete('project', viewed)}
+                  />
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
       {modal && (
         <div className="modal-backdrop">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -1429,24 +1488,6 @@ export default function App({
               </button>
             </div>
             <form onSubmit={submit}>
-              {editing && canManage && (
-                <div>
-                  <button type="button" onClick={() => setConfirmDelete(true)}>
-                    ลบรายการโดยเก็บประวัติ
-                  </button>
-                  {confirmDelete && (
-                    <div>
-                      <p>รายการจะถูกซ่อนจากการใช้งาน โดยเก็บข้อมูลและประวัติไว้</p>
-                      <button type="button" onClick={() => void remove()}>
-                        ยืนยันลบรายการ
-                      </button>
-                      <button type="button" onClick={() => setConfirmDelete(false)}>
-                        ยกเลิกการลบ
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
               <div className="form-grid">
                 {modal === 'project' ? (
                   <>
@@ -1501,10 +1542,7 @@ export default function App({
                       'text',
                       true,
                     )}
-                    {input(
-                      'detail',
-                      kind === 'driver' ? 'เบอร์โทร / รถที่รับผิดชอบ' : 'รายละเอียด',
-                    )}
+                    {input('detail', 'รายละเอียด')}
                     {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
                     {kind === 'driver' && (
                       <>
@@ -1598,7 +1636,7 @@ export default function App({
                         </Field>
                       </>
                     )}
-                    {kind !== 'tag' && (
+                    {usesTags(kind) && (
                       <TagFields
                         masters={data.masters}
                         record={editing && 'kind' in editing ? editing : null}
@@ -1727,6 +1765,15 @@ export default function App({
                 </p>
               )}
               <div className="form-actions">
+                {editing && canManage && (
+                  <button
+                    type="button"
+                    className="danger-outline"
+                    onClick={() => askDelete(modal, editing)}
+                  >
+                    <Trash2 size={15} aria-hidden="true" /> ลบรายการโดยเก็บประวัติ
+                  </button>
+                )}
                 <span>บันทึกลงอุปกรณ์ก่อนซิงก์</span>
                 <button type="button" className="secondary" onClick={() => setModal(null)}>
                   ยกเลิก
@@ -1739,6 +1786,22 @@ export default function App({
             </form>
           </section>
         </div>
+      )}
+      {deleting && (
+        <DeleteRecordDialog
+          data={data}
+          owner={owner}
+          type={deleting.type}
+          record={deleting.record}
+          label={deleting.label}
+          onChange={change}
+          onDone={(text) => {
+            setDeleting(null);
+            setModal(null);
+            setNotice(text);
+          }}
+          onCancel={() => setDeleting(null)}
+        />
       )}
     </div>
   );

@@ -38,7 +38,7 @@ for (const viewport of [
     ).toBeDisabled();
     await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
     await page.getByLabel('วันที่เที่ยวรถ', { exact: true }).fill('2026-11-06');
-    await page.getByRole('button', { name: 'แก้ไขเที่ยวรถ 10:00', exact: true }).click();
+    await page.getByRole('button', { name: 'แก้ไข เที่ยวรถ 10:00', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'ลบรายการโดยเก็บประวัติ', exact: true }),
     ).toHaveCount(0);
