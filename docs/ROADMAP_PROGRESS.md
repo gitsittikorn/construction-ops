@@ -2,7 +2,7 @@
 
 ## Import, bulk delete and operation-first UI - 2026-11-28
 
-Baseline 5407060; checkpoint c49d0d9; commits 0d2fd0d, f772d0e, 953de9a and the closing commit on branch feat/operation-first-ui. Details, limits and unverified items: [UI_UX_REFACTOR_PROGRESS.md](UI_UX_REFACTOR_PROGRESS.md). Windows, 2026-11-28, from C:, CI=true: format:check, lint (0 errors, 65 warnings), tooling 4/4, typecheck, frontend 471/471, backend 20/20, Rules 16/16, emulator integration 13/13, build and smoke each exit 0; browser suite 82/82 exit 0, run separately on port 5184 because another project holds 5174 (files restored afterwards). A single uninterrupted `npm run check` is therefore not claimed. Commit and push authorised by the user; not merged to main, not deployed. Real services and physical devices NOT VERIFIED.
+Baseline 5407060; checkpoint 729805c; commits 1b9571c, 21641fc, d980bc1 , 185c407 on branch feat/operation-first-ui. Details, limits and unverified items: [UI_UX_REFACTOR_PROGRESS.md](UI_UX_REFACTOR_PROGRESS.md). Windows, 2026-11-28, from C:, CI=true: format:check, lint (0 errors, 65 warnings), tooling 4/4, typecheck, frontend 471/471, backend 20/20, Rules 16/16, emulator integration 13/13, build and smoke each exit 0; browser suite 82/82 exit 0, run separately on port 5184 because another project holds 5174 (files restored afterwards). A single uninterrupted `npm run check` is therefore not claimed. Commit and push authorised by the user; not merged to main, not deployed. Real services and physical devices NOT VERIFIED.
 
 ## Delete actions, driver mapping and Sheets import - 2026-11-28
 

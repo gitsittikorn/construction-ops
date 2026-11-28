@@ -6,7 +6,7 @@ on 2026-11-28; **deploy not authorised**. No real data was written by the agent.
 
 ## Baseline
 
-- `5407060` plus earlier uncommitted work, committed as checkpoint `c49d0d9`.
+- `5407060` plus earlier uncommitted work, committed as checkpoint `729805c`.
 - `vitest run` from `C:\` (upper case): 73 files, 442/442. From a lower-case drive path 86 tests
   fail (environment, not code).
 
@@ -39,9 +39,9 @@ on 2026-11-28; **deploy not authorised**. No real data was written by the agent.
 
 ## Status
 
-- [x] 1. Import — commit `0d2fd0d`
-- [x] 2. Bulk selection and delete — commit `f772d0e`
-- [x] 3. Navigation and quick recording — commit `953de9a` and the final commit
+- [x] 1. Import — commit `1b9571c`
+- [x] 2. Bulk selection and delete — commit `21641fc`
+- [x] 3. Navigation and quick recording — commit `d980bc1` and 185c407
 - [x] Final gate
 
 ## Final gate
