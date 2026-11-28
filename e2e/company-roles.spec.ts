@@ -24,7 +24,7 @@ for (const viewport of [
     ).toHaveCount(0);
     await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
     await expect(page.getByRole('region', { name: 'สมาชิกบริษัท', exact: true })).toHaveCount(0);
-    await openMenu(page, 'งานรายวันและตรวจยอด');
+    await openMenu(page, 'ตรวจยอดและปิดวัน');
     await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
     await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
     await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
@@ -39,7 +39,7 @@ for (const viewport of [
     await expect(
       page.getByRole('button', { name: 'เปิดวันใหม่พร้อมเหตุผล', exact: true }),
     ).toBeDisabled();
-    await openMenu(page, 'บันทึกเที่ยวรถ');
+    await openMenu(page, 'ประวัติแบบเดิม');
     await page.getByLabel('วันที่เที่ยวรถ', { exact: true }).fill('2026-11-06');
     await page.getByRole('button', { name: 'แก้ไข เที่ยวรถ 10:00', exact: true }).click();
     await expect(
@@ -63,7 +63,7 @@ for (const viewport of [
     await openMenu(page, 'ภาพรวม');
     await expandExtra(page);
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
-    await openMenu(page, 'งานรายวันและตรวจยอด');
+    await openMenu(page, 'ตรวจยอดและปิดวัน');
     await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
     await expect(page.getByText(/เที่ยวบันทึก 2/).first()).toBeVisible();
   });

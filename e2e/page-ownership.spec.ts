@@ -42,7 +42,7 @@ for (const viewport of [
     await expect(
       page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }),
     ).toHaveCount(0);
-    await openMenu(page, 'บันทึกเที่ยวรถ');
+    await openMenu(page, 'ประวัติแบบเดิม');
     await page.getByRole('checkbox', { name: 'ทุกวันที่' }).check();
     await expect(page.locator('tbody tr')).toHaveCount(2);
     await expect(page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ })).toHaveCount(2);
@@ -65,7 +65,7 @@ for (const viewport of [
       page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }),
     ).toHaveCount(0);
     await expect(page.locator('.local-banner')).toHaveCount(0);
-    await openMenu(page, 'บันทึกเที่ยวรถ');
+    await openMenu(page, 'ประวัติแบบเดิม');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ', exact: true });
     await expect(duplicates).toContainText('พบ 1 กลุ่ม');

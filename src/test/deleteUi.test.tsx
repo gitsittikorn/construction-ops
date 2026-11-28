@@ -101,7 +101,7 @@ it('deletes a trip from the table', async () => {
   await persistData('local', data);
   const user = userEvent.setup();
   render(<App />);
-  await go(user, 'บันทึกเที่ยวรถ');
+  await go(user, 'ประวัติแบบเดิม');
   await user.click(await screen.findByRole('button', { name: 'ลบ เที่ยวรถ 10:00' }));
   await ready();
   await user.click(button('ยืนยันลบรายการ'));

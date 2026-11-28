@@ -725,22 +725,15 @@ export default function App({
                 </button>
               </div>
             )}
-            {['projects', 'masters', 'trips'].includes(page) &&
-              (page !== 'trips' || tripView === 'records') &&
-              (canManage || !['projects', 'masters'].includes(page)) &&
+            {['projects', 'masters'].includes(page) &&
+              canManage &&
               !(page === 'masters' && fleetView) && (
                 <button
                   className="primary"
-                  onClick={() =>
-                    open(page === 'projects' ? 'project' : page === 'masters' ? 'master' : 'trip')
-                  }
+                  onClick={() => open(page === 'projects' ? 'project' : 'master')}
                 >
                   <Plus size={18} />
-                  {page === 'projects'
-                    ? 'เพิ่มโครงการ'
-                    : page === 'masters'
-                      ? 'เพิ่มข้อมูล'
-                      : 'บันทึกเที่ยวรถ'}
+                  {page === 'projects' ? 'เพิ่มโครงการ' : 'เพิ่มข้อมูล'}
                 </button>
               )}
           </div>
@@ -826,8 +819,8 @@ export default function App({
                         ด้วยข้อมูลที่พร้อมกว่า
                       </h2>
                       <p>ติดตามโครงการ บันทึกเที่ยวรถ และดูความคืบหน้าของวันนี้</p>
-                      <button onClick={() => open('trip')}>
-                        บันทึกเที่ยวรถแรกของวัน <ArrowUpRight size={17} />
+                      <button onClick={() => navigate('record')}>
+                        ไปหน้าบันทึกเที่ยว <ArrowUpRight size={17} />
                       </button>
                     </div>
                     <div className="hero-art" aria-hidden="true">
@@ -934,7 +927,12 @@ export default function App({
                       {[
                         [data.projects.length > 0, 'เพิ่มโครงการแรก', 'projects'],
                         [trucks.length > 0, 'เพิ่มรถบรรทุก', 'masters'],
-                        [data.trips.length > 0, 'บันทึกเที่ยวรถ', 'trips'],
+                        [
+                          data.trips.length > 0 ||
+                            (data.workspaces ?? []).some((item) => item.recordType === 'daily'),
+                          'บันทึกเที่ยวดิน',
+                          'record',
+                        ],
                         [configured, 'เชื่อมต่อระบบคลาวด์', 'settings'],
                       ].map(([done, title, target], i) => (
                         <button key={String(title)} onClick={() => navigate(String(target))}>
@@ -1401,10 +1399,7 @@ export default function App({
                       )}
                     </SelectableList>
                     {!tripRows.length && (
-                      <Empty
-                        text="ยังไม่มีเที่ยวรถตามเงื่อนไขที่เลือก"
-                        action={() => open('trip')}
-                      />
+                      <p className="empty">ยังไม่มีเที่ยวรถตามเงื่อนไขที่เลือก</p>
                     )}
                     <div className="table-note">
                       รายการรอซิงก์ยังไม่ใช่ข้อมูลยืนยัน · การซิงก์ไม่เท่ากับการตรวจสอบหลักฐานรายวัน

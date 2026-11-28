@@ -16,7 +16,7 @@ it('shows the supplied company logo and company name without the old brand', asy
   expect(screen.getByText(companyName)).toBeInTheDocument();
   expect(screen.queryByText(/ดินดี/)).not.toBeInTheDocument();
 });
-it('creates a project, a truck and a trip through the UI and restores it on reload', async () => {
+it('creates a project and a truck, records a trip and restores it on reload', async () => {
   const user = userEvent.setup();
   const view = render(<App />);
   openMenu('ภาพรวม');
@@ -31,20 +31,12 @@ it('creates a project, a truck and a trip through the UI and restores it on relo
   await user.type(screen.getByLabelText('ความจุ (m³)'), '12');
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
   await screen.findByText('81-1234 — ยังไม่ระบุคนขับ');
-  openMenu('บันทึกเที่ยวรถ');
-  await user.click(screen.getAllByRole('button', { name: 'บันทึกเที่ยวรถ' })[1]);
-  await user.selectOptions(
-    screen.getByLabelText('รถบรรทุก *'),
-    screen.getByRole('option', { name: '81-1234' }),
-  );
-  await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
-  await screen.findByText('รอซิงก์');
-  expect(screen.getByText('81-1234')).toBeInTheDocument();
+  openMenu('บันทึกเที่ยวดิน');
+  await user.click(await screen.findByRole('button', { name: 'บันทึก 1 เที่ยว 81-1234' }));
+  await waitFor(() => expect(screen.getByLabelText('เที่ยวทั้งหมดของวัน')).toHaveTextContent('1'));
   view.unmount();
   render(<App />);
-  await screen.findByText('โครงการทดสอบ');
-  await user.click(screen.getAllByRole('button', { name: /^บันทึกเที่ยวรถ/ })[0]);
-  await waitFor(() => expect(screen.getByText('81-1234')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByLabelText('เที่ยวทั้งหมดของวัน')).toHaveTextContent('1'));
 });
 it('creates and deactivates each kind of master data', async () => {
   const user = userEvent.setup();
@@ -138,7 +130,7 @@ it('shows offline mode and prints the original trip list from its own page', asy
   openMenu('ภาพรวม');
   await screen.findByText('เริ่มต้นโครงการแรก');
   window.dispatchEvent(new Event('offline'));
-  openMenu('บันทึกเที่ยวรถ');
+  openMenu('ประวัติแบบเดิม');
   expect(screen.getByText(/รายการรอซิงก์ยังไม่ใช่ข้อมูลยืนยัน/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'พิมพ์ / PDF' }));
   expect(print).toHaveBeenCalledOnce();

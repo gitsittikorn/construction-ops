@@ -132,7 +132,7 @@ for (const viewport of [
       folder: '',
       uploadStatus: 'error',
     });
-    await openMenu(page, 'บันทึกเที่ยวรถ');
+    await openMenu(page, 'ประวัติแบบเดิม');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ', exact: true });
     await expect(duplicates).toContainText('พบ 1 กลุ่ม');
@@ -162,7 +162,7 @@ for (const viewport of [
     await context.setOffline(false);
     await page.reload();
     await openMenu(page, 'ภาพรวม');
-    await openMenu(page, 'บันทึกเที่ยวรถ');
+    await openMenu(page, 'ประวัติแบบเดิม');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     await expect(duplicates.getByRole('status')).toContainText('รอตรวจตั๋วกับหน้างาน');
     await page

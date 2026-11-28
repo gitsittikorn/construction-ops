@@ -53,7 +53,7 @@ test.beforeEach(async ({ page }) => {
   });
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'บันทึกเที่ยวรถ');
+  await openMenu(page, 'ประวัติแบบเดิม');
 });
 
 test('all dates reveals historical trips and can switch back to today or a specific date', async ({
@@ -95,7 +95,7 @@ test('all-date searches combine with project filters and empty results preserve 
   await expect(rows).toHaveCount(3);
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'บันทึกเที่ยวรถ');
+  await openMenu(page, 'ประวัติแบบเดิม');
   await page.getByRole('checkbox', { name: 'ทุกวันที่' }).check();
   await expect(rows).toHaveCount(3);
 });

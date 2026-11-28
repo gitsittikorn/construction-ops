@@ -10,8 +10,8 @@ export const mainMenu = [
 export const extraPages = ['overview', 'finance', 'survey'] as const;
 export const pageTitles: Record<string, string> = {
   record: 'บันทึกเที่ยวดิน',
-  daily: 'งานรายวันและตรวจยอด',
-  trips: 'บันทึกเที่ยวรถ',
+  daily: 'ตรวจยอดและปิดวัน',
+  trips: 'ประวัติแบบเดิม',
   projects: 'โครงการ',
   masters: 'ข้อมูลพื้นฐาน',
   reports: 'รายงานและสรุปยอด',
@@ -24,8 +24,8 @@ export const pageTitles: Record<string, string> = {
 /** Sub page labels shown under the open main menu. */
 export const subTitles: Record<string, string> = {
   record: 'บันทึกเที่ยว',
-  daily: 'งานรายวันและตรวจยอด',
-  trips: 'บันทึกเที่ยวรถ',
+  daily: 'ตรวจยอดและปิดวัน',
+  trips: 'ประวัติแบบเดิม',
   settings: 'ทั่วไปและบัญชี',
   sync: 'ซิงก์และสำรองข้อมูล',
 };

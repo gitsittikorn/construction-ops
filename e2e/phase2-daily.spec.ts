@@ -1,7 +1,7 @@
 import { openMenu } from './nav';
 import { test, expect, type Page } from '@playwright/test';
 
-const navDaily = (page: Page) => openMenu(page, 'งานรายวันและตรวจยอด');
+const navDaily = (page: Page) => openMenu(page, 'ตรวจยอดและปิดวัน');
 async function seed(page: Page) {
   await page.goto('/');
   await openMenu(page, 'ภาพรวม');

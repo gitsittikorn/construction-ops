@@ -27,7 +27,7 @@ it('owns summaries in one report menu and keeps the original editable list and e
   expect(main.queryByRole('button', { name: /แก้ไข เที่ยวรถ/ })).not.toBeInTheDocument();
   expect(main.queryByRole('button', { name: 'บันทึกเที่ยวรถ' })).not.toBeInTheDocument();
   expect(main.queryByRole('columnheader', { name: 'วันที่ / เวลา' })).not.toBeInTheDocument();
-  openMenu('บันทึกเที่ยวรถ');
+  openMenu('ประวัติแบบเดิม');
   await user.click(screen.getByRole('checkbox', { name: 'ทุกวันที่' }));
   expect(screen.getByRole('cell', { name: /2026-11-06/ })).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: /AB123/ })).toBeInTheDocument();
@@ -78,7 +78,7 @@ it('owns duplicate review in trips and clears a completed task notice when navig
   render(<App />);
   await screen.findByText('Site', { exact: true });
   const nav = within(screen.getByRole('navigation'));
-  openMenu('บันทึกเที่ยวรถ');
+  openMenu('ประวัติแบบเดิม');
   await user.selectOptions(screen.getByLabelText('มุมมองเที่ยวรถ'), 'duplicates');
   expect(screen.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: /รายการเที่ยวรถ/ })).not.toBeInTheDocument();

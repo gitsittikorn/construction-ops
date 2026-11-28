@@ -34,7 +34,7 @@ test('a picked truck brings its team, +1 counts trips and the team report totals
     await (await import(storage)).persistData('local', priced);
   });
   await page.reload();
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await page.getByLabel('วันที่ทำงาน', { exact: true }).fill('2026-11-05');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');

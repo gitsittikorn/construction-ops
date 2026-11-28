@@ -1,3 +1,4 @@
+import { openLegacyTripForm } from './legacyTrip';
 import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 test('project coordinates can be added, edited, opened in Maps and cleared without deleting the project', async ({
@@ -129,8 +130,8 @@ test('soil types can be created, edited and selected, while old trip names survi
   await expect(page.getByRole('button', { name: 'แก้ไข ดินลูกรัง', exact: true })).toBeVisible();
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   await page
     .getByRole('combobox', { name: 'รถบรรทุก *', exact: true })
     .selectOption({ label: '81-2222' });
@@ -143,14 +144,14 @@ test('soil types can be created, edited and selected, while old trip names survi
   await page.getByRole('button', { name: 'แก้ไข ดินลูกรัง', exact: true }).click();
   await page.getByRole('combobox', { name: 'สถานะ', exact: true }).selectOption('false');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
+  await openMenu(page, 'ประวัติแบบเดิม');
   await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await expect(page.getByRole('combobox', { name: 'ชนิดดิน', exact: true })).toHaveValue(
     'ดินลูกรัง',
   );
   await page.getByLabel('หมายเหตุ', { exact: true }).fill('Keep historical soil');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openLegacyTripForm(page);
   await expect(page.getByRole('combobox', { name: 'ชนิดดิน', exact: true })).not.toContainText(
     'ดินลูกรัง',
   );
@@ -164,8 +165,8 @@ test('a draft project stays visible and can be activated before selecting it in 
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Draft site');
   await page.getByRole('combobox', { name: 'สถานะโครงการ', exact: true }).selectOption('draft');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   await expect(page.getByRole('combobox', { name: 'โครงการ *', exact: true })).toContainText(
     'Draft site',
   );
@@ -176,8 +177,8 @@ test('a draft project stays visible and can be activated before selecting it in 
   await page.getByRole('button', { name: /^แก้ไข / }).click();
   await page.getByRole('combobox', { name: 'สถานะโครงการ', exact: true }).selectOption('active');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   await expect(
     page.getByRole('dialog').getByRole('option', { name: 'Draft site', exact: true }),
   ).toHaveJSProperty('disabled', false);
@@ -195,8 +196,8 @@ test('the user can switch between active projects and keep the chosen value', as
     await page.getByLabel('ชื่อโครงการ', { exact: true }).fill(name);
     await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   }
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   const select = page.getByRole('combobox', { name: 'โครงการ *', exact: true });
   await select.selectOption({ label: 'Site B' });
   const id = await select.inputValue();
@@ -243,8 +244,8 @@ test('all master categories remain selectable in a trip after entry and reload',
   }
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   await expect(page.getByLabel('รถบรรทุก *')).toContainText('81-5555');
   await expect(page.getByRole('combobox', { name: 'คนขับรถ', exact: true })).toContainText(
     'Driver A',
@@ -268,8 +269,8 @@ test('a trip form receives trucks created in another open tab', async ({ page, c
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Shared project');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   const other = await context.newPage();
   await other.goto('/');
   await openMenu(other, 'ภาพรวม');

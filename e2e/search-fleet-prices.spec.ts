@@ -1,3 +1,4 @@
+import { openLegacyTripForm } from './legacyTrip';
 import { openMenu } from './nav';
 import { test, expect, type Page } from '@playwright/test';
 
@@ -50,8 +51,8 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await expect(page.getByText(/ประจำรถ 81-1234 อยู่แล้ว/)).toBeVisible();
   await expect(page.getByRole('button', { name: /ใช้คนขับเดิม/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'ปิดฟอร์ม', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'ประวัติแบบเดิม');
+  await openLegacyTripForm(page);
   await searchChoose(page, 'รถบรรทุก *', '811234', '81-1234');
   await expect(page.getByRole('combobox', { name: 'คนขับรถ', exact: true })).toHaveValue(/.+/);
   await searchChoose(page, 'คนขับรถ', 'ชาย', 'สมชาย');
@@ -68,7 +69,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
   await page.getByLabel('ชื่อคนขับ', { exact: true }).fill('');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
+  await openMenu(page, 'ประวัติแบบเดิม');
   await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await expect(
     page.getByRole('combobox', { name: 'คนขับรถ', exact: true }).locator('option:checked'),

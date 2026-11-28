@@ -46,7 +46,7 @@ async function seed(page: Page) {
   await openMenu(page, 'ภาพรวม');
 }
 async function createRow(page: Page) {
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
   await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
@@ -113,7 +113,7 @@ test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved c
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
 });
 
@@ -271,7 +271,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   // Controlled external acknowledgement fixture; this is NOT a real Drive upload.
@@ -696,7 +696,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   });
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
   await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
@@ -712,7 +712,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 12 m³/)).toBeVisible();
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
@@ -1039,10 +1039,10 @@ test('preferred project persists without replacing an existing daily draft; dupl
     .toBe('p2');
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p2');
   await page.getByLabel('โครงการทำงาน', { exact: true }).selectOption('p');
-  await openMenu(page, 'บันทึกเที่ยวรถ');
+  await openMenu(page, 'ประวัติแบบเดิม');
   await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
   const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' });
   await expect(duplicates).toContainText('พบ 1 กลุ่ม');
@@ -1051,9 +1051,9 @@ test('preferred project persists without replacing an existing daily draft; dupl
   await expect(duplicates.getByRole('status')).toContainText('ยืนยันว่าเป็นคนละเที่ยว');
   await page.reload();
   await openMenu(page, 'ภาพรวม');
-  await openMenu(page, 'งานรายวันและตรวจยอด');
+  await openMenu(page, 'ตรวจยอดและปิดวัน');
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p');
-  await openMenu(page, 'บันทึกเที่ยวรถ');
+  await openMenu(page, 'ประวัติแบบเดิม');
   await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
   await expect(duplicates.getByRole('status')).toContainText('ตรวจตั๋วแล้ว คนละเที่ยว');
   expect(

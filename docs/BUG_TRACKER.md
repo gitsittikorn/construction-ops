@@ -1,8 +1,12 @@
 # Bug tracker
 
+## UX-010 (Medium, changed on request) - 2026-11-28: three similar names under trip recording
+
+Pages are now บันทึกเที่ยว, ตรวจยอดและปิดวัน and ประวัติแบบเดิม. The old list no longer adds records; view, edit and delete remain. Regression: browser specs updated (e2e/legacyTrip.ts seeds a record to exercise the old form). Gate: frontend 484/484, backend 20/20, Rules 16/16, integration 13/13, build, smoke; browser 81/82 in the full run, then the one failing spec file rewritten and rerun 4/4.
+
 ## BUG-024 (High, fixed in app; environment part OPEN) - 2026-11-28: one refused record locked the whole app
 
-Real project: creating drivers that carry a nickname was refused (403) and the app showed "cannot verify company access". Fix: after a refused write, access is checked again; if it still passes, the workspace stays open and the record is named on the sync page. Lost access still closes it. Regression: src/test/App.auth.test.tsx. Cause of the refusal: the deployed Firestore Rules are probably older than the repository (emulator: pre-2026-11-09 Rules refuse exactly this shape; current Rules accept it). NOT VERIFIED against the live Rules and not published; the refused record still blocks later queue items until they are. Gate: frontend 474/474, backend 20/20, Rules 16/16, integration 13/13, build, smoke, browser 82/82 (port 5184).
+Real project: creating drivers that carry a nickname was refused (403) and the app showed "cannot verify company access". Fix: after a refused write, access is checked again; if it still passes, the workspace stays open and the record is named on the sync page. Lost access still closes it. Regression: src/test/App.auth.test.tsx. Cause of the refusal: the deployed Firestore Rules are probably older than the repository (emulator: pre-2026-11-09 Rules refuse exactly this shape; current Rules accept it). **Confirmed 2026-11-28:** the ruleset in force from 2026-11-09 (723bf2de) lacked nickname, driver link and soil price support. A new ruleset (393966b4), identical to the repository, was published at 13:12:52 UTC (not by the agent); backups of both are in Documents/ConstructionOps-Recovery. Whether the queue has drained is NOT VERIFIED. Earlier note: the refused record still blocks later queue items until they are. Gate: frontend 474/474, backend 20/20, Rules 16/16, integration 13/13, build, smoke, browser 82/82 (port 5184).
 
 ## UX-009 (Medium, fixed) - 2026-11-28: two identical edit/delete pairs on one truck row
 

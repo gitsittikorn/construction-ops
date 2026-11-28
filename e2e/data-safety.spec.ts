@@ -58,7 +58,7 @@ test('P1-10/19 a clean second browser context restores seeded cloud envelopes in
   }
 });
 
-test('P1-01/03/04/05 production PWA saves project, master and revised trip offline and survives a new page', async ({
+test('P1-01/03/04/05 production PWA saves project, master and a revised trip offline and survives a new page', async ({
   page,
   context,
 }) => {
@@ -78,17 +78,15 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('P1-1234');
+  await page.getByLabel('ความจุ (m³)', { exact: true }).fill('6');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await openMenu(page, 'บันทึกเที่ยวรถ');
-  await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
-  await page
-    .getByRole('combobox', { name: 'รถบรรทุก *', exact: true })
-    .selectOption({ label: 'P1-1234' });
-  await page.getByLabel('หมายเหตุ', { exact: true }).fill('original offline trip');
-  await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
-  await page.getByLabel('หมายเหตุ', { exact: true }).fill('revised offline trip');
-  await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
+  await nav.getByRole('button', { name: 'บันทึกเที่ยวดิน', exact: true }).click();
+  await page.getByRole('button', { name: 'บันทึก 1 เที่ยว P1-1234', exact: true }).click();
+  await expect(page.getByLabel('เที่ยวทั้งหมดของวัน')).toHaveText('1');
+  await page.getByRole('button', { name: 'แก้ไข P1-1234 เที่ยวที่ 1', exact: true }).click();
+  await page.getByLabel('ความจุเที่ยวนี้ (m³)').fill('8');
+  await page.getByLabel('เหตุผลที่แก้ไข').fill('revised offline trip');
+  await page.getByRole('button', { name: 'บันทึกการแก้ไข', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.close();
   const restarted = await context.newPage();
@@ -102,15 +100,9 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   const backup = JSON.parse(await readFile((await (await event).path())!, 'utf8'));
   expect(backup.state.projects).toHaveLength(1);
   expect(backup.state.masters[0].name).toBe('P1-1234');
-  expect(backup.state.trips).toHaveLength(1);
-  expect(backup.state.trips[0]).toMatchObject({
-    notes: 'revised offline trip',
-    revision: 2,
-    syncStatus: 'pending',
-  });
-  expect(
-    backup.state.audit.filter((a: any) => a.entityId === backup.state.trips[0].id),
-  ).toHaveLength(2);
+  const day = backup.state.workspaces[0];
+  expect(day.body.rows[0].transactions).toMatchObject([{ capacity: 8 }]);
+  expect(day.body.history.at(-1).reason).toBe('revised offline trip');
   expect(Object.values(backup.state.sync.entries).every((e: any) => e.status === 'pending')).toBe(
     true,
   );

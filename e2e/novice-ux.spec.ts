@@ -93,8 +93,8 @@ for (const viewport of [
     await page.getByRole('button', { name: 'ล้างตัวกรองรายงาน', exact: true }).click();
     await page.getByLabel('โครงการรายงาน', { exact: true }).selectOption(demoId);
     const labels = [
-      'งานรายวันและตรวจยอด',
-      'บันทึกเที่ยวรถ',
+      'ตรวจยอดและปิดวัน',
+      'ประวัติแบบเดิม',
       'โครงการ',
       'ข้อมูลพื้นฐาน',
       'รายงานและสรุปยอด',
