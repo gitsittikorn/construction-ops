@@ -110,6 +110,8 @@ export function saveTruckWithDriver(
   record: Master,
   actor: string,
   newDriverName = '',
+  /** Set when the truck form also edits its assigned driver. */
+  driverName?: string,
 ): Data {
   if (newDriverName.trim()) {
     if (record.kind !== 'truck' || record.driverId)
@@ -129,7 +131,22 @@ export function saveTruckWithDriver(
     data = saveMaster(data, driver, actor);
     record = { ...record, driverId: driver.id };
   }
-  return saveMaster(data, record, actor);
+  const next = saveMaster(data, record, actor);
+  if (driverName === undefined || record.kind !== 'truck' || !record.driverId) return next;
+  const driver = next.masters.find((item) => item.kind === 'driver' && item.id === record.driverId);
+  if (!driver) return next;
+  const edited = {
+    name: driverName.trim(),
+    phone: record.phone ?? '',
+    nickname: record.nickname ?? '',
+  };
+  if (
+    edited.name === driver.name &&
+    edited.phone === (driver.phone ?? '') &&
+    edited.nickname === (driver.nickname ?? '')
+  )
+    return next;
+  return saveMaster(next, { ...driver, ...edited, updatedAt: record.updatedAt }, actor);
 }
 
 export function assignedDriver(masters: Master[], truckId: string) {

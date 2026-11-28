@@ -1,5 +1,9 @@
 # Bug tracker
 
+## UX-009 (Medium, fixed) - 2026-11-28: two identical edit/delete pairs on one truck row
+
+The user could not tell the truck buttons from the driver buttons. One pair remains; the truck form edits driver name, phone and nickname, and deleting a truck offers to delete its driver (unticked by default). Regression: src/test/FleetList.test.tsx, src/test/deleteUi.test.tsx, e2e/search-fleet-prices.spec.ts. Browser run covered the six affected specs (23/23), not the whole suite.
+
 ## Import, deletion and recording defects - 2026-11-28 (refactor)
 
 All fixed on branch `feat/operation-first-ui`.

@@ -75,11 +75,18 @@ it('deletes master data from its row, unlinking a driver and protecting used tru
   await user.click(button('ปิดใช้งานแทน'));
   await screen.findByText('ปิดใช้งาน');
 
-  await user.click(button('ลบ คนขับ สมชาย'));
+  await user.click(button('ลบ 80-2222'));
   await ready();
-  expect(dialog()).toHaveTextContent('ยกเลิกการผูก');
+  await user.click(screen.getByRole('checkbox', { name: /ลบคนขับ สมชาย ด้วย/ }));
   await user.click(button('ยืนยันลบรายการ'));
-  expect(await screen.findByText('80-2222 — ยังไม่ระบุคนขับ')).toBeInTheDocument();
+  // The success notice still names the truck, so check that its row is gone.
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'ลบ 80-2222' })).not.toBeInTheDocument(),
+  );
+  expect((await loadData('local')).deletedMasters?.map((item) => item.id).sort()).toEqual([
+    'driver',
+    'free',
+  ]);
 
   await user.click(button('แหล่งดิน'));
   await user.click(button('ลบ บ่อ A'));

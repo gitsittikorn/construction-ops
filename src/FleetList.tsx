@@ -104,13 +104,6 @@ export default function FleetList({
                         onEdit={() => onEdit(truck)}
                         onDelete={() => onDelete(truck)}
                       />
-                      {driver && (
-                        <RowActions
-                          name={`คนขับ ${driver.name}`}
-                          onEdit={() => onEdit(driver)}
-                          onDelete={() => onDelete(driver)}
-                        />
-                      )}
                     </span>
                   )}
                 </div>

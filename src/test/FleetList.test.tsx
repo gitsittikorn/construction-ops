@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FleetList, { fleetRows } from '../FleetList';
 import { fixture, truck } from './syncFixtures';
+import { saveTruckWithDriver } from '../masterData';
 import type { Data } from '../models';
 
 function fleet(): Data {
@@ -25,7 +26,7 @@ it('finds a pair by plate or by driver name, and lists drivers without a truck',
   expect(names('ไม่มี')).toEqual([[], []]);
 });
 
-it('shows plate, province and driver together with edit and delete for each', async () => {
+it('shows plate, province and driver together with one edit and one delete', async () => {
   const user = userEvent.setup(),
     onEdit = vi.fn(),
     onDelete = vi.fn();
@@ -34,8 +35,8 @@ it('shows plate, province and driver together with edit and delete for each', as
   const props = { data, query: '', tagId: '', truckType: '', onEdit, onDelete };
   const view = render(<FleetList {...props} canManage />);
   expect(screen.getByText('70-1234 พังงา — สมชาย')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'แก้ไข คนขับ สมชาย' }));
-  expect(onEdit).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'd1' }));
+  expect(screen.queryByRole('button', { name: 'แก้ไข คนขับ สมชาย' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'ลบ คนขับ สมชาย' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'แก้ไข 70-1234' }));
   expect(onEdit).toHaveBeenLastCalledWith(expect.objectContaining({ kind: 'truck' }));
   await user.click(screen.getByRole('button', { name: 'ลบ 70-1234' }));
@@ -45,4 +46,18 @@ it('shows plate, province and driver together with edit and delete for each', as
   view.rerender(<FleetList {...props} canManage={false} />);
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
   expect(screen.getByText('70-1234 พังงา — สมชาย')).toBeInTheDocument();
+});
+
+it('saves driver name, phone and nickname together with the truck, all or nothing', () => {
+  const data = fleet();
+  const record = { ...data.masters[0], driverId: 'd1', phone: '0000000009', nickname: 'ชาย' };
+  const next = saveTruckWithDriver(data, record, 'local', '', 'สมชาย ใจดี');
+  expect(next.masters.find((item) => item.id === 'd1')).toMatchObject({
+    name: 'สมชาย ใจดี',
+    phone: '0000000009',
+    nickname: 'ชาย',
+  });
+  expect(next.masters.filter((item) => item.kind === 'driver')).toHaveLength(2);
+  expect(() => saveTruckWithDriver(data, record, 'local', '', '  ')).toThrow();
+  expect(data).toEqual(fleet());
 });

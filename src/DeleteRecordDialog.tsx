@@ -56,6 +56,16 @@ export default function DeleteRecordDialog({
   const blockers = uploads ? recordUsage(data, type, record.id, uploads) : [];
   const driver = type === 'master' && 'kind' in record && record.kind === 'driver';
   const linked = driver ? trucksOfDriver(data, record.id) : [];
+  // One delete button per truck row, so its driver is offered here and only removed when ticked.
+  const assigned =
+    type === 'master' && 'kind' in record && record.kind === 'truck'
+      ? data.masters.find(
+          (item) => item.kind === 'driver' && item.id === (record as Master).driverId,
+        )
+      : undefined;
+  const driverUsed =
+    assigned && uploads ? recordUsage(data, 'master', assigned.id, uploads).length > 0 : false;
+  const [withDriver, setWithDriver] = useState(false);
 
   const confirm = async () => {
     const files = await listUploads(owner);
@@ -70,7 +80,10 @@ export default function DeleteRecordDialog({
             { ...truck, driverId: '', updatedAt: new Date().toISOString() },
             owner,
           );
-      return deleteRecord(next, type, record.id, owner, files);
+      next = deleteRecord(next, type, record.id, owner, files);
+      return assigned && withDriver
+        ? deleteRecord(next, 'master', assigned.id, owner, files)
+        : next;
     });
     onDone(`ลบ ${label} แล้ว โดยเก็บข้อมูลและประวัติไว้`);
   };
@@ -138,6 +151,18 @@ export default function DeleteRecordDialog({
     >
       {!uploads && !loadError && <p role="status">กำลังตรวจข้อมูลที่อ้างอิง…</p>}
       {loadError && <p role="alert">{loadError}</p>}
+      {uploads && !blockers.length && assigned && (
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={withDriver}
+            disabled={driverUsed}
+            onChange={(event) => setWithDriver(event.target.checked)}
+          />
+          ลบคนขับ {assigned.name} ด้วย
+          {driverUsed ? ' (ลบไม่ได้ เพราะมีประวัติอ้างอิง)' : ''}
+        </label>
+      )}
       {uploads && !blockers.length && linked.length > 0 && (
         <p>
           คนขับคนนี้ประจำรถ {linked.map((truck) => truck.name).join(', ')} —

@@ -35,7 +35,14 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await searchChoose(page, 'ประเภทรถ', 'สิบ', 'สิบล้อ');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByText('81-1234 — สมชาย')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'แก้ไข คนขับ สมชาย', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'แก้ไข คนขับ สมชาย', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
+  await page.getByLabel('ชื่อคนขับ', { exact: true }).fill('สมชาย ใจดี');
+  await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
+  await expect(page.getByText('81-1234 — สมชาย ใจดี')).toBeVisible();
+  await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
+  await page.getByLabel('ชื่อคนขับ', { exact: true }).fill('สมชาย');
+  await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('82-9999');
   const driver = page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true });

@@ -42,6 +42,7 @@ import type { DeletableType } from './deletion';
 import DeleteRecordDialog from './DeleteRecordDialog';
 import RowActions from './RowActions';
 import SideNav from './SideNav';
+import TruckDriverFields from './TruckDriverFields';
 import TeamOverview from './TeamOverview';
 import { pageTitles } from './navigation';
 import SelectableList from './SelectableList';
@@ -456,7 +457,15 @@ export default function App({
             : {}),
           ...(kind === 'driver' ? { phone: get('phone'), nickname: get('nickname') } : {}),
         };
-        await change((old) => saveTruckWithDriver(old, record, owner, get('newDriverName')));
+        await change((old) =>
+          saveTruckWithDriver(
+            old,
+            record,
+            owner,
+            get('newDriverName'),
+            form.has('driverName') ? get('driverName') : undefined,
+          ),
+        );
       } else {
         const record: Trip = {
           ...base,
@@ -1534,7 +1543,13 @@ export default function App({
                 <span className="eyebrow">WORKSPACE RECORD</span>
                 <h2 id="modal-title">
                   {editing ? 'แก้ไข' : 'เพิ่ม'}
-                  {modal === 'project' ? 'โครงการ' : modal === 'master' ? labels[kind] : 'เที่ยวรถ'}
+                  {modal === 'project'
+                    ? 'โครงการ'
+                    : modal === 'master'
+                      ? kind === 'truck'
+                        ? 'รถและคนขับ'
+                        : labels[kind]
+                      : 'เที่ยวรถ'}
                 </h2>
               </div>
               <button aria-label="ปิดฟอร์ม" onClick={() => setModal(null)}>
@@ -1614,64 +1629,11 @@ export default function App({
                     {kind === 'truck' && (
                       <>
                         {input('province', 'จังหวัดทะเบียน')}
-                        {input('phone', 'เบอร์โทร', 'tel')}
-                        {input('nickname', 'ชื่อเล่น')}
-                        <Field label="คนขับประจำรถ">
-                          <SearchableSelect
-                            name="driverId"
-                            aria-label="คนขับประจำรถ"
-                            defaultValue={
-                              editing && 'kind' in editing ? (editing.driverId ?? '') : ''
-                            }
-                          >
-                            <option value="">ยังไม่ผูกคนขับ / เพิ่มคนขับใหม่ด้านล่าง</option>
-                            {data.masters
-                              .filter(
-                                (item) =>
-                                  item.kind === 'driver' &&
-                                  (item.active ||
-                                    (editing && 'kind' in editing && editing.driverId === item.id)),
-                              )
-                              .map((driver) => {
-                                const assigned = data.masters.find(
-                                  (truck) =>
-                                    truck.kind === 'truck' &&
-                                    truck.id !== editing?.id &&
-                                    truck.driverId === driver.id,
-                                );
-                                return (
-                                  <option
-                                    key={driver.id}
-                                    value={driver.id}
-                                    disabled={Boolean(assigned)}
-                                    data-search={[
-                                      driver.nickname,
-                                      driver.phone,
-                                      driver.detail,
-                                    ].join(' ')}
-                                  >
-                                    {driver.name}
-                                    {assigned
-                                      ? ` (รถ ${assigned.name} · ต้องยกเลิกการผูกเดิมก่อน)`
-                                      : ''}
-                                    {driver.active ? '' : ' (ปิดใช้งาน)'}
-                                  </option>
-                                );
-                              })}
-                          </SearchableSelect>
-                        </Field>
-                        <Field label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)">
-                          <input
-                            name="newDriverName"
-                            aria-label="ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)"
-                            maxLength={200}
-                          />
-                          <small>
-                            เลือกคนขับเดิมหรือกรอกชื่อใหม่อย่างใดอย่างหนึ่ง
-                            ชื่อใหม่จะใช้ชื่อเล่นและเบอร์โทรที่กรอกในรถนี้เป็นข้อมูลเริ่มต้น
-                            บันทึกพร้อมรถในครั้งเดียว
-                          </small>
-                        </Field>
+                        <TruckDriverFields
+                          key={editing?.id ?? 'new'}
+                          masters={data.masters}
+                          truck={editing && 'kind' in editing ? editing : null}
+                        />
                         <Field label="ประเภทรถ">
                           <SearchableSelect
                             name="truckType"
