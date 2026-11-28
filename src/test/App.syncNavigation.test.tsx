@@ -1,3 +1,4 @@
+import { openMenu } from './openMenu';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
@@ -18,7 +19,7 @@ it('opens sync and backup only from their menu while keeping normal pending data
   ).not.toBeInTheDocument();
   expect(screen.queryByRole('status', { name: attention })).not.toBeInTheDocument();
   const nav = within(screen.getByRole('navigation'));
-  await user.click(nav.getByRole('button', { name: menuName }));
+  openMenu(menuName);
   expect(nav.getByRole('button', { name: menuName })).toHaveAttribute('aria-current', 'page');
   expect(screen.getByRole('region', { name: 'ความปลอดภัยและซิงก์ข้อมูล' })).toBeInTheDocument();
   expect(screen.getByText('รอซิงก์ 3 รายการ · ขัดแย้ง 0 รายการ')).toBeInTheDocument();
@@ -54,14 +55,14 @@ it.each(['queue error', 'conflict', 'missing reference'])(
     await screen.findByText('Site', { exact: true });
     const nav = within(screen.getByRole('navigation'));
     expect(nav.getByRole('status', { name: attention })).toHaveClass('nav-error-dot');
-    await user.click(nav.getByRole('button', { name: menuName }));
+    openMenu(menuName);
     if (problem === 'queue error')
       expect(screen.getByRole('alert')).toHaveTextContent('Upload failed');
     if (problem === 'conflict')
       expect(screen.getByText('ตรวจสอบข้อมูลขัดแย้ง: Site')).toBeInTheDocument();
     if (problem === 'missing reference')
       expect(screen.getByText(/พบความสัมพันธ์ข้อมูลที่ต้องตรวจสอบ/)).toBeInTheDocument();
-    await user.click(nav.getByRole('button', { name: 'ภาพรวม' }));
+    openMenu('ภาพรวม');
     expect(nav.getByRole('status', { name: attention })).toBeInTheDocument();
     expect(
       screen.queryByRole('region', { name: 'ความปลอดภัยและซิงก์ข้อมูล' }),

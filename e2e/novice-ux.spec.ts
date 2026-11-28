@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 import { readSheet } from 'read-excel-file/universal';
 import type { Data } from '../src/models';
@@ -66,11 +67,11 @@ for (const viewport of [
     await page.getByRole('button', { name: 'ล้างตัวกรองรายงาน', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveCount(0);
     await page.getByLabel('โครงการรายงาน', { exact: true }).selectOption(demoId);
-    await nav.getByRole('button', { name: 'ภาพรวม', exact: true }).click();
+    await openMenu(page, 'ภาพรวม');
     await expect(
       page.getByRole('button').filter({ hasText: 'DEMO · โครงการถมดินตัวอย่าง' }),
     ).toContainText('80 เที่ยว');
-    await nav.getByRole('button', { name: 'รายงาน', exact: true }).click();
+    await openMenu(page, 'รายงาน');
     const advanced = page.getByText(/^กรองเพิ่มเติม ·/);
     await advanced.focus();
     await advanced.press('Enter');
@@ -140,7 +141,7 @@ for (const viewport of [
     await dialog.getByLabel('สถานะโครงการ', { exact: true }).selectOption('draft');
     await dialog.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
     await expect(demo).toContainText('ฉบับร่าง');
-    await nav.getByRole('button', { name: 'ภาพรวม', exact: true }).click();
+    await openMenu(page, 'ภาพรวม');
     await page.getByRole('button', { name: 'เปิดรายงาน DEMO', exact: true }).click();
     await expect(page.getByLabel('ยอดสรุปรายงาน')).toContainText('1,200');
     const stored: Data = await page.evaluate(async () => {

@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import type { Data } from '../src/models';
@@ -89,10 +90,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
-      .click();
+    await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     const restore = page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true });
     await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file('different-owner'));
     await expect(restore.getByRole('alert')).toContainText('บัญชีอื่น');
@@ -133,10 +131,7 @@ for (const viewport of [
       folder: '',
       uploadStatus: 'error',
     });
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true })
-      .click();
+    await openMenu(page, 'บันทึกเที่ยวรถ');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ', exact: true });
     await expect(duplicates).toContainText('พบ 1 กลุ่ม');
@@ -165,10 +160,7 @@ for (const viewport of [
     );
     await context.setOffline(false);
     await page.reload();
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true })
-      .click();
+    await openMenu(page, 'บันทึกเที่ยวรถ');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     await expect(duplicates.getByRole('status')).toContainText('รอตรวจตั๋วกับหน้างาน');
     await page
@@ -179,10 +171,7 @@ for (const viewport of [
     // A second import is a no-overwrite merge.
     const changed = data();
     changed.projects[0].name = 'Different backup';
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
-      .click();
+    await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file('local', changed));
     await expect(preview).toContainText('เพิ่ม 0 รายการ');
     await expect(preview).toContainText('เก็บฉบับปัจจุบัน 1 รายการ');
@@ -202,10 +191,7 @@ test('JSON restore refuses stale previews and recovers after quota failure witho
   page,
 }) => {
   await page.goto('/');
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
-    .click();
+  await openMenu(page, 'ซิงก์และสำรองข้อมูล');
   const restore = page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true });
   await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file());
   await expect(restore.getByRole('region', { name: 'ตัวอย่างกู้คืนข้อมูลสำรอง' })).toBeVisible();
@@ -286,10 +272,7 @@ for (const viewport of [
       const path = '/src/storage.ts';
       await (await import(path)).updateData('local', () => source);
     }, source);
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'การเงินโครงการ', exact: true })
-      .click();
+    await openMenu(page, 'การเงินโครงการ');
     const panel = page.getByRole('region', { name: 'การเงินโครงการ', exact: true });
     await expect(
       panel.getByRole('heading', { name: 'เรตราคา ต้นทุน และประมาณการ', exact: true }),
@@ -344,10 +327,7 @@ for (const viewport of [
     );
     await context.setOffline(false);
     await page.reload();
-    await page
-      .getByRole('navigation')
-      .getByRole('button', { name: 'การเงินโครงการ', exact: true })
-      .click();
+    await openMenu(page, 'การเงินโครงการ');
     await expect(totals).toContainText('ส่วนต่างที่คำนวณได้ 82.00 บาท');
     await panel.getByText('รายละเอียดและเรตที่ใช้คำนวณ 1 แถว', { exact: true }).click();
     const [download] = await Promise.all([

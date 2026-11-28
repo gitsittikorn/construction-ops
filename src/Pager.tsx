@@ -22,7 +22,7 @@ export default function Pager({
 }) {
   if (pages <= 1) return null;
   return (
-    <nav className="pager" aria-label={`เปลี่ยนหน้า${label}`}>
+    <div className="pager" role="group" aria-label={`เปลี่ยนหน้า${label}`}>
       <button type="button" className="secondary" disabled={!page} onClick={() => onPage(page - 1)}>
         ก่อนหน้า
       </button>
@@ -37,6 +37,6 @@ export default function Pager({
       >
         ถัดไป
       </button>
-    </nav>
+    </div>
   );
 }

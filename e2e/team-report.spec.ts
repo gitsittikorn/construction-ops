@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 
 test('a picked truck brings its team, +1 counts trips and the team report totals pay', async ({
@@ -33,8 +34,7 @@ test('a picked truck brings its team, +1 counts trips and the team report totals
     await (await import(storage)).persistData('local', priced);
   });
   await page.reload();
-  const nav = page.getByRole('navigation');
-  await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await page.getByLabel('วันที่ทำงาน', { exact: true }).fill('2026-11-05');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
@@ -43,7 +43,7 @@ test('a picked truck brings its team, +1 counts trips and the team report totals
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มเที่ยว 70-1234', exact: true }).click();
   await expect(page.getByText(/เที่ยวบันทึก 3 ·/)).toBeVisible();
-  await nav.getByRole('button', { name: 'รายงาน', exact: true }).click();
+  await openMenu(page, 'รายงาน');
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('team');
   const report = page.getByRole('region', { name: /ตารางรายงาน/ });
   await expect(report.getByRole('row', { name: /รวมทั้งหมด/ })).toContainText('3');

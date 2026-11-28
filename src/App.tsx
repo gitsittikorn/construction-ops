@@ -5,13 +5,9 @@ import CompanyMembersPanel from './CompanyMembersPanel';
 import { useProjectPreference } from './useProjectPreference';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
-  LayoutDashboard,
   FolderOpen,
   Truck,
   Database,
-  BarChart3,
-  Calculator,
-  Settings,
   Plus,
   Trash2,
   ArrowUpRight,
@@ -38,12 +34,16 @@ import {
   parseCoordinateInput,
 } from './domain';
 import { loadData, updateData, subscribeDataChanges } from './storage';
+import { loadDailyUi, saveDailyUi } from './dailyDrafts';
 import { configured, observeAuth, login, logout } from './firebase';
 import { synchronize, resolveConflict } from './cloudSync';
 import { canonical, integrityIssues, payloadOf } from './syncModel';
 import type { DeletableType } from './deletion';
 import DeleteRecordDialog from './DeleteRecordDialog';
 import RowActions from './RowActions';
+import SideNav from './SideNav';
+import TeamOverview from './TeamOverview';
+import { pageTitles } from './navigation';
 import SelectableList from './SelectableList';
 import FleetResetPanel from './FleetResetPanel';
 import CloudSyncPanel from './CloudSyncPanel';
@@ -52,6 +52,7 @@ import { reportRows, reportTotals, emptyReportFilter } from './reports';
 import { connectionMessage } from './async';
 import { lazy, Suspense } from 'react';
 const DailyPanel = lazy(() => import('./DailyPanel'));
+const QuickRecordPanel = lazy(() => import('./QuickRecordPanel'));
 const ReportsPanel = lazy(() => import('./ReportsPanel'));
 const SurveyPanel = lazy(() => import('./SurveyPanel'));
 const FinancePanel = lazy(() => import('./FinancePanel'));
@@ -78,24 +79,6 @@ import TagFields from './TagFields';
 import TruckExcelPanel from './TruckExcelPanel';
 import PageGuide, { pageDescription } from './PageGuide';
 import { addDemoProject, demoProjectId } from './demoProject';
-const pages = [
-  ['overview', 'ภาพรวม', LayoutDashboard],
-  ['daily', 'งานรายวันและตรวจยอด', Truck],
-  ['trips', 'บันทึกเที่ยวรถ', Truck],
-  ['projects', 'โครงการ', FolderOpen],
-  ['masters', 'ข้อมูลพื้นฐาน', Database],
-  ['reports', 'รายงาน', BarChart3],
-  ['finance', 'การเงินโครงการ', BarChart3],
-  ['survey', 'สำรวจและคำนวณ', Calculator],
-  ['sync', 'ซิงก์และสำรองข้อมูล', RefreshCw],
-  ['settings', 'การตั้งค่า', Settings],
-] as const;
-const navGroups: Record<string, string> = {
-  overview: 'งานประจำวัน',
-  projects: 'เตรียมข้อมูล',
-  reports: 'ตรวจงานและสรุป',
-  sync: 'ดูแลข้อมูลและบัญชี',
-};
 const statusText = {
   active: 'กำลังดำเนินการ',
   draft: 'ฉบับร่าง',
@@ -125,7 +108,7 @@ export default function App({
   onSwitchCompany,
 }: { workspace?: CompanyScope & { name?: string }; onSwitchCompany?: () => void } = {}) {
   const [data, setData] = useState<Data>(emptyData),
-    [page, setPage] = useState('overview'),
+    [page, setPage] = useState('record'),
     [tripView, setTripView] = useState('records'),
     [owner, setOwner] = useState(configured ? '' : workspace ? cacheOwner(workspace) : 'local'),
     [ready, setReady] = useState(false),
@@ -497,6 +480,18 @@ export default function App({
       setError(message(e));
     }
   }
+  async function recordFor(projectId: string) {
+    try {
+      const stored = await loadDailyUi(owner);
+      await saveDailyUi(owner, {
+        ...(stored ?? { date: workDate(), reason: '', drafts: {} }),
+        project: projectId,
+      });
+      navigate('record');
+    } catch (e) {
+      setError(message(e));
+    }
+  }
   function askDelete(type: DeletableType, record: Project | Master | Trip) {
     if (!canManage) return;
     setError('');
@@ -622,38 +617,13 @@ export default function App({
         <div className="brand">
           <img className="company-logo" src={companyLogo} alt={companyName} />
         </div>
-        <span className="nav-caption">พื้นที่ทำงาน</span>
-        <nav>
-          {pages
-            .filter(([id]) => canManage || id !== 'finance')
-            .map(([id, title, Icon]) => (
-              <div className="nav-item" key={id}>
-                {navGroups[id] && <span className="nav-group-title">{navGroups[id]}</span>}
-                <button
-                  aria-label={title}
-                  aria-current={page === id ? 'page' : undefined}
-                  aria-describedby={
-                    id === 'sync' && syncNeedsAttention ? 'sync-attention' : undefined
-                  }
-                  className={page === id ? 'selected' : ''}
-                  onClick={() => navigate(id)}
-                >
-                  <Icon size={19} aria-hidden="true" />
-                  <span className="nav-label">{title}</span>
-                  {id === 'trips' && pending > 0 && <span className="nav-count">{pending}</span>}
-                  {id === 'sync' && syncNeedsAttention && (
-                    <span
-                      id="sync-attention"
-                      className="nav-error-dot"
-                      role="status"
-                      aria-label="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
-                      title="มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ"
-                    />
-                  )}
-                </button>
-              </div>
-            ))}
-        </nav>
+        <SideNav
+          page={page}
+          canManage={canManage}
+          pending={pending}
+          attention={syncNeedsAttention}
+          onNavigate={navigate}
+        />
         <div className="sidebar-bottom">
           <div className="site-note">
             <span className="live-dot" /> พร้อมสำหรับงานภาคสนาม
@@ -687,7 +657,7 @@ export default function App({
           <div>
             <span className="breadcrumb">พื้นที่ทำงาน</span>
             <span className="slash">/</span>
-            <b>{pages.find((p) => p[0] === page)?.[1]}</b>
+            <b>{pageTitles[page]}</b>
             {workspace && (
               <span className="workspace-identity" aria-label="สิทธิ์บริษัทปัจจุบัน">
                 {workspace.name || 'บริษัท'} · {roleLabel}
@@ -711,9 +681,7 @@ export default function App({
           <div className="page-title">
             <div>
               <span className="eyebrow">พื้นที่ทำงานของคุณ</span>
-              <h1>
-                {page === 'overview' ? 'ภาพรวมการทำงาน' : pages.find((p) => p[0] === page)?.[1]}
-              </h1>
+              <h1>{page === 'overview' ? 'ภาพรวมการทำงาน' : pageTitles[page]}</h1>
               <p>{pageDescription(page)}</p>
             </div>
             {page === 'masters' && fleetView && canManage && (
@@ -765,7 +733,7 @@ export default function App({
                 </button>
               )}
           </div>
-          <PageGuide page={page} />
+          {page !== 'record' && <PageGuide page={page} />}
           {error && (
             <div className="alert error" role="alert">
               {error}
@@ -970,6 +938,20 @@ export default function App({
                   </div>
                 </>
               )}
+              {page === 'record' && projectPreference.ready && (
+                <Suspense fallback={<p>กำลังเปิดหน้าบันทึกเที่ยว…</p>}>
+                  <QuickRecordPanel
+                    key={owner}
+                    owner={owner}
+                    data={data}
+                    defaultProject={projectPreference.id}
+                    online={online}
+                    onChange={change}
+                    onReconcile={() => navigate('daily')}
+                    onSetup={(target) => navigate(target)}
+                  />
+                </Suspense>
+              )}
               {page === 'daily' && projectPreference.ready && (
                 <Suspense fallback={<p>กำลังเปิดงานรายวัน…</p>}>
                   <DailyPanel
@@ -1063,6 +1045,15 @@ export default function App({
                             <p>
                               {p.startDate || '—'} → {p.endDate || 'ยังไม่กำหนด'}
                             </p>
+                            {p.status === 'active' && (
+                              <button
+                                className="primary"
+                                aria-label={`บันทึกเที่ยวของ ${p.name}`}
+                                onClick={() => void recordFor(p.id)}
+                              >
+                                เปิดบันทึกเที่ยว
+                              </button>
+                            )}
                             <div className="card-foot">
                               <b>{projectTripCounts.get(p.id) ?? 0} เที่ยวรถ</b>
                               <RowActions
@@ -1231,6 +1222,7 @@ export default function App({
                       )}
                     </>
                   )}
+                  {kind === 'tag' && <TeamOverview data={data} />}
                   {kind === 'soilType' && (
                     <SoilPricesPanel
                       data={data}

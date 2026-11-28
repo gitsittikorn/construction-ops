@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 
 for (const viewport of [
@@ -24,7 +25,7 @@ for (const viewport of [
     const nav = page.getByRole('navigation');
     await expect(nav.getByRole('button', { name: 'รายงานธุรกิจ', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'รายงาน', exact: true })).toHaveCount(1);
-    await nav.getByRole('button', { name: 'รายงาน', exact: true }).click();
+    await openMenu(page, 'รายงาน');
     await expect(page.getByLabel('รูปแบบรายงาน', { exact: true })).toBeVisible();
     await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2027-01-01');
     await page.getByLabel('รายงานถึงวันที่', { exact: true }).fill('2026-01-01');
@@ -39,7 +40,7 @@ for (const viewport of [
     await expect(
       page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }),
     ).toHaveCount(0);
-    await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+    await openMenu(page, 'บันทึกเที่ยวรถ');
     await page.getByRole('checkbox', { name: 'ทุกวันที่' }).check();
     await expect(page.locator('tbody tr')).toHaveCount(2);
     await expect(page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ })).toHaveCount(2);
@@ -62,7 +63,7 @@ for (const viewport of [
       page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }),
     ).toHaveCount(0);
     await expect(page.locator('.local-banner')).toHaveCount(0);
-    await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+    await openMenu(page, 'บันทึกเที่ยวรถ');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ', exact: true });
     await expect(duplicates).toContainText('พบ 1 กลุ่ม');
@@ -71,7 +72,7 @@ for (const viewport of [
       .fill('ตรวจตั๋วแล้ว เป็นคนละเที่ยว');
     await duplicates.getByRole('button', { name: 'บันทึกผลตรวจเที่ยวซ้ำ', exact: true }).click();
     await expect(duplicates.getByRole('status')).toContainText('ยืนยันว่าเป็นคนละเที่ยว');
-    await nav.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true }).click();
+    await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     await expect(
       page.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' }),
     ).toBeVisible();

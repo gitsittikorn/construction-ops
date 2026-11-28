@@ -1,3 +1,4 @@
+import { openMenu } from './openMenu';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
@@ -9,6 +10,7 @@ beforeEach(async () => {
 });
 it('shows the supplied company logo and company name without the old brand', async () => {
   render(<App />);
+  openMenu('ภาพรวม');
   await screen.findByText('เริ่มต้นโครงการแรก');
   expect(screen.getByRole('img', { name: companyName })).toHaveAttribute('src', companyLogo);
   expect(screen.getByText(companyName)).toBeInTheDocument();
@@ -17,6 +19,7 @@ it('shows the supplied company logo and company name without the old brand', asy
 it('creates a project, a truck and a trip through the UI and restores it on reload', async () => {
   const user = userEvent.setup();
   const view = render(<App />);
+  openMenu('ภาพรวม');
   await screen.findByText('เริ่มต้นโครงการแรก');
   await user.click(screen.getByRole('button', { name: 'เพิ่มโครงการ' }));
   await user.type(screen.getByLabelText('ชื่อโครงการ'), 'โครงการทดสอบ');
@@ -28,7 +31,7 @@ it('creates a project, a truck and a trip through the UI and restores it on relo
   await user.type(screen.getByLabelText('ความจุ (m³)'), '12');
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
   await screen.findByText('81-1234 — ยังไม่ระบุคนขับ');
-  await user.click(screen.getByRole('button', { name: 'บันทึกเที่ยวรถ' }));
+  openMenu('บันทึกเที่ยวรถ');
   await user.click(screen.getAllByRole('button', { name: 'บันทึกเที่ยวรถ' })[1]);
   await user.selectOptions(
     screen.getByLabelText('รถบรรทุก *'),
@@ -46,6 +49,7 @@ it('creates a project, a truck and a trip through the UI and restores it on relo
 it('creates and deactivates each kind of master data', async () => {
   const user = userEvent.setup();
   render(<App />);
+  openMenu('ภาพรวม');
   await screen.findByText('เริ่มต้นโครงการแรก');
   await user.click(
     within(screen.getByRole('navigation')).getByRole('button', { name: 'ข้อมูลพื้นฐาน' }),
@@ -87,6 +91,7 @@ it('edits and archives projects and filters search results', async () => {
   await persistData('local', { ...emptyData, projects: [project] });
   const user = userEvent.setup();
   render(<App />);
+  openMenu('ภาพรวม');
   await screen.findByText('Original');
   await user.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'โครงการ' }));
   await user.click(screen.getByRole('button', { name: 'แก้ไข Original' }));
@@ -102,10 +107,9 @@ it('edits and archives projects and filters search results', async () => {
 it('calculates both survey and fill volume through forms', async () => {
   const user = userEvent.setup();
   render(<App />);
+  openMenu('ภาพรวม');
   await screen.findByText('เริ่มต้นโครงการแรก');
-  await user.click(
-    within(screen.getByRole('navigation')).getByRole('button', { name: 'สำรวจและคำนวณ' }),
-  );
+  openMenu('สำรวจและคำนวณ');
   for (const [label, value] of [
     ['Benchmark RL (m)', '100'],
     ['Backsight (m)', '1.5'],
@@ -131,11 +135,10 @@ it('shows offline mode and prints the original trip list from its own page', asy
   const print = vi.spyOn(window, 'print').mockImplementation(() => {});
   const user = userEvent.setup();
   render(<App />);
+  openMenu('ภาพรวม');
   await screen.findByText('เริ่มต้นโครงการแรก');
   window.dispatchEvent(new Event('offline'));
-  await user.click(
-    within(screen.getByRole('navigation')).getByRole('button', { name: 'บันทึกเที่ยวรถ' }),
-  );
+  openMenu('บันทึกเที่ยวรถ');
   expect(screen.getByText(/รายการรอซิงก์ยังไม่ใช่ข้อมูลยืนยัน/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'พิมพ์ / PDF' }));
   expect(print).toHaveBeenCalledOnce();

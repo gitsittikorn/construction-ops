@@ -102,17 +102,28 @@ export function reconcileDailyTrips(
   previous: DailyRow | undefined,
   row: DailyRow,
   scope = '',
+  nextTripId = '',
 ): DailyRow {
   if ((previous?.tripCount ?? 0) > 5000)
     throw Error('ข้อมูลเดิมเกิน 5,000 เที่ยว กรุณาแยกวันทำงานก่อนเพิ่มรายการ');
   if (!Number.isSafeInteger(row.tripCount) || row.tripCount < 0 || row.tripCount > 5000)
     throw Error('เที่ยวต้องเป็นจำนวนเต็มตั้งแต่ศูนย์ถึง 5,000');
   const stamp = new Date().toISOString();
+  let supplied = nextTripId;
+  const takeId = () => {
+    const id = supplied || crypto.randomUUID();
+    supplied = '';
+    return id;
+  };
   // Preserve the snapshot format already used by cloud rows until explicitly migrated.
   if (previous?.trips && !previous.transactions) {
     const trips = structuredClone(previous.trips).slice(0, row.tripCount);
     while (trips.length < row.tripCount)
-      trips.push({ id: crypto.randomUUID(), capacity: row.capacity, recordedAt: stamp });
+      trips.push({
+        id: takeId(),
+        capacity: row.capacity,
+        recordedAt: stamp,
+      });
     const next = { ...row, trips };
     delete next.transactions;
     validateDailyTrips(next);
@@ -137,7 +148,7 @@ export function reconcileDailyTrips(
     }
   while (count++ < row.tripCount)
     transactions.push({
-      id: crypto.randomUUID(),
+      id: takeId(),
       capacity: row.capacity,
       driverId: row.driverId,
       sourceId: row.sourceId,

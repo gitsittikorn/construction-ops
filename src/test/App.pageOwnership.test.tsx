@@ -1,3 +1,4 @@
+import { openMenu } from './openMenu';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
@@ -15,8 +16,8 @@ it('owns summaries in one report menu and keeps the original editable list and e
   await screen.findByText('Site', { exact: true });
   const nav = within(screen.getByRole('navigation'));
   expect(nav.queryByRole('button', { name: 'รายงานธุรกิจ' })).not.toBeInTheDocument();
-  expect(nav.getAllByRole('button', { name: 'รายงาน' })).toHaveLength(1);
-  await user.click(nav.getByRole('button', { name: 'รายงาน' }));
+  expect(nav.getAllByRole('button', { name: 'รายงานและสรุปยอด' })).toHaveLength(1);
+  openMenu('รายงาน');
   await screen.findByLabelText('รูปแบบรายงาน');
   await user.type(screen.getByLabelText('รายงานตั้งแต่วันที่'), '2027-01-01');
   await user.type(screen.getByLabelText('รายงานถึงวันที่'), '2026-01-01');
@@ -26,7 +27,7 @@ it('owns summaries in one report menu and keeps the original editable list and e
   expect(main.queryByRole('button', { name: /แก้ไข เที่ยวรถ/ })).not.toBeInTheDocument();
   expect(main.queryByRole('button', { name: 'บันทึกเที่ยวรถ' })).not.toBeInTheDocument();
   expect(main.queryByRole('columnheader', { name: 'วันที่ / เวลา' })).not.toBeInTheDocument();
-  await user.click(nav.getByRole('button', { name: 'บันทึกเที่ยวรถ' }));
+  openMenu('บันทึกเที่ยวรถ');
   await user.click(screen.getByRole('checkbox', { name: 'ทุกวันที่' }));
   expect(screen.getByRole('cell', { name: /2026-11-06/ })).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: /AB123/ })).toBeInTheDocument();
@@ -49,7 +50,7 @@ it('owns backup restore only in sync, rejects another account and keeps settings
   ).not.toBeInTheDocument();
   expect(document.querySelector('.local-banner')).toBeNull();
   expect(screen.getByText('โหมดในเครื่อง')).toBeInTheDocument();
-  await user.click(nav.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  openMenu('ซิงก์และสำรองข้อมูล');
   expect(screen.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' })).toBeEnabled();
   await user.upload(
     screen.getByLabelText('เลือกไฟล์สำรอง JSON'),
@@ -77,7 +78,7 @@ it('owns duplicate review in trips and clears a completed task notice when navig
   render(<App />);
   await screen.findByText('Site', { exact: true });
   const nav = within(screen.getByRole('navigation'));
-  await user.click(nav.getByRole('button', { name: 'บันทึกเที่ยวรถ' }));
+  openMenu('บันทึกเที่ยวรถ');
   await user.selectOptions(screen.getByLabelText('มุมมองเที่ยวรถ'), 'duplicates');
   expect(screen.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: /รายการเที่ยวรถ/ })).not.toBeInTheDocument();
@@ -87,6 +88,6 @@ it('owns duplicate review in trips and clears a completed task notice when navig
   await user.click(screen.getByRole('button', { name: /^แก้ไข / }));
   await user.click(screen.getByRole('button', { name: 'บันทึกข้อมูล' }));
   await screen.findByText('บันทึกในเครื่องเรียบร้อย');
-  await user.click(nav.getByRole('button', { name: 'รายงาน' }));
+  openMenu('รายงาน');
   expect(screen.queryByText('บันทึกในเครื่องเรียบร้อย')).not.toBeInTheDocument();
 });

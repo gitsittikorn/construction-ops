@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -43,10 +44,7 @@ async function seed(page: Page) {
   await page.reload();
 }
 async function createRow(page: Page) {
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
-    .click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
   await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
@@ -111,10 +109,7 @@ test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved c
     .click();
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
-    .click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
 });
 
@@ -270,10 +265,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   await page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
-    .click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   // Controlled external acknowledgement fixture; this is NOT a real Drive upload.
@@ -565,7 +557,7 @@ test('business XLSX/CSV and survey history use persisted values and produce down
 }) => {
   await seed(page);
   await createRow(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+  await openMenu(page, 'รายงาน');
   for (const label of ['ส่งออกรายงาน Excel', 'ส่งออกรายงาน CSV']) {
     const event = page.waitForEvent('download');
     await page.getByRole('button', { name: label, exact: true }).click();
@@ -575,10 +567,7 @@ test('business XLSX/CSV and survey history use persisted values and produce down
     if (label.endsWith('CSV')) expect(bytes.toString('utf8')).toContain("'00123");
     else expect(bytes.subarray(0, 2).toString()).toBe('PK');
   }
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'สำรวจและคำนวณ', exact: true })
-    .click();
+  await openMenu(page, 'สำรวจและคำนวณ');
   await page.getByLabel('ระดับ BM (m)', { exact: true }).fill('100');
   await page.getByLabel('ระดับแบบที่จุดกำเนิด (m)', { exact: true }).fill('101');
   await page.getByLabel('กว้างแปลง (m)', { exact: true }).fill('10');
@@ -593,10 +582,7 @@ test('business XLSX/CSV and survey history use persisted values and produce down
     ).id;
   });
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'สำรวจและคำนวณ', exact: true })
-    .click();
+  await openMenu(page, 'สำรวจและคำนวณ');
   await page.getByLabel('ประวัติงานสำรวจ', { exact: true }).selectOption(id);
   await expect(page.getByLabel('ระดับ BM (m)', { exact: true })).toHaveValue('100');
   const download = page.waitForEvent('download');
@@ -627,7 +613,7 @@ test('production PWA caches lazy assets and preserves pending data through offli
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByText('PWA offline project', { exact: true })).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+  await openMenu(page, 'รายงาน');
   const event = page.waitForEvent('download');
   await page.getByRole('button', { name: 'ส่งออกรายงาน Excel', exact: true }).click();
   expect((await event).suggestedFilename()).toBe('daily-report.xlsx');
@@ -697,10 +683,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
     database.close();
   });
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
-    .click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
   await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
@@ -715,10 +698,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   await sign(page);
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
-    .click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 12 m³/)).toBeVisible();
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
@@ -750,7 +730,7 @@ test('P6: mixed capacity reconciliation preserves mismatches in the UI, CSV and 
   await page.getByLabel('เหตุผลแก้ไข', { exact: true }).fill('ตรวจยอดตามใบเที่ยวใหม่');
   await page.getByRole('button', { name: 'บันทึกยอดรถ', exact: true }).click();
   await expect(page.getByRole('cell', { name: /^ยอดไม่ตรงกัน/ })).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+  await openMenu(page, 'รายงาน');
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('verification');
   const row = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
   await expect(row).toHaveCount(1);
@@ -817,7 +797,7 @@ test('P6: calendar reports apply date filters before grouping and export Bangkok
     });
   });
   await page.reload();
-  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+  await openMenu(page, 'รายงาน');
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('weekly');
   const rows = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
   await expect(rows).toHaveCount(2);
@@ -853,10 +833,7 @@ test('P7: survey import previews safely, rejects stale/invalid data, persists ex
   page,
 }) => {
   await seed(page);
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'สำรวจและคำนวณ', exact: true })
-    .click();
+  await openMenu(page, 'สำรวจและคำนวณ');
   for (const label of ['กว้างแปลง (m)', 'ยาวแปลง (m)', 'ระยะกริด X (m)', 'ระยะกริด Y (m)'])
     await page.getByLabel(label, { exact: true }).fill('10');
   await page.getByLabel('ระดับ BM (m)', { exact: true }).fill('0');
@@ -893,10 +870,7 @@ test('P7: survey import previews safely, rejects stale/invalid data, persists ex
     ).id;
   });
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'สำรวจและคำนวณ', exact: true })
-    .click();
+  await openMenu(page, 'สำรวจและคำนวณ');
   await page.getByLabel('ประวัติงานสำรวจ', { exact: true }).selectOption(id);
   await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
   await input.setInputFiles({
@@ -954,7 +928,7 @@ test('P8: coarse-pointer tablet targets remain usable and report controls work b
     const page = await context.newPage();
     await seed(page);
     expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-    await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+    await openMenu(page, 'รายงาน');
     const panel = page.locator('section[aria-label="รายงานธุรกิจ"]');
     for (const control of [
       panel.getByLabel('รูปแบบรายงาน', { exact: true }),
@@ -986,7 +960,7 @@ test('desktop report columns scroll within their table without widening the whol
   await page.setViewportSize({ width: 1440, height: 1000 });
   await seed(page);
   await createRow(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'รายงาน', exact: true }).click();
+  await openMenu(page, 'รายงาน');
   const panel = page.locator('section[aria-label="รายงานธุรกิจ"]');
   await panel.getByLabel('แนบเลขอ้างอิงหลักฐาน', { exact: true }).check();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
@@ -1047,10 +1021,10 @@ test('preferred project persists without replacing an existing daily draft; dupl
     )
     .toBe('p2');
   await page.reload();
-  await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p2');
   await page.getByLabel('โครงการทำงาน', { exact: true }).selectOption('p');
-  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
   const duplicates = page.getByRole('region', { name: 'ตรวจเที่ยวที่อาจซ้ำ' });
   await expect(duplicates).toContainText('พบ 1 กลุ่ม');
@@ -1058,9 +1032,9 @@ test('preferred project persists without replacing an existing daily draft; dupl
   await duplicates.getByRole('button', { name: 'บันทึกผลตรวจเที่ยวซ้ำ', exact: true }).click();
   await expect(duplicates.getByRole('status')).toContainText('ยืนยันว่าเป็นคนละเที่ยว');
   await page.reload();
-  await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+  await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p');
-  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
   await expect(duplicates.getByRole('status')).toContainText('ตรวจตั๋วแล้ว คนละเที่ยว');
   expect(

@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { expect, test } from '@playwright/test';
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1000 },
@@ -15,13 +16,13 @@ for (const viewport of [
     );
     await expect(page.getByLabel('สิทธิ์บริษัทปัจจุบัน', { exact: true })).toBeVisible();
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
-    await nav.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true }).click();
+    await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     await expect(
       page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true }),
     ).toHaveCount(0);
     await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
     await expect(page.getByRole('region', { name: 'สมาชิกบริษัท', exact: true })).toHaveCount(0);
-    await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+    await openMenu(page, 'งานรายวันและตรวจยอด');
     await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
     await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
     await page.getByLabel('คนขับทำงาน', { exact: true }).selectOption('driver');
@@ -36,7 +37,7 @@ for (const viewport of [
     await expect(
       page.getByRole('button', { name: 'เปิดวันใหม่พร้อมเหตุผล', exact: true }),
     ).toBeDisabled();
-    await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+    await openMenu(page, 'บันทึกเที่ยวรถ');
     await page.getByLabel('วันที่เที่ยวรถ', { exact: true }).fill('2026-11-06');
     await page.getByRole('button', { name: 'แก้ไข เที่ยวรถ 10:00', exact: true }).click();
     await expect(
@@ -48,7 +49,7 @@ for (const viewport of [
     );
     await page.goto('/e2e/company-harness.html?role=manager');
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toBeVisible();
-    await nav.getByRole('button', { name: 'การเงินโครงการ', exact: true }).click();
+    await openMenu(page, 'การเงินโครงการ');
     await expect(
       page.getByRole('region', { name: 'ยอดประมาณการโครงการ', exact: true }),
     ).toContainText('รายรับที่คำนวณได้ 123.00 บาท');
@@ -56,7 +57,7 @@ for (const viewport of [
     await expect(page.getByRole('region', { name: 'สมาชิกบริษัท', exact: true })).toHaveCount(0);
     await page.goto('/e2e/company-harness.html');
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
-    await nav.getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true }).click();
+    await openMenu(page, 'งานรายวันและตรวจยอด');
     await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();
     await expect(page.getByText(/เที่ยวบันทึก 2/).first()).toBeVisible();
   });

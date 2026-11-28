@@ -10,6 +10,9 @@ export interface DailyUiState {
   project: string;
   date: string;
   reason: string;
+  /** Defaults for new quick-recorded trips. */
+  sourceId?: string;
+  soilType?: string;
   drafts: Record<string, DailyFormDraft>;
 }
 const writes = new Map<string, Promise<void>>();

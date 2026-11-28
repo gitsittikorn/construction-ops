@@ -2255,3 +2255,154 @@ tr.selected {
   max-height: 160px;
   overflow: auto;
 }
+
+.nav-sub {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 4px 24px;
+}
+.sidebar .nav-sub button,
+.sidebar .nav-more {
+  width: 100%;
+  min-height: 40px;
+  font-size: 12px;
+}
+.nav-sub button[aria-current='page'] {
+  background: #dcebdd;
+  font-weight: 700;
+}
+.quick-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.quick-summary article {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid #d9ded9;
+  border-radius: 10px;
+  background: #fff;
+}
+.quick-summary strong {
+  font-size: 34px;
+  line-height: 1.1;
+}
+.quick-filters {
+  display: grid;
+  gap: 8px;
+}
+.quick-filters input {
+  min-height: 48px;
+  font-size: 16px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chips button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #c9d2c9;
+  border-radius: 999px;
+  background: #fff;
+}
+.chips button[aria-pressed='true'] {
+  background: #244d3c;
+  color: #fff;
+}
+.record-toast {
+  position: sticky;
+  top: 4px;
+  z-index: 4;
+}
+.record-toast .alert {
+  margin: 0;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.vehicle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+}
+.vehicle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d9ded9;
+  border-radius: 12px;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.vehicle-card h3,
+.vehicle-card p {
+  margin: 0;
+}
+.vehicle-card h3 {
+  font-size: 20px;
+}
+.vehicle-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+.vehicle-count b {
+  font-size: 30px;
+}
+.record-button {
+  justify-content: center;
+  min-height: 56px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 10px;
+  background: #1f7a45;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+}
+.record-button:disabled {
+  opacity: 0.55;
+}
+.vehicle-card .secondary {
+  justify-content: center;
+  min-height: 44px;
+}
+.trip-history {
+  list-style: none;
+  padding: 0;
+}
+.trip-history li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e6e9e6;
+}
+.trip-history li > span {
+  display: grid;
+  flex: 1 1 220px;
+}
+.trip-history button {
+  min-height: 44px;
+}
+.quick-record + footer {
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .nav-sub {
+    display: flex;
+    margin: 4px 0 0;
+  }
+  .sidebar .nav-sub button,
+  .sidebar .nav-more {
+    width: auto;
+    white-space: nowrap;
+  }
+}

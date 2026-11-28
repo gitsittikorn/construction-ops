@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect, type Page } from '@playwright/test';
 
 async function searchChoose(page: Page, label: string, query: string, result: string) {
@@ -42,7 +43,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await expect(page.getByRole('listbox').getByRole('option', { name: /สมชาย/ })).toBeDisabled();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'ปิดฟอร์ม', exact: true }).click();
-  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
   await searchChoose(page, 'รถบรรทุก *', '811234', '81-1234');
   await expect(page.getByRole('combobox', { name: 'คนขับรถ', exact: true })).toHaveValue(/.+/);
@@ -59,7 +60,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
   await page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true }).selectOption('');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await expect(
     page.getByRole('combobox', { name: 'คนขับรถ', exact: true }).locator('option:checked'),

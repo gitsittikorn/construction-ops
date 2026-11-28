@@ -249,6 +249,7 @@ export function saveDailyRow(
   row: DailyRow,
   actor: string,
   reason = '',
+  nextTripId = '',
 ) {
   const session = dailySessions(data).find((s) => s.id === id);
   if (!session || session.body.version !== version)
@@ -312,7 +313,7 @@ export function saveDailyRow(
     (s) => {
       s.body.rows = [
         ...s.body.rows.filter((r) => r.id !== row.id),
-        reconcileDailyTrips(previous, row, id),
+        reconcileDailyTrips(previous, row, id, nextTripId),
       ];
     },
     reason,

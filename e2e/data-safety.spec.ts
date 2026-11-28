@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -73,7 +74,7 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('P1-1234');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await nav.getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
   await page
     .getByRole('combobox', { name: 'รถบรรทุก *', exact: true })
@@ -125,10 +126,7 @@ test('offline edits survive reload and a browser backup includes pending data an
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Offline site');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Offline site', exact: true })).toBeVisible();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
-    .click();
+  await openMenu(page, 'ซิงก์และสำรองข้อมูล');
   await expect(page.getByText('รอซิงก์ 1 รายการ · ขัดแย้ง 0 รายการ')).toBeVisible();
   await context.setOffline(false);
   await page.evaluate(async () => {
@@ -155,10 +153,7 @@ test('offline edits survive reload and a browser backup includes pending data an
   });
   await page.reload();
   await expect(page.getByText('Offline site', { exact: true })).toBeVisible();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
-    .click();
+  await openMenu(page, 'ซิงก์และสำรองข้อมูล');
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' }).click();
   const download = await downloadEvent;

@@ -1,3 +1,4 @@
+import { openMenu } from './openMenu';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import App from '../App';
 import type { CloudBatch } from '../cloudSync';
@@ -76,6 +77,8 @@ it('keeps existing data visible when Firebase repeats the same signed-in account
     ],
   });
   render(<App />);
+  await screen.findByRole('navigation', { name: 'เมนูหลัก' });
+  openMenu('ภาพรวม');
   await screen.findByText('Existing project');
   await act(async () => authMock.callback?.({ uid: 'test-owner' }));
   expect(screen.getByText('Existing project')).toBeInTheDocument();
@@ -88,7 +91,7 @@ it('opens Firebase login from the artwork page and enters the workspace after au
   render(<App />);
   await user.click(screen.getByRole('button', { name: 'เข้าสู่ระบบด้วย Google' }));
   expect(authMock.login).toHaveBeenCalledOnce();
-  await screen.findByRole('heading', { name: 'ภาพรวมการทำงาน' });
+  await screen.findByRole('heading', { name: 'บันทึกเที่ยวดิน' });
   expect(screen.queryByRole('button', { name: 'เข้าสู่ระบบด้วย Google' })).not.toBeInTheDocument();
 });
 it('keeps the login page usable when Firebase rejects the domain', async () => {
@@ -121,7 +124,7 @@ it('P1-13/18 hides the previous account on sign-out and restores only the return
   await screen.findByText('Site', { exact: true });
   expect(screen.queryByText('Second account site', { exact: true })).not.toBeInTheDocument();
   expect((await loadData('second-owner')).projects[0].name).toBe('Second account site');
-  await userEvent.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  openMenu('ซิงก์และสำรองข้อมูล');
   await screen.findByText('ตรวจสอบกับ Cloud แล้ว ข้อมูลซิงก์ครบ');
 });
 
@@ -156,11 +159,11 @@ it('keeps a restore failure in the sync menu across navigation and clears the in
   await screen.findByRole('status', { name: 'มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ' });
   expect(screen.queryByText(failure)).not.toBeInTheDocument();
   expect((await loadData('test-owner')).trips[0].syncStatus).toBe('pending');
-  await user.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  openMenu('ซิงก์และสำรองข้อมูล');
   expect(await screen.findByText(failure)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'โครงการ' }));
   expect(screen.queryByText(failure)).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล' }));
+  openMenu('ซิงก์และสำรองข้อมูล');
   expect(await screen.findByText(failure)).toBeInTheDocument();
   vi.mocked(firestoreTransport.pull).mockResolvedValue({ records: [], cursors: {} });
   await user.click(screen.getByRole('button', { name: 'ซิงก์และกู้คืนจาก Cloud' }));
