@@ -31,6 +31,7 @@ test('truck details, team tags, XLSX export and reviewed import work together in
     await page.getByLabel('ทะเบียนรถ', { exact: true }).fill(plate);
     await page.getByLabel('จังหวัดทะเบียน', { exact: true }).fill(province);
     await page.getByLabel('เบอร์โทร', { exact: true }).fill(phone);
+    await page.getByText('ชื่อเล่น (กรอกเมื่อต่างจากชื่อ)').click();
     await page.getByLabel('ชื่อเล่น', { exact: true }).fill('รถ ' + plate);
     await page.getByRole('combobox', { name: 'ประเภทรถ', exact: true }).selectOption(type);
     await page.getByRole('checkbox', { name: tag, exact: true }).check();

@@ -92,7 +92,7 @@ export default function FleetList({
                   {summary(truck, truckTitle(truck, driver), [
                     `รหัส ${truck.id.slice(0, 8)}`,
                     truck.phone || driver?.phone,
-                    truck.nickname || driver?.nickname,
+                    [truck.nickname || driver?.nickname].find((value) => value !== driver?.name),
                     truck.truckType ? truckTypes[truck.truckType] : '',
                     truck.capacity ? `${truck.capacity} m³` : '',
                     truck.detail,
@@ -117,7 +117,7 @@ export default function FleetList({
                 {summary(driver, driver.name, [
                   'คนขับที่ยังไม่มีรถ',
                   driver.phone,
-                  driver.nickname,
+                  driver.nickname === driver.name ? '' : driver.nickname,
                   driver.detail,
                 ])}
                 {canManage && (

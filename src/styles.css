@@ -2458,3 +2458,12 @@ tr.selected {
     display: none;
   }
 }
+
+.driver-change {
+  border: 1px solid #d9ded9;
+  border-radius: 8px;
+}
+.nickname-field summary {
+  min-height: 44px;
+  cursor: pointer;
+}

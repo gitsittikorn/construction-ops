@@ -43,6 +43,7 @@ import DeleteRecordDialog from './DeleteRecordDialog';
 import RowActions from './RowActions';
 import SideNav from './SideNav';
 import TruckDriverFields from './TruckDriverFields';
+import DriverNameFields from './DriverNameFields';
 import TeamOverview from './TeamOverview';
 import { pageTitles } from './navigation';
 import SelectableList from './SelectableList';
@@ -1599,24 +1600,29 @@ export default function App({
                   </>
                 ) : modal === 'master' ? (
                   <>
-                    {input(
-                      'name',
-                      kind === 'truck'
-                        ? 'ทะเบียนรถ'
-                        : kind === 'soilType'
-                          ? 'ชื่อชนิดดิน'
-                          : kind === 'tag'
-                            ? 'ชื่อแท็ก / ทีม'
-                            : 'ชื่อ',
-                      'text',
-                      true,
+                    {kind === 'driver' ? (
+                      <DriverNameFields
+                        key={editing?.id ?? 'new'}
+                        driver={editing && 'kind' in editing ? editing : null}
+                      />
+                    ) : (
+                      input(
+                        'name',
+                        kind === 'truck'
+                          ? 'ทะเบียนรถ'
+                          : kind === 'soilType'
+                            ? 'ชื่อชนิดดิน'
+                            : kind === 'tag'
+                              ? 'ชื่อแท็ก / ทีม'
+                              : 'ชื่อ',
+                        'text',
+                        true,
+                      )
                     )}
                     {input('detail', 'รายละเอียด')}
                     {kind === 'truck' && input('capacity', 'ความจุ (m³)', 'number')}
                     {kind === 'driver' && (
                       <>
-                        {input('phone', 'เบอร์โทร', 'tel')}
-                        {input('nickname', 'ชื่อเล่น')}
                         <p>
                           รถประจำ:{' '}
                           {data.masters.find(

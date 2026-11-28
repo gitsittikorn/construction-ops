@@ -28,9 +28,10 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('81-1234');
+  await page.getByText('ชื่อเล่น (กรอกเมื่อต่างจากชื่อ)').click();
   await page.getByLabel('ชื่อเล่น', { exact: true }).fill('ชาย');
   await page.getByLabel('เบอร์โทร', { exact: true }).fill('0812345678');
-  await page.getByLabel('ชื่อคนขับใหม่ (ถ้ายังไม่มีรายชื่อ)', { exact: true }).fill('สมชาย');
+  await page.getByLabel('ชื่อคนขับ', { exact: true }).fill('สมชาย');
   await page.getByLabel('ความจุ (m³)', { exact: true }).fill('12');
   await searchChoose(page, 'ประเภทรถ', 'สิบ', 'สิบล้อ');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -45,11 +46,9 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มรถและคนขับ', exact: true }).click();
   await page.getByLabel('ทะเบียนรถ', { exact: true }).fill('82-9999');
-  const driver = page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true });
-  await driver.click();
-  await page.getByRole('combobox', { name: 'ค้นหาตัวเลือก' }).fill('สมชาย');
-  await expect(page.getByRole('listbox').getByRole('option', { name: /สมชาย/ })).toBeDisabled();
-  await page.keyboard.press('Escape');
+  await page.getByLabel('ชื่อคนขับ', { exact: true }).fill('สมชาย');
+  await expect(page.getByText(/ประจำรถ 81-1234 อยู่แล้ว/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /ใช้คนขับเดิม/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'ปิดฟอร์ม', exact: true }).click();
   await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
@@ -67,7 +66,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await openMenu(page, 'ภาพรวม');
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
   await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
-  await page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true }).selectOption('');
+  await page.getByLabel('ชื่อคนขับ', { exact: true }).fill('');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
