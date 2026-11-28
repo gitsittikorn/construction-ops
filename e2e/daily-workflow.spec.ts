@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 async function seed(page: Page) {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     const module = '/src/storage.ts';
@@ -42,6 +43,7 @@ async function seed(page: Page) {
     });
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
 }
 async function createRow(page: Page) {
   await openMenu(page, 'งานรายวันและตรวจยอด');
@@ -71,6 +73,7 @@ test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved c
     }));
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await createRow(page);
   await expect(page.getByLabel('วันที่ทำงาน', { exact: true })).toHaveValue('2026-11-07');
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck2');
@@ -109,6 +112,7 @@ test('P2: Bangkok midnight, multiple trucks, per-trip correction and preserved c
     .click();
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByText(/เที่ยวบันทึก 6 · ปริมาตร 89 m³/)).toBeVisible();
 });
@@ -145,6 +149,7 @@ for (const viewport of [
       'มีอยู่แล้ว',
     );
     await page.reload();
+    await openMenu(page, 'ภาพรวม');
     const data = await page.evaluate(async () => {
       const path = '/src/storage.ts';
       return (await import(path)).loadData('local');
@@ -265,6 +270,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   await page.getByRole('button', { name: 'บันทึกลายเซ็น', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'งานรายวันและตรวจยอด');
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
@@ -347,6 +353,7 @@ test('tablet evidence capture and signature survive refresh; simulated upload ac
   await page.getByRole('button', { name: 'ปิดวันทำงาน', exact: true }).click();
   await expect(page.getByText('สถานะวัน: ปิดวันแล้ว', { exact: true })).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   const closed = await page.evaluate(async () => {
     const path = '/src/storage.ts';
     return (await (await import(path)).loadData('local')).workspaces.find(
@@ -582,6 +589,7 @@ test('business XLSX/CSV and survey history use persisted values and produce down
     ).id;
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'สำรวจและคำนวณ');
   await page.getByLabel('ประวัติงานสำรวจ', { exact: true }).selectOption(id);
   await expect(page.getByLabel('ระดับ BM (m)', { exact: true })).toHaveValue('100');
@@ -597,11 +605,13 @@ test('production PWA caches lazy assets and preserves pending data through offli
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(error.message));
   await page.goto('http://localhost:5175/construction-ops/');
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'โครงการ', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
@@ -612,6 +622,7 @@ test('production PWA caches lazy assets and preserves pending data through offli
   ).toBeVisible();
   await context.setOffline(true);
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('PWA offline project', { exact: true })).toBeVisible();
   await openMenu(page, 'รายงาน');
   const event = page.waitForEvent('download');
@@ -626,6 +637,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   context,
 }) => {
   await page.goto('http://localhost:5175/construction-ops/');
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -683,6 +695,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
     database.close();
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'งานรายวันและตรวจยอด');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
   await page.getByLabel('รถทำงาน', { exact: true }).selectOption('truck');
@@ -698,6 +711,7 @@ test('P2/P3: production daily trips and original evidence survive a genuinely of
   await sign(page);
   await expect(page.getByText(/^สถานะหลักฐาน: พร้อมอัปโหลด/)).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 12 m³/)).toBeVisible();
   await page.getByRole('button', { name: 'หลักฐาน 00123', exact: true }).click();
@@ -797,6 +811,7 @@ test('P6: calendar reports apply date filters before grouping and export Bangkok
     });
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'รายงาน');
   await page.getByLabel('รูปแบบรายงาน', { exact: true }).selectOption('weekly');
   const rows = page.locator('section[aria-label="รายงานธุรกิจ"] tbody tr');
@@ -870,6 +885,7 @@ test('P7: survey import previews safely, rejects stale/invalid data, persists ex
     ).id;
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'สำรวจและคำนวณ');
   await page.getByLabel('ประวัติงานสำรวจ', { exact: true }).selectOption(id);
   await expect(page.getByLabel('ระดับเดิม G0-0', { exact: true })).toHaveValue('-1');
@@ -1009,6 +1025,7 @@ test('preferred project persists without replacing an existing daily draft; dupl
     }));
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
   await page.getByLabel('เลือกโครงการเริ่มต้น', { exact: true }).selectOption('p2');
@@ -1021,6 +1038,7 @@ test('preferred project persists without replacing an existing daily draft; dupl
     )
     .toBe('p2');
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p2');
   await page.getByLabel('โครงการทำงาน', { exact: true }).selectOption('p');
@@ -1032,6 +1050,7 @@ test('preferred project persists without replacing an existing daily draft; dupl
   await duplicates.getByRole('button', { name: 'บันทึกผลตรวจเที่ยวซ้ำ', exact: true }).click();
   await expect(duplicates.getByRole('status')).toContainText('ยืนยันว่าเป็นคนละเที่ยว');
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'งานรายวันและตรวจยอด');
   await expect(page.getByLabel('โครงการทำงาน', { exact: true })).toHaveValue('p');
   await openMenu(page, 'บันทึกเที่ยวรถ');

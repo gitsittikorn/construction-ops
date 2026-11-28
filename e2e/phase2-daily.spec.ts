@@ -1,12 +1,10 @@
+import { openMenu } from './nav';
 import { test, expect, type Page } from '@playwright/test';
 
-const navDaily = (page: Page) =>
-  page
-    .getByRole('navigation')
-    .getByRole('button', { name: 'งานรายวันและตรวจยอด', exact: true })
-    .click();
+const navDaily = (page: Page) => openMenu(page, 'งานรายวันและตรวจยอด');
 async function seed(page: Page) {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.evaluate(async () => {
     const fixtures = '/src/test/syncFixtures.ts',
       storage = '/src/storage.ts';
@@ -24,6 +22,7 @@ async function seed(page: Page) {
     await (await import(storage)).persistData('local', data);
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await navDaily(page);
   await page.getByLabel('วันที่ทำงาน', { exact: true }).fill('2026-12-31');
   await page.getByRole('button', { name: 'สร้างวันทำงาน', exact: true }).click();
@@ -139,6 +138,7 @@ test('P2 unsaved draft and context survive navigation and refresh without creati
   await navDaily(page);
   await expect(page.getByLabel('หมายเหตุงาน', { exact: true })).toHaveValue('ร่างยังไม่ได้ส่ง');
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await navDaily(page);
   await expect(page.getByLabel('วันที่ทำงาน', { exact: true })).toHaveValue('2026-12-31');
   await expect(page.getByLabel('รถทำงาน', { exact: true })).toHaveValue('truck');
@@ -152,10 +152,12 @@ test('P2 production PWA daily pending transactions and draft survive an offline 
   context,
 }) => {
   await page.goto('http://localhost:5175/construction-ops/');
+  await openMenu(page, 'ภาพรวม');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('P2 Offline');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -178,6 +180,7 @@ test('P2 production PWA daily pending transactions and draft survive an offline 
   await page.getByLabel('หมายเหตุงาน', { exact: true }).fill('offline draft');
   await expect(page.getByText('เก็บร่างในเครื่องแล้ว', { exact: true })).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await navDaily(page);
   await expect(page.getByText(/เที่ยวบันทึก 1 · ปริมาตร 6 m³/)).toBeVisible();
   await expect(page.getByLabel('หมายเหตุงาน', { exact: true })).toHaveValue('offline draft');

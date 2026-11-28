@@ -290,6 +290,8 @@ export default function QuickRecordPanel({
     if (!last) return;
     const target = last;
     setLast(null);
+    // Recording again straight after an undo is deliberate.
+    tapped.current.clear();
     enqueue(async () => {
       let failure = '';
       await onChange((old) => {
@@ -339,6 +341,7 @@ export default function QuickRecordPanel({
             value={project}
             onChange={(event) => {
               ui.update((s) => ({ ...s, project: event.target.value }));
+              setOverrides({});
               setLast(null);
               setMessage('');
             }}
@@ -359,6 +362,7 @@ export default function QuickRecordPanel({
             onChange={(event) => {
               if (!event.target.value) return;
               setDay({ date: event.target.value, auto: false });
+              setOverrides({});
               setMidnight(false);
               setLast(null);
               setMessage('');
@@ -411,22 +415,22 @@ export default function QuickRecordPanel({
         </div>
       )}
       <div className="quick-summary" aria-label="ยอดของวันที่เลือก">
-        <article>
+        <div className="quick-total">
           <span>เที่ยวทั้งหมด</span>
           <strong aria-label="เที่ยวทั้งหมดของวัน">{total}</strong>
-        </article>
-        <article>
+        </div>
+        <div className="quick-total">
           <span>รถที่มีเที่ยว</span>
           <strong aria-label="รถที่มีเที่ยว">{rows.filter((row) => row.tripCount).length}</strong>
-        </article>
-        <article>
+        </div>
+        <div className="quick-total">
           <span>เที่ยวตามตัวกรอง</span>
           <strong aria-label="เที่ยวตามตัวกรอง">{filtered}</strong>
-        </article>
-        <article>
+        </div>
+        <div className="quick-total">
           <span>สถานะ</span>
           <small role="status">{syncText}</small>
-        </article>
+        </div>
       </div>
       {legacy > 0 && (
         <p role="note">

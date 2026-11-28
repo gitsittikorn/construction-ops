@@ -1,5 +1,17 @@
 # Bug tracker
 
+## Import, deletion and recording defects - 2026-11-28 (refactor)
+
+All fixed on branch `feat/operation-first-ui`.
+
+- BUG-018 (High / data mapping): re-importing existing trucks applied only the driver link; type, phone, team, capacity and detail were silently skipped and the preview hid them. Preview now shows every column and the differences. Regression: src/test/importAllColumns.test.ts
+- BUG-019 (High / data loss): update mode replaced stored values with blank sheet cells. Blank now keeps the value unless clearing is chosen. Regression: importAllColumns, truckNickname
+- BUG-020 (Medium / duplicates): a blank province created a second truck. Regression: importAllColumns
+- BUG-021 (Medium / identity): a driver could be linked by nickname alone. Now needs phone, team or past-link evidence. Regression: importAllColumns, fleetReset
+- BUG-022 (Medium / scale): the parser stopped at 1,000 rows. Regression: truckSheetDiscovery, importAllColumns
+- BUG-023 (High / performance, found while building quick recording): every daily write copies the whole day into the local audit. Quick taps now write a compact entry. The detailed daily page still writes full copies (OPEN, Medium). Regression: src/test/quickRecord.test.tsx
+- LIMIT-001 (Medium, OPEN): one daily record holds about 680 trips (750 KB). Splitting it needs a model and Rules change.
+
 ## ENV: Drive OAuth client has no registered origin — 2026-11-28
 
 **OPEN / High configuration / Phase 1/4/8.** User reports `401 invalid_client, no registered origin`. Reproduced without signing in: Google Identity Services with the local `VITE_GOOGLE_CLIENT_ID` (number prefix 245282823476, suffix `...cl2`) returns the same error from both `http://localhost:5173` and `http://127.0.0.1:5173`. The Firebase login button uses a different client and reached Google's e-mail page. Fix is in Google Cloud Console (add the JavaScript origins to that client); no application change, so no automated regression applies. Retest: Drive connect from `http://localhost:5173`.

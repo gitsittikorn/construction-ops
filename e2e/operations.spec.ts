@@ -5,6 +5,7 @@ test('project coordinates can be added, edited, opened in Maps and cleared witho
   context,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Coordinate site');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -17,6 +18,7 @@ test('project coordinates can be added, edited, opened in Maps and cleared witho
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('link', { name: 'เปิด Google Maps ที่พิกัด 0, 0' })).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('navigation').getByRole('button', { name: 'โครงการ', exact: true }).click();
   const link = page.getByRole('link', { name: 'เปิด Google Maps ที่พิกัด 0, 0' });
   await expect(link).toBeVisible();
@@ -47,6 +49,7 @@ test('settings audit history scrolls inside a bounded panel and retains old entr
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByText('เริ่มต้นโครงการแรก', { exact: true }).waitFor();
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -82,6 +85,7 @@ test('settings audit history scrolls inside a bounded panel and retains old entr
     }
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await page
     .getByRole('navigation')
     .getByRole('button', { name: 'การตั้งค่า', exact: true })
@@ -106,6 +110,7 @@ test('soil types can be created, edited and selected, while old trip names survi
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Soil project');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -123,6 +128,7 @@ test('soil types can be created, edited and selected, while old trip names survi
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await expect(page.getByRole('button', { name: 'แก้ไข ดินลูกรัง', exact: true })).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
   await page
@@ -137,7 +143,7 @@ test('soil types can be created, edited and selected, while old trip names survi
   await page.getByRole('button', { name: 'แก้ไข ดินลูกรัง', exact: true }).click();
   await page.getByRole('combobox', { name: 'สถานะ', exact: true }).selectOption('false');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
-  await nav.getByRole('button', { name: /^บันทึกเที่ยวรถ/ }).click();
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('button', { name: /แก้ไข เที่ยวรถ/ }).click();
   await expect(page.getByRole('combobox', { name: 'ชนิดดิน', exact: true })).toHaveValue(
     'ดินลูกรัง',
@@ -153,6 +159,7 @@ test('a draft project stays visible and can be activated before selecting it in 
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Draft site');
   await page.getByRole('combobox', { name: 'สถานะโครงการ', exact: true }).selectOption('draft');
@@ -181,6 +188,7 @@ test('a draft project stays visible and can be activated before selecting it in 
 });
 test('the user can switch between active projects and keep the chosen value', async ({ page }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('navigation').getByRole('button', { name: 'โครงการ', exact: true }).click();
   for (const name of ['Site A', 'Site B']) {
     await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
@@ -201,6 +209,7 @@ test('all master categories remain selectable in a trip after entry and reload',
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Browser project');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -233,6 +242,7 @@ test('all master categories remain selectable in a trip after entry and reload',
     ).toBeVisible();
   }
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
   await expect(page.getByLabel('รถบรรทุก *')).toContainText('81-5555');
@@ -254,6 +264,7 @@ test('all master categories remain selectable in a trip after entry and reload',
 });
 test('a trip form receives trucks created in another open tab', async ({ page, context }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Shared project');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -261,6 +272,7 @@ test('a trip form receives trucks created in another open tab', async ({ page, c
   await page.getByRole('main').getByRole('button', { name: 'บันทึกเที่ยวรถ', exact: true }).click();
   const other = await context.newPage();
   await other.goto('/');
+  await openMenu(other, 'ภาพรวม');
   await other
     .getByRole('navigation')
     .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
@@ -277,6 +289,7 @@ test('native file selection is queued durably and clearly waits for Drive connec
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('File project');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -297,6 +310,7 @@ test('native file selection is queued durably and clearly waits for Drive connec
   await expect(page.getByText('รออัปโหลด', { exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'ยังไม่ได้อัปโหลด' })).toBeVisible();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await page
     .getByRole('navigation')
     .getByRole('button', { name: 'การตั้งค่า', exact: true })

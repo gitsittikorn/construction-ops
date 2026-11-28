@@ -11,6 +11,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await openMenu(page, 'ภาพรวม');
     await page.evaluate(async () => {
       const storagePath = '/src/storage.ts',
         fixturePath = '/src/test/syncFixtures.ts';
@@ -21,10 +22,11 @@ for (const viewport of [
       await persistData('local', data);
     });
     await page.reload();
+    await openMenu(page, 'ภาพรวม');
     await expect(page.getByText('Site', { exact: true })).toBeVisible();
     const nav = page.getByRole('navigation');
     await expect(nav.getByRole('button', { name: 'รายงานธุรกิจ', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: 'รายงาน', exact: true })).toHaveCount(1);
+    await expect(nav.getByRole('button', { name: 'รายงานและสรุปยอด', exact: true })).toHaveCount(1);
     await openMenu(page, 'รายงาน');
     await expect(page.getByLabel('รูปแบบรายงาน', { exact: true })).toBeVisible();
     await page.getByLabel('รายงานตั้งแต่วันที่', { exact: true }).fill('2027-01-01');

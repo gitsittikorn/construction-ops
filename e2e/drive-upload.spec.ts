@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 test('browser uploads original image bytes and verifies the private Drive file', async ({
   page,
@@ -76,6 +77,7 @@ test('local diagnostics reports queue state without credentials and rejects othe
   request,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByText('เริ่มต้นโครงการแรก', { exact: true }).waitFor();
   const response = await request.post('/__dev/upload-diagnostics/request');
   expect(response.status()).toBe(200);

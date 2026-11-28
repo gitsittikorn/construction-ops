@@ -1,4 +1,4 @@
-import { openMenu } from './nav';
+import { openMenu, expandExtra } from './nav';
 import { expect, test } from '@playwright/test';
 for (const viewport of [
   { name: 'desktop', width: 1440, height: 1000 },
@@ -10,11 +10,13 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/e2e/company-harness.html');
+    await openMenu(page, 'ภาพรวม');
     const nav = page.getByRole('navigation');
     await expect(page.getByLabel('สิทธิ์บริษัทปัจจุบัน', { exact: true })).toContainText(
       'พนักงานบันทึกข้อมูล',
     );
     await expect(page.getByLabel('สิทธิ์บริษัทปัจจุบัน', { exact: true })).toBeVisible();
+    await expandExtra(page);
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
     await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     await expect(
@@ -48,6 +50,8 @@ for (const viewport of [
       true,
     );
     await page.goto('/e2e/company-harness.html?role=manager');
+    await openMenu(page, 'ภาพรวม');
+    await expandExtra(page);
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toBeVisible();
     await openMenu(page, 'การเงินโครงการ');
     await expect(
@@ -56,6 +60,8 @@ for (const viewport of [
     await nav.getByRole('button', { name: 'การตั้งค่า', exact: true }).click();
     await expect(page.getByRole('region', { name: 'สมาชิกบริษัท', exact: true })).toHaveCount(0);
     await page.goto('/e2e/company-harness.html');
+    await openMenu(page, 'ภาพรวม');
+    await expandExtra(page);
     await expect(nav.getByRole('button', { name: 'การเงินโครงการ', exact: true })).toHaveCount(0);
     await openMenu(page, 'งานรายวันและตรวจยอด');
     await expect(page.getByRole('cell', { name: /^ยอดตรงกัน รอผู้จัดการยืนยัน/ })).toBeVisible();

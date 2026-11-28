@@ -83,7 +83,7 @@ export function recordTrip(data: Data, input: QuickTrip, actor: string): Data {
   const row: DailyRow = previous
     ? { ...previous, ...values, tripCount: previous.tripCount + 1 }
     : {
-        id: `row-${input.truckId}-${input.date}`,
+        id: crypto.randomUUID(),
         truckId: input.truckId,
         teamId: assignedTeam(next, input.projectId, input.truckId, input.date),
         ...values,
@@ -92,7 +92,7 @@ export function recordTrip(data: Data, input: QuickTrip, actor: string): Data {
         reportedTrips: null,
         notes: '',
       };
-  return saveDailyRow(
+  const saved = saveDailyRow(
     next,
     session.id,
     session.body.version,
@@ -101,6 +101,21 @@ export function recordTrip(data: Data, input: QuickTrip, actor: string): Data {
     input.reason ?? '',
     input.tripId,
   );
+  // The session keeps the full per-trip history. Copying the whole day into the local audit on
+  // every tap would grow storage with the square of the trip count.
+  const entry = saved.audit.at(-1)!;
+  return {
+    ...saved,
+    audit: [
+      ...saved.audit.slice(0, -1),
+      {
+        ...entry,
+        action: 'daily-quick-trip',
+        before: { version: session.body.version },
+        after: { version: session.body.version + 1, rowId: row.id, tripId: input.tripId },
+      },
+    ],
+  };
 }
 
 export interface DayTrip {

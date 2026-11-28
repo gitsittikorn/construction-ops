@@ -1,7 +1,9 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   // Seed only the isolated test browser's IndexedDB, never the user's profile.
   await page.evaluate(async () => {
@@ -50,10 +52,8 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: /^บันทึกเที่ยวรถ/ })
-    .click();
+  await openMenu(page, 'ภาพรวม');
+  await openMenu(page, 'บันทึกเที่ยวรถ');
 });
 
 test('all dates reveals historical trips and can switch back to today or a specific date', async ({
@@ -94,10 +94,8 @@ test('all-date searches combine with project filters and empty results preserve 
   await page.getByLabel('ค้นหาเที่ยวรถ').fill('');
   await expect(rows).toHaveCount(3);
   await page.reload();
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: /^บันทึกเที่ยวรถ/ })
-    .click();
+  await openMenu(page, 'ภาพรวม');
+  await openMenu(page, 'บันทึกเที่ยวรถ');
   await page.getByRole('checkbox', { name: 'ทุกวันที่' }).check();
   await expect(rows).toHaveCount(3);
 });

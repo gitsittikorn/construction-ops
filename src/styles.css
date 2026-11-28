@@ -2276,7 +2276,7 @@ tr.selected {
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
 }
-.quick-summary article {
+.quick-total {
   display: grid;
   gap: 2px;
   padding: 10px 14px;
@@ -2404,5 +2404,57 @@ tr.selected {
   .sidebar .nav-more {
     width: auto;
     white-space: nowrap;
+  }
+}
+@media (max-width: 760px) {
+  /* All five menus stay visible; the header scrolls away so truck cards get the screen. */
+  .sidebar {
+    position: static;
+  }
+  .sidebar .company-logo {
+    width: min(150px, 45vw);
+  }
+  .sidebar nav {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+  .sidebar .nav-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+  .sidebar .nav-item:has(.nav-sub) {
+    flex-basis: 100%;
+  }
+  .nav-sub {
+    flex-wrap: wrap;
+  }
+  .quick-record .operations-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .quick-record .operations-filters label {
+    min-width: 0;
+  }
+  .quick-record .operations-filters select,
+  .quick-record .operations-filters input {
+    width: 100%;
+    min-width: 0;
+  }
+  .quick-summary {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .quick-total {
+    padding: 6px 10px;
+  }
+  .quick-total strong {
+    font-size: 26px;
+  }
+  .workspace-main:has(.quick-record) .page-title p,
+  .workspace-main:has(.quick-record) .page-title .eyebrow {
+    display: none;
   }
 }

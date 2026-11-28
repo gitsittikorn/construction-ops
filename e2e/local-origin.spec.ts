@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -38,6 +39,7 @@ test('legacy 127.0.0.1 data is backed up and retained before opening the canonic
   expect(backup.state.trips).toHaveLength(1);
   await page.getByRole('link', { name: 'เปิดที่อยู่หลัก localhost' }).click();
   await expect(page).toHaveURL('http://localhost:5174/');
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   const legacy = await context.newPage();
   await legacy.goto('http://127.0.0.1:5174/');

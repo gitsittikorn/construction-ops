@@ -13,6 +13,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await openMenu(page, 'ภาพรวม');
     await page.evaluate(async () => {
       const storagePath = '/src/storage.ts',
         fixturePath = '/src/test/syncFixtures.ts';
@@ -21,11 +22,17 @@ for (const viewport of [
       await persistData('local', fixture());
     });
     await page.reload();
+    await openMenu(page, 'ภาพรวม');
     const nav = page.getByRole('navigation');
     await expect(page.getByText('Site', { exact: true })).toBeVisible();
-    expect(
-      (await nav.getByRole('button').allTextContents()).slice(0, 3).map((s) => s.trim()),
-    ).toEqual(['ภาพรวม', 'งานรายวันและตรวจยอด', expect.stringContaining('บันทึกเที่ยวรถ')]);
+    expect(await nav.locator('.nav-item > button').allTextContents()).toEqual([
+      expect.stringContaining('บันทึกเที่ยวดิน'),
+      'โครงการ',
+      'ข้อมูลพื้นฐาน',
+      'รายงานและสรุปยอด',
+      'การตั้งค่า',
+      'เครื่องมือเพิ่มเติม',
+    ]);
     await page.getByRole('button', { name: 'สร้างโครงการ DEMO และดูรายงาน', exact: true }).click();
     await expect(page.getByLabel('โครงการรายงาน', { exact: true })).toHaveValue(demoId);
     const summary = page.getByLabel('ยอดสรุปรายงาน');
@@ -90,14 +97,14 @@ for (const viewport of [
       'บันทึกเที่ยวรถ',
       'โครงการ',
       'ข้อมูลพื้นฐาน',
-      'รายงาน',
+      'รายงานและสรุปยอด',
       'การเงินโครงการ',
       'สำรวจและคำนวณ',
       'ซิงก์และสำรองข้อมูล',
       'การตั้งค่า',
     ];
     for (const label of labels) {
-      await nav.getByRole('button', { name: label, exact: true }).click();
+      await openMenu(page, label);
       await page.getByRole('heading', { level: 1, name: label, exact: true }).waitFor();
       const guide = page.locator('.page-guide');
       await guide.locator('summary').click();

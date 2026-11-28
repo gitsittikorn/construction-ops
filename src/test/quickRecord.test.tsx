@@ -14,7 +14,7 @@ import {
 import { correctDailyTrip } from '../daily';
 import { assertCompanyMutation } from '../companyPermissions';
 import { cacheOwner } from '../workspaceIdentity';
-import { reportRows, reportTotals, emptyReportFilter } from '../reports';
+import { reportRows, reportTotals, reportTable, emptyReportFilter } from '../reports';
 import { workDate } from '../domain';
 import { emptyData, type Data, type Master, type Project } from '../models';
 
@@ -240,4 +240,21 @@ it('applies a changed source only to later trips and shows the truck history', a
   await tap('80-0002');
   expect(todayTrips().map((t) => t.sourceId)).toEqual(['s2', '']);
   expect(stored().masters).toEqual(base.masters);
+});
+
+it('keeps the local audit small per tap and totals trips by truck type', () => {
+  let data = recordTrip(base, trip(), 'owner');
+  data = recordTrip(data, trip(), 'owner');
+  const audit = data.audit.at(-1)!;
+  expect(audit.action).toBe('daily-quick-trip');
+  expect(JSON.stringify(audit).length).toBeLessThan(500);
+  expect(session(data).body.history!.at(-1)!.tripChanges).toHaveLength(1);
+  const typed: Data = {
+    ...data,
+    masters: data.masters.map((m) =>
+      m.id === 't1' ? { ...m, truckType: 'six-wheel' as const } : m,
+    ),
+  };
+  const rows = reportRows(typed, emptyReportFilter);
+  expect(reportTable(typed, rows, 'truckType')[1].slice(0, 2)).toEqual(['หกล้อ', 2]);
 });

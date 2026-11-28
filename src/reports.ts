@@ -1,5 +1,6 @@
 import type { Data } from './models';
 import { csv } from './domain';
+import { truckTypes } from './masterData';
 import { dailySessions, verificationState, rowFingerprint } from './daily';
 import { dailyTripSegments } from './dailyTrips';
 import { validDate } from './daily';
@@ -10,6 +11,7 @@ export const reportTypes = {
   daily: 'เที่ยวรถรายวัน',
   project: 'สรุปโครงการ',
   truck: 'สรุปรถ',
+  truckType: 'สรุปประเภทรถ',
   driver: 'สรุปคนขับ',
   source: 'สรุปแหล่งดิน',
   verification: 'ตรวจยอดประจำวัน',
@@ -245,7 +247,16 @@ export function reportTable(
             : 'date';
   const groups = new Map<string, ReportRow[]>();
   for (const row of rows) {
-    const key = type === 'weekly' || type === 'monthly' ? reportPeriod(row.date, type) : row[field];
+    // Vehicle type comes from the current truck record; trips do not store a copy of it.
+    const truckType = data.masters.find((m) => m.id === row.truck)?.truckType;
+    const key =
+      type === 'weekly' || type === 'monthly'
+        ? reportPeriod(row.date, type)
+        : type === 'truckType'
+          ? truckType
+            ? truckTypes[truckType]
+            : 'ไม่ระบุประเภท'
+          : row[field];
     const group = groups.get(key) ?? [];
     group.push(row);
     groups.set(key, group);
@@ -268,7 +279,13 @@ export function reportTable(
     const t = reportTotals(group);
     cumulative += t.volume;
     result.push([
-      field === 'project' ? project(key) : field === 'date' ? key : name(key) || 'ไม่ระบุ',
+      type === 'truckType'
+        ? key
+        : field === 'project'
+          ? project(key)
+          : field === 'date'
+            ? key
+            : name(key) || 'ไม่ระบุ',
       t.trips,
       t.verifiedTrips,
       t.trips - t.verifiedTrips,

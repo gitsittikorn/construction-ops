@@ -7,6 +7,7 @@ test('P1-10/19 a clean second browser context restores seeded cloud envelopes in
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   const envelopes = await page.evaluate(async () => {
     const path = '/src/test/syncFixtures.ts';
     const { fixture, cloudRecords, truck } = await import(path);
@@ -24,6 +25,7 @@ test('P1-10/19 a clean second browser context restores seeded cloud envelopes in
   try {
     const second = await secondContext.newPage();
     await second.goto('/');
+    await openMenu(second, 'ภาพรวม');
     await expect(second.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
     const restored = await second.evaluate(async (records) => {
       const storagePath = '/src/storage.ts',
@@ -48,6 +50,7 @@ test('P1-10/19 a clean second browser context restores seeded cloud envelopes in
     expect(restored.masters).toHaveLength(6);
     expect(restored.trips[0]).toMatchObject({ id: 'trip', syncStatus: 'synced' });
     await second.reload();
+    await openMenu(second, 'ภาพรวม');
     await expect(second.getByText('Site', { exact: true })).toBeVisible();
     await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   } finally {
@@ -60,10 +63,12 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   context,
 }) => {
   await page.goto('http://localhost:5175/construction-ops/');
+  await openMenu(page, 'ภาพรวม');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await context.setOffline(true);
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
@@ -88,11 +93,9 @@ test('P1-01/03/04/05 production PWA saves project, master and revised trip offli
   await page.close();
   const restarted = await context.newPage();
   await restarted.goto('http://localhost:5175/construction-ops/');
+  await openMenu(restarted, 'ภาพรวม');
   await expect(restarted.getByText('P1 offline site', { exact: true })).toBeVisible();
-  await restarted
-    .getByRole('navigation')
-    .getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true })
-    .click();
+  await openMenu(restarted, 'ซิงก์และสำรองข้อมูล');
   await expect(restarted.getByText('รอซิงก์ 3 รายการ · ขัดแย้ง 0 รายการ')).toBeVisible();
   const event = restarted.waitForEvent('download');
   await restarted.getByRole('button', { name: 'ดาวน์โหลดข้อมูลสำรองพร้อมไฟล์แนบ' }).click();
@@ -119,6 +122,7 @@ test('offline edits survive reload and a browser backup includes pending data an
   context,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
   await context.setOffline(true);
   await page.getByRole('navigation').getByRole('button', { name: 'โครงการ', exact: true }).click();
@@ -152,6 +156,7 @@ test('offline edits survive reload and a browser backup includes pending data an
     db.close();
   });
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await expect(page.getByText('Offline site', { exact: true })).toBeVisible();
   await openMenu(page, 'ซิงก์และสำรองข้อมูล');
   const downloadEvent = page.waitForEvent('download');
@@ -171,6 +176,7 @@ test('stale edits from another tab are rejected and deletion retains a tombstone
   context,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('navigation').getByRole('button', { name: 'โครงการ', exact: true }).click();
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('Original');
@@ -178,6 +184,7 @@ test('stale edits from another tab are rejected and deletion retains a tombstone
   await page.getByRole('button', { name: /^แก้ไข / }).click();
   const other = await context.newPage();
   await other.goto('/');
+  await openMenu(other, 'ภาพรวม');
   await other.evaluate(async () => {
     const storagePath = '/src/storage.ts';
     const { updateData } = await import(storagePath);

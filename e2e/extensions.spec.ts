@@ -90,6 +90,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await openMenu(page, 'ภาพรวม');
     await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     const restore = page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true });
     await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file('different-owner'));
@@ -160,6 +161,7 @@ for (const viewport of [
     );
     await context.setOffline(false);
     await page.reload();
+    await openMenu(page, 'ภาพรวม');
     await openMenu(page, 'บันทึกเที่ยวรถ');
     await page.getByLabel('มุมมองเที่ยวรถ', { exact: true }).selectOption('duplicates');
     await expect(duplicates.getByRole('status')).toContainText('รอตรวจตั๋วกับหน้างาน');
@@ -191,6 +193,7 @@ test('JSON restore refuses stale previews and recovers after quota failure witho
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await openMenu(page, 'ซิงก์และสำรองข้อมูล');
   const restore = page.getByRole('region', { name: 'กู้คืนไฟล์สำรอง JSON', exact: true });
   await restore.getByLabel('เลือกไฟล์สำรอง JSON').setInputFiles(file());
@@ -264,6 +267,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await openMenu(page, 'ภาพรวม');
     await expect(page.getByText('เริ่มต้นโครงการแรก', { exact: true })).toBeVisible();
     const source = data();
     source.masters.push({ ...source.masters[0], id: 'driver', kind: 'driver', name: 'สมชาย' });
@@ -327,6 +331,7 @@ for (const viewport of [
     );
     await context.setOffline(false);
     await page.reload();
+    await openMenu(page, 'ภาพรวม');
     await openMenu(page, 'การเงินโครงการ');
     await expect(totals).toContainText('ส่วนต่างที่คำนวณได้ 82.00 บาท');
     await panel.getByText('รายละเอียดและเรตที่ใช้คำนวณ 1 แถว', { exact: true }).click();

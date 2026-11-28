@@ -1,3 +1,4 @@
+import { openMenu } from './nav';
 import { test, expect } from '@playwright/test';
 import type { Data } from '../src/models';
 
@@ -11,6 +12,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await openMenu(page, 'ภาพรวม');
     await expect(page.getByRole('heading', { name: 'ภาพรวมการทำงาน' })).toBeVisible();
     const nav = page.getByRole('navigation');
     const syncMenu = nav.getByRole('button', { name: 'ซิงก์และสำรองข้อมูล', exact: true });
@@ -28,6 +30,7 @@ for (const viewport of [
       await persistData('local', prepareSync(fixture(), fixture()));
     });
     await page.reload();
+    await openMenu(page, 'ภาพรวม');
     await expect(page.getByText('Site', { exact: true })).toBeVisible();
     await expect(indicator).toHaveCount(0);
     await page.evaluate(async () => {
@@ -40,7 +43,7 @@ for (const viewport of [
     });
     await expect(indicator).toBeAttached();
     await expect(page.getByText(/Synthetic sync failure/)).toHaveCount(0);
-    await syncMenu.click();
+    await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     await expect(panel).toBeVisible();
     await expect(syncMenu).toHaveAttribute('aria-current', 'page');
     await expect(indicator).toBeVisible();
@@ -54,7 +57,7 @@ for (const viewport of [
     ).toHaveCount(0);
     await nav.getByRole('button', { name: 'โครงการ', exact: true }).click();
     await expect(panel).toHaveCount(0);
-    await syncMenu.click();
+    await openMenu(page, 'ซิงก์และสำรองข้อมูล');
     await expect(panel.getByRole('alert')).toContainText('Synthetic sync failure');
     const state = await page.evaluate(async () => {
       const path = '/src/storage.ts';

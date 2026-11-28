@@ -20,6 +20,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   page,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page.getByRole('button', { name: 'เพิ่มโครงการ', exact: true }).click();
   await page.getByLabel('ชื่อโครงการ', { exact: true }).fill('ไซต์ค้นหาทะเบียน');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
@@ -56,6 +57,7 @@ test('searchable controls link fleet records, autofill a trip and preserve the o
   await page.getByLabel('หมายเหตุ', { exact: true }).fill('ประวัติคนขับเดิม');
   await page.getByRole('button', { name: 'บันทึกข้อมูล', exact: true }).click();
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await nav.getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true }).click();
   await page.getByRole('button', { name: 'แก้ไข 81-1234', exact: true }).click();
   await page.getByRole('combobox', { name: 'คนขับประจำรถ', exact: true }).selectOption('');
@@ -72,6 +74,7 @@ test('source-specific soil prices retain descending history after offline writes
   context,
 }) => {
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page
     .getByRole('navigation')
     .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
@@ -104,6 +107,7 @@ test('source-specific soil prices retain descending history after offline writes
   await expect(rows.first()).toContainText('85.25');
   await context.setOffline(false);
   await page.reload();
+  await openMenu(page, 'ภาพรวม');
   await page
     .getByRole('navigation')
     .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
@@ -121,6 +125,7 @@ test('search picker stays inside a narrow viewport and supports keyboard cancell
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await openMenu(page, 'ภาพรวม');
   await page
     .getByRole('navigation')
     .getByRole('button', { name: 'ข้อมูลพื้นฐาน', exact: true })
