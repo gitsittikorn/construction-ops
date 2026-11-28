@@ -2188,3 +2188,28 @@ header.company-header {
     gap: 12px;
   }
 }
+
+.preview-table {
+  max-height: 60vh;
+  overflow: auto;
+}
+.preview-table table {
+  min-width: 1400px;
+}
+.preview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
+}
+.preview-table .change {
+  white-space: nowrap;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+}

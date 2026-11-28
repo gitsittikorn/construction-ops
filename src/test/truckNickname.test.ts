@@ -52,7 +52,7 @@ it('imports the exact ten-column user layout and reordered columns without shift
   expect(parseTruckRows([[...headers].reverse(), [...row].reverse()])[0]).toEqual(parsed[0]);
 });
 
-it('preserves nicknames on legacy nine-column updates and clears them only with an explicit new-column blank', () => {
+it('keeps nicknames on legacy and blank updates and clears them only when clearing is chosen', () => {
   const saved = { ...truck, nickname: 'ชื่อเดิม', name: '81-0001' };
   const data = { ...fixture(), masters: [saved] };
   const oldRow = [saved.id, saved.name, '', '', 'หกล้อ', 6, '', '', 'ใช้งาน'];
@@ -65,10 +65,18 @@ it('preserves nicknames on legacy nine-column updates and clears them only with 
   blank[0] = saved.id;
   blank[5] = '';
   blank[6] = '';
-  expect(
-    applyTruckImport(data, parseTruckRows([headers, blank]), true, 'owner', data.masters).masters[0]
-      .nickname,
-  ).toBe('');
+  const nickname = (clearBlank: boolean) =>
+    applyTruckImport(
+      data,
+      parseTruckRows([headers, blank]),
+      true,
+      'owner',
+      data.masters,
+      true,
+      clearBlank,
+    ).masters.find((master) => master.id === saved.id)?.nickname;
+  expect(nickname(false)).toBe('ชื่อเดิม');
+  expect(nickname(true)).toBe('');
   expect(data.masters[0].nickname).toBe('ชื่อเดิม');
 });
 

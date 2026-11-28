@@ -1,4 +1,12 @@
-import { parseTruckRows, truckHeaders, legacyTruckHeaders, driverHeader } from './truckImport';
+import {
+  parseTruckRows,
+  truckHeaders,
+  legacyTruckHeaders,
+  driverHeader,
+  hasTruckHeaders,
+  unmappedHeaders,
+  maxImportRows,
+} from './truckImport';
 import { openLocalDatabase } from './storage';
 
 export const sheetsReadScope = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -246,10 +254,16 @@ interface SheetValues {
 }
 const referenceTab = (title: string) =>
   ['examples', 'instructions', 'tags'].includes(title.trim().toLowerCase());
+const columnName = (index: number): string =>
+  index > 26
+    ? columnName(Math.floor((index - 1) / 26)) + columnName(((index - 1) % 26) + 1)
+    : String.fromCharCode(64 + index);
 function truckRange(tab: SheetTab, header = false) {
-  const column = Math.min(26, tab.gridProperties?.columnCount ?? 26);
-  const row = header ? 1 : Math.min(1002, tab.gridProperties?.rowCount ?? 1002);
-  return `'${tab.title.replace(/'/g, "''")}'!A1:${String.fromCharCode(64 + column)}${row}`;
+  const column = Math.min(702, tab.gridProperties?.columnCount ?? 26);
+  // One row past the ceiling so an oversized tab is reported instead of cut off.
+  const limit = maxImportRows + 2;
+  const row = header ? 1 : Math.min(limit, tab.gridProperties?.rowCount ?? limit);
+  return `'${tab.title.replace(/'/g, "''")}'!A1:${columnName(column)}${row}`;
 }
 export async function readTruckSheetSource(token: string, id: string, sheetId?: number) {
   if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw Error('รหัส Google Sheets ไม่ถูกต้อง');
@@ -343,11 +357,7 @@ export async function readTruckSheetSource(token: string, id: string, sheetId?: 
     return payload.valueRanges.map((range) => range.values ?? []);
   }
   const headers = await batch(tabs, true);
-  tabs = tabs.filter((_, index) =>
-    legacyTruckHeaders.every((header) =>
-      headers[index][0]?.some((cell) => typeof cell === 'string' && cell.trim() === header),
-    ),
-  );
+  tabs = tabs.filter((_, index) => hasTruckHeaders(headers[index][0]));
   if (!tabs.length)
     throw Error('ไม่พบแท็บข้อมูลรถที่มีหัวคอลัมน์ครบ กรุณาตรวจหัวตารางในไฟล์ตามลิงก์');
   const tables = await batch(tabs, false);
@@ -362,7 +372,12 @@ export async function readTruckSheetSource(token: string, id: string, sheetId?: 
   if (populated.length > 1)
     throw Error('พบหลายแท็บข้อมูลรถ กรุณาเปิดแท็บที่ต้องการแล้วคัดลอกลิงก์ที่มี gid มาวาง');
   const { tab, data } = populated[0];
-  return { rows: parseTruckRows(data), title: tab.title, sheetId: tab.sheetId };
+  return {
+    rows: parseTruckRows(data),
+    unmapped: unmappedHeaders(data[0]),
+    title: tab.title,
+    sheetId: tab.sheetId,
+  };
 }
 export async function readTruckSheet(token: string, id: string, sheetId?: number) {
   return (await readTruckSheetSource(token, id, sheetId)).rows;

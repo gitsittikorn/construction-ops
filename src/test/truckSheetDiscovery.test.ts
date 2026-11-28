@@ -111,11 +111,11 @@ it('rejects mismatching file identity, incomplete ranges and malformed JSON', as
 });
 it('bounds row counts, response bytes and auto-discovery breadth', async () => {
   mockBook(
-    [tab(1, 'Fleet', 5000)],
+    [tab(1, 'Fleet', 30000)],
     [[truckHeaders]],
-    [[truckHeaders, ...Array.from({ length: 1001 }, () => data[1])]],
+    [[truckHeaders, ...Array.from({ length: 20001 }, () => data[1])]],
   );
-  await expect(readTruckSheetSource('token', 'custom')).rejects.toThrow('1,000');
+  await expect(readTruckSheetSource('token', 'custom')).rejects.toThrow('20,000');
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(' '.repeat(5 * 1024 * 1024 + 1))));
   await expect(readTruckSheetSource('token', 'custom')).rejects.toThrow('5 MB');
   mockBook(

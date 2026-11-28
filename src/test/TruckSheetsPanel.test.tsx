@@ -46,7 +46,7 @@ it('requests read scope and sends rows to preview without persisting vehicle dat
     target: { value: 'https://docs.google.com/spreadsheets/d/abc/edit' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
-  await waitFor(() => expect(onRows).toHaveBeenCalledWith(rows));
+  await waitFor(() => expect(onRows).toHaveBeenCalledWith(rows, []));
   expect(mocks.auth).toHaveBeenCalledWith(
     'a@example.com',
     'https://www.googleapis.com/auth/spreadsheets.readonly',
@@ -84,7 +84,7 @@ it('passes the current URL file and gid to the reader instead of the default lin
     target: { value: 'https://docs.google.com/spreadsheets/d/changed_file/edit#gid=0' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'นำเข้าจาก Google Sheets' }));
-  await waitFor(() => expect(onRows).toHaveBeenCalledWith(rows));
+  await waitFor(() => expect(onRows).toHaveBeenCalledWith(rows, []));
   expect(mocks.read).toHaveBeenCalledExactlyOnceWith('token', 'changed_file', 0);
   expect(mocks.save).toHaveBeenCalledWith('owner', 'changed_file', 0);
 });

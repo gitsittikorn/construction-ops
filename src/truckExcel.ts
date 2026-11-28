@@ -1,7 +1,13 @@
 import { validateWorkbookArchive } from './workbookSafety';
 import type { SheetData } from 'write-excel-file/universal';
 import type { Master } from './models';
-import { truckHeaders, legacyTruckHeaders, driverHeader, parseTruckRows } from './truckImport';
+import {
+  truckHeaders,
+  driverHeader,
+  parseTruckRows,
+  hasTruckHeaders,
+  unmappedHeaders,
+} from './truckImport';
 import { tagNames, truckTypes } from './masterData';
 const textCell = (value: string) => ({ value, type: String, format: '@' });
 const workbookHeaders = [...truckHeaders, driverHeader];
@@ -83,11 +89,9 @@ export async function createTruckWorkbook(
     ['แท็กใหม่จะถูกสร้างเมื่อยืนยันนำเข้า ไม่สร้างจากชีตตัวอย่างหรือรายการแท็ก'],
     ['สถานะ: ใช้งาน / ปิดใช้งาน หรือเว้นว่างเพื่อใช้งาน'],
     ['การนำเข้าค่าเริ่มต้นจะข้ามรถเดิม เปิดตัวเลือกอัปเดตเมื่อตั้งใจแก้ไขเท่านั้น'],
-    [
-      'การอัปเดตจะแทนค่าคอลัมน์ในไฟล์ ช่องว่างล้างข้อมูลเดิม; ไฟล์เก่าไม่มีชื่อเล่นจะคงชื่อเล่นเดิม',
-    ],
+    ['การอัปเดตใช้ค่าจากไฟล์ ช่องว่างจะคงข้อมูลเดิม เว้นแต่เลือกให้ช่องว่างล้างข้อมูล'],
     ['ทะเบียนเดียวกันต่างจังหวัดเป็นคนละรถ; รถเก่าไม่ระบุจังหวัดจะให้ตรวจอัปเดต'],
-    ['จำกัด 1,000 แถว และขนาดไฟล์ 5 MB ต่อครั้ง'],
+    ['ขนาดไฟล์ไม่เกิน 5 MB ต่อครั้ง (สูงสุด 20,000 แถว)'],
     ['ตัวอย่างข้อมูลอยู่ในชีต Examples ไม่นำเข้าอัตโนมัติ'],
   ];
   const tags: SheetData = [
@@ -104,6 +108,13 @@ export async function createTruckWorkbook(
   ]).toBlob();
 }
 export async function readTruckWorkbook(input: ArrayBuffer) {
+  return (await readTruckWorkbookSource(input)).rows;
+}
+export async function readTruckWorkbookSource(input: ArrayBuffer) {
+  const source = (data: unknown[][]) => ({
+    rows: parseTruckRows(data),
+    unmapped: unmappedHeaders(data[0]),
+  });
   if (input.byteLength > 5 * 1024 * 1024) throw Error('ไฟล์ต้องมีขนาดไม่เกิน 5 MB');
   validateWorkbookArchive(input);
   try {
@@ -113,7 +124,7 @@ export async function readTruckWorkbook(input: ArrayBuffer) {
       SheetNotFoundError,
     } = await import('read-excel-file/universal');
     try {
-      return parseTruckRows(await readSheet(input, 'Trucks'));
+      return source(await readSheet(input, 'Trucks'));
     } catch (error) {
       if (!(error instanceof SheetNotFoundError)) throw error;
     }
@@ -122,17 +133,15 @@ export async function readTruckWorkbook(input: ArrayBuffer) {
     const sheets = (await readWorkbook(input)).filter(
       ({ sheet, data }) =>
         !['examples', 'instructions', 'tags'].includes(sheet.toLowerCase()) &&
-        legacyTruckHeaders.every((header) =>
-          data[0]?.some((cell) => typeof cell === 'string' && cell.trim() === header),
-        ),
+        hasTruckHeaders(data[0]),
     );
     if (sheets.length > 1)
       throw Error('พบหลายชีตข้อมูลรถ กรุณาตั้งชื่อชีตที่ต้องการนำเข้าเป็น Trucks');
     if (!sheets.length)
       throw Error('ไม่พบชีตข้อมูลรถที่มีหัวคอลัมน์ครบ กรุณาใช้ชีต Trucks ตามไฟล์ตัวอย่าง');
-    return parseTruckRows(sheets[0].data);
+    return source(sheets[0].data);
   } catch (error) {
-    if (error instanceof Error && /คอลัมน์|หัวตาราง|1,000|ทะเบียน|หลายชีต/.test(error.message))
+    if (error instanceof Error && /คอลัมน์|หัวตาราง|20,000|ทะเบียน|หลายชีต/.test(error.message))
       throw error;
     throw Error('อ่านไฟล์ Excel ไม่สำเร็จ กรุณาใช้ .xlsx ที่มีชีต Trucks ตามไฟล์ตัวอย่าง');
   }

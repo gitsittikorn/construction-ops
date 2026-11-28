@@ -29,7 +29,7 @@ export default function TruckSheetsPanel({
   owner: string;
   syncVersion?: number;
   disabled: boolean;
-  onRows: (rows: TruckImportRow[]) => void;
+  onRows: (rows: TruckImportRow[], unmapped: string[]) => void;
   onBusy: (busy: boolean) => void;
 }) {
   const [link, setLink] = useState('');
@@ -132,7 +132,7 @@ export default function TruckSheetsPanel({
       setNotice(
         `อ่านจากแท็บ “${source.title}” จำนวน ${source.rows.length} รายการ กรุณาตรวจรายการก่อนยืนยัน`,
       );
-      onRows(source.rows);
+      onRows(source.rows, source.unmapped ?? []);
     } catch (e) {
       if (generation.current === current) setError((e as Error).message);
     } finally {

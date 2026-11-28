@@ -1,7 +1,13 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import type { Data, Master } from './models';
-import { createTruckWorkbook, readTruckWorkbook } from './truckExcel';
-import { planTruckImport, applyTruckImport, type TruckImportRow } from './truckImport';
+import { createTruckWorkbook, readTruckWorkbookSource } from './truckExcel';
+import TruckImportPreview, { ImportSummary } from './TruckImportPreview';
+import {
+  planTruckImport,
+  applyTruckImport,
+  importHistory,
+  type TruckImportRow,
+} from './truckImport';
 import { readBlobBytes } from './files';
 import TruckSheetsPanel from './TruckSheetsPanel';
 import { saveTruckSync } from './truckSheets';
@@ -24,9 +30,30 @@ export default function TruckExcelPanel({
     [linkDrivers, setLinkDrivers] = useState(true),
     [fromSheet, setFromSheet] = useState(false),
     [syncVersion, setSyncVersion] = useState(0),
-    [snapshot, setSnapshot] = useState<Master[]>([]);
+    [snapshot, setSnapshot] = useState<Master[]>([]),
+    [clearBlank, setClearBlank] = useState(false),
+    [unmapped, setUnmapped] = useState<string[]>([]),
+    [result, setResult] = useState<ReturnType<typeof planTruckImport> | null>(null);
   const lock = useRef(false);
-  const plan = rows ? planTruckImport(rows, data.masters, update, linkDrivers) : null;
+  const plan = rows
+    ? planTruckImport(
+        rows,
+        data.masters,
+        update,
+        linkDrivers,
+        clearBlank,
+        importHistory(data.audit),
+      )
+    : null;
+  function preview(parsed: TruckImportRow[], columns: string[], sheet: boolean) {
+    setRows(parsed);
+    setUnmapped(columns);
+    setSnapshot(structuredClone(data.masters));
+    setUpdate(false);
+    setClearBlank(false);
+    setResult(null);
+    setFromSheet(sheet);
+  }
   async function download(template: boolean) {
     if (lock.current) return;
     lock.current = true;
@@ -64,12 +91,9 @@ export default function TruckExcelPanel({
     try {
       if (!file.name.toLowerCase().endsWith('.xlsx')) throw Error('กรุณาเลือกไฟล์ .xlsx');
       if (file.size > 5 * 1024 * 1024) throw Error('ไฟล์ต้องมีขนาดไม่เกิน 5 MB');
-      const parsed = await readTruckWorkbook(await readBlobBytes(file));
-      if (!parsed.length) throw Error('ไม่มีข้อมูลรถในชีต Trucks กรุณากรอกข้อมูลก่อนนำเข้า');
-      setRows(parsed);
-      setSnapshot(structuredClone(data.masters));
-      setUpdate(false);
-      setFromSheet(false);
+      const source = await readTruckWorkbookSource(await readBlobBytes(file));
+      if (!source.rows.length) throw Error('ไม่มีข้อมูลรถในชีต Trucks กรุณากรอกข้อมูลก่อนนำเข้า');
+      preview(source.rows, source.unmapped, false);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -83,7 +107,10 @@ export default function TruckExcelPanel({
     setBusy(true);
     setError('');
     try {
-      await onChange((old) => applyTruckImport(old, rows, update, actor, snapshot, linkDrivers));
+      await onChange((old) =>
+        applyTruckImport(old, rows, update, actor, snapshot, linkDrivers, clearBlank),
+      );
+      setResult(plan);
       setNotice(
         `นำเข้าสำเร็จ เพิ่ม ${plan.creates} แก้ไข ${plan.updates} ข้าม ${plan.skips} รายการ · ผูกคนขับ ${plan.links} (คนขับใหม่ ${plan.newDrivers})`,
       );
@@ -124,11 +151,8 @@ export default function TruckExcelPanel({
             setError('');
           }
         }}
-        onRows={(parsed) => {
-          setRows(parsed);
-          setSnapshot(structuredClone(data.masters));
-          setUpdate(false);
-          setFromSheet(true);
+        onRows={(parsed, columns) => {
+          preview(parsed, columns, true);
           setError('');
           setNotice('อ่านข้อมูลจาก Google Sheets แล้ว กรุณาตรวจรายการก่อนยืนยัน');
         }}
@@ -152,7 +176,7 @@ export default function TruckExcelPanel({
       </div>
       <p>
         ทะเบียนรถ จังหวัด เบอร์โทร ชื่อคนขับ ประเภทรถ ความจุ แท็กทีม รายละเอียด และสถานะ ·
-        เบอร์โทรเก็บเป็นข้อความ · นำเข้าทีละไม่เกิน 1,000 แถว
+        เบอร์โทรเก็บเป็นข้อความ
       </p>
       {busy && <p role="status">กำลังประมวลผล Excel…</p>}
       {error && (
@@ -165,6 +189,12 @@ export default function TruckExcelPanel({
           {notice}
         </div>
       )}
+      {result && !plan && (
+        <section className="panel padded" aria-label="ผลการนำเข้า">
+          <h3>ผลการนำเข้า</h3>
+          <ImportSummary plan={result} />
+        </section>
+      )}
       {plan && (
         <div className="import-preview">
           <h3>ตรวจรายการก่อนนำเข้า</h3>
@@ -174,12 +204,27 @@ export default function TruckExcelPanel({
               checked={update}
               onChange={(event) => {
                 setUpdate(event.target.checked);
+                if (!event.target.checked) setClearBlank(false);
                 setSnapshot(structuredClone(data.masters));
               }}
               disabled={busy}
             />
-            อัปเดตรถเดิมด้วยข้อมูลทุกคอลัมน์จากไฟล์ (ช่องว่างจะล้างค่าเดิม)
+            อัปเดตรถเดิมด้วยข้อมูลทุกคอลัมน์จากไฟล์ (ช่องว่างคงค่าเดิม)
           </label>
+          {update && (
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={clearBlank}
+                onChange={(event) => {
+                  setClearBlank(event.target.checked);
+                  setSnapshot(structuredClone(data.masters));
+                }}
+                disabled={busy}
+              />
+              ให้ช่องว่างในไฟล์ล้างข้อมูลเดิม
+            </label>
+          )}
           <label className="checkbox-label">
             <input
               type="checkbox"
@@ -192,57 +237,18 @@ export default function TruckExcelPanel({
             />
             สร้างและผูกคนขับประจำรถ (ใช้คอลัมน์ ชื่อคนขับ หากไม่มีใช้ ชื่อเล่น)
           </label>
-          <p>
-            เพิ่ม {plan.creates} · อัปเดต {plan.updates} · ข้าม {plan.skips} · ผิดพลาด {plan.errors}
-          </p>
-          <p>
-            จะผูกคนขับ {plan.links} คัน · สร้างคนขับใหม่ {plan.newDrivers} คน
-          </p>
+          {unmapped.length > 0 && (
+            <p role="alert">คอลัมน์ที่ระบบยังไม่รองรับและจะไม่ถูกนำเข้า: {unmapped.join(', ')}</p>
+          )}
+          <ImportSummary plan={plan} />
           {plan.newTags.length > 0 && <p>แท็กใหม่ที่จะสร้าง: {plan.newTags.join(', ')}</p>}
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>แถว</th>
-                  <th>ทะเบียน / จังหวัด</th>
-                  <th>ชื่อเล่น</th>
-                  <th>คนขับที่จะผูก</th>
-                  <th>การดำเนินการ</th>
-                  <th>ข้อผิดพลาด / ข้อสังเกต</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plan.rows.map((row) => (
-                  <tr key={row.source.row}>
-                    <td>{row.source.row}</td>
-                    <td>
-                      {row.source.plate} / {row.source.province || 'ไม่ระบุ'}
-                    </td>
-                    <td>{row.source.nickname ?? 'คงชื่อเล่นเดิม'}</td>
-                    <td>
-                      {row.driver ? row.driver.name + (row.driver.isNew ? ' (ใหม่)' : '') : '—'}
-                    </td>
-                    <td>
-                      {
-                        {
-                          create: 'เพิ่มใหม่',
-                          update: 'อัปเดต',
-                          link: 'ผูกคนขับ',
-                          skip: 'ข้ามรถเดิม',
-                          error: 'แก้ไขไฟล์ก่อน',
-                        }[row.action]
-                      }
-                    </td>
-                    <td>{[...row.errors, ...row.notes].join(' · ')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TruckImportPreview plan={plan} />
           <div className="drive-actions">
             <button
               className="primary"
-              disabled={busy || plan.errors > 0 || plan.creates + plan.updates + plan.links === 0}
+              disabled={
+                busy || plan.errors > 0 || plan.creates + plan.updates + plan.linkOnly === 0
+              }
               onClick={() => void confirm()}
             >
               ยืนยันนำเข้ารถ
