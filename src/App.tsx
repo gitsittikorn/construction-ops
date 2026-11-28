@@ -45,6 +45,7 @@ import SideNav from './SideNav';
 import TruckDriverFields from './TruckDriverFields';
 import DriverNameFields from './DriverNameFields';
 import TeamOverview from './TeamOverview';
+import NameImportPanel from './NameImportPanel';
 import { pageTitles } from './navigation';
 import SelectableList from './SelectableList';
 import FleetResetPanel from './FleetResetPanel';
@@ -1164,6 +1165,15 @@ export default function App({
                         <FleetResetPanel data={data} actor={owner} onChange={change} />
                       )}
                     </div>
+                  )}
+                  {(kind === 'source' || kind === 'soilType') && canManage && (
+                    <NameImportPanel
+                      key={`${owner}:${kind}`}
+                      kind={kind}
+                      data={data}
+                      actor={owner}
+                      onChange={change}
+                    />
                   )}
                   {fleetView ? (
                     <FleetList
