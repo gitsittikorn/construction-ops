@@ -2213,3 +2213,45 @@ header.company-header {
   gap: 12px;
   padding: 12px;
 }
+
+.select-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 48px;
+  min-height: 48px;
+  cursor: pointer;
+}
+.select-box input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+}
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 8px;
+  margin-bottom: 10px;
+  border: 1px solid #d9ded9;
+  border-radius: 10px;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.data-row.selected,
+.project-card.selected,
+tr.selected {
+  background: #eef6ef;
+}
+.bulk-result {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.bulk-names {
+  max-height: 160px;
+  overflow: auto;
+}

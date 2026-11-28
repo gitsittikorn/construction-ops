@@ -2,6 +2,7 @@ import { Truck } from 'lucide-react';
 import type { Data, Master } from './models';
 import { matchesMaster, tagNames, truckTypes } from './masterData';
 import RowActions from './RowActions';
+import SelectableList, { type RecordAccess } from './SelectableList';
 
 // Trucks and drivers stay separate records; this only shows and searches them together.
 export function fleetRows(data: Data, query: string, tagId: string, truckType: string) {
@@ -37,7 +38,9 @@ export default function FleetList({
   canManage,
   onEdit,
   onDelete,
+  access,
 }: {
+  access?: RecordAccess;
   data: Data;
   query: string;
   tagId: string;
@@ -70,61 +73,78 @@ export default function FleetList({
     </>
   );
   return (
-    <div className="panel list">
-      {trucks.map((truck) => {
-        const driver = driverOf(truck);
-        return (
-          <div className="data-row" key={truck.id}>
-            {summary(truck, truckTitle(truck, driver), [
-              truck.phone || driver?.phone,
-              truck.nickname || driver?.nickname,
-              truck.truckType ? truckTypes[truck.truckType] : '',
-              truck.capacity ? `${truck.capacity} m³` : '',
-              truck.detail,
-            ])}
-            {canManage && (
-              <span className="data-row-actions">
-                <RowActions
-                  name={truck.name}
-                  onEdit={() => onEdit(truck)}
-                  onDelete={() => onDelete(truck)}
-                />
-                {driver && (
-                  <RowActions
-                    name={`คนขับ ${driver.name}`}
-                    onEdit={() => onEdit(driver)}
-                    onDelete={() => onDelete(driver)}
-                  />
+    <SelectableList
+      items={[...trucks, ...spareDrivers]}
+      scope={[access?.owner, query, tagId, truckType].join('|')}
+      type="master"
+      label={(item) => (item.kind === 'truck' ? `รถ ${item.name}` : `คนขับ ${item.name}`)}
+      access={canManage ? access : undefined}
+    >
+      {({ rows, box, selected }) => (
+        <div className="panel list">
+          {rows
+            .filter((item) => item.kind === 'truck')
+            .map((truck) => {
+              const driver = driverOf(truck);
+              return (
+                <div className={'data-row' + (selected(truck) ? ' selected' : '')} key={truck.id}>
+                  {box(truck)}
+                  {summary(truck, truckTitle(truck, driver), [
+                    `รหัส ${truck.id.slice(0, 8)}`,
+                    truck.phone || driver?.phone,
+                    truck.nickname || driver?.nickname,
+                    truck.truckType ? truckTypes[truck.truckType] : '',
+                    truck.capacity ? `${truck.capacity} m³` : '',
+                    truck.detail,
+                  ])}
+                  {canManage && (
+                    <span className="data-row-actions">
+                      <RowActions
+                        name={truck.name}
+                        onEdit={() => onEdit(truck)}
+                        onDelete={() => onDelete(truck)}
+                      />
+                      {driver && (
+                        <RowActions
+                          name={`คนขับ ${driver.name}`}
+                          onEdit={() => onEdit(driver)}
+                          onDelete={() => onDelete(driver)}
+                        />
+                      )}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          {rows
+            .filter((item) => item.kind === 'driver')
+            .map((driver) => (
+              <div className={'data-row' + (selected(driver) ? ' selected' : '')} key={driver.id}>
+                {box(driver)}
+                {summary(driver, driver.name, [
+                  'คนขับที่ยังไม่มีรถ',
+                  driver.phone,
+                  driver.nickname,
+                  driver.detail,
+                ])}
+                {canManage && (
+                  <span className="data-row-actions">
+                    <RowActions
+                      name={`คนขับ ${driver.name}`}
+                      onEdit={() => onEdit(driver)}
+                      onDelete={() => onDelete(driver)}
+                    />
+                  </span>
                 )}
-              </span>
-            )}
-          </div>
-        );
-      })}
-      {spareDrivers.map((driver) => (
-        <div className="data-row" key={driver.id}>
-          {summary(driver, driver.name, [
-            'คนขับที่ยังไม่มีรถ',
-            driver.phone,
-            driver.nickname,
-            driver.detail,
-          ])}
-          {canManage && (
-            <span className="data-row-actions">
-              <RowActions
-                name={`คนขับ ${driver.name}`}
-                onEdit={() => onEdit(driver)}
-                onDelete={() => onDelete(driver)}
-              />
-            </span>
+              </div>
+            ))}
+          {!trucks.length && !spareDrivers.length && (
+            <p className="empty">
+              {any ? 'ไม่พบข้อมูลตามตัวกรองที่เลือก' : 'ยังไม่มีข้อมูลรถและคนขับ'}
+            </p>
           )}
         </div>
-      ))}
-      {!trucks.length && !spareDrivers.length && (
-        <p className="empty">
-          {any ? 'ไม่พบข้อมูลตามตัวกรองที่เลือก' : 'ยังไม่มีข้อมูลรถและคนขับ'}
-        </p>
       )}
-    </div>
+    </SelectableList>
   );
 }

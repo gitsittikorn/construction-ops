@@ -33,6 +33,16 @@ import DrivePanel from './DrivePanel';
 import { connectionMessage } from './async';
 import { Trash2 } from 'lucide-react';
 import ConfirmDialog from './ConfirmDialog';
+import {
+  BulkActionToolbar,
+  BulkDeleteDialog,
+  BulkResultNotice,
+  SelectAllCheckbox,
+  SelectBox,
+  useBulkOutcome,
+} from './BulkSelect';
+import { useBulkSelection } from './useBulkSelection';
+import { bulkDeleteDailyRows } from './bulkDelete';
 import { verificationLabels } from './workspaceLabels';
 
 export default function DailyPanel({
@@ -85,6 +95,11 @@ export default function DailyPanel({
         activeDailyTrips(r).some((t) => t.driverId === driverFilter)),
   );
   const name = (id: string) => data.masters.find((m) => m.id === id)?.name ?? '—';
+  const selectionScope = [owner, project, date, truckFilter, driverFilter].join('|');
+  const shownIds = shownRows.map((r) => r.id);
+  const selection = useBulkSelection(shownIds, selectionScope);
+  const bulkResult = useBulkOutcome(selectionScope);
+  const [bulkOpen, setBulkOpen] = useState(false);
   async function run(action: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true;
@@ -568,10 +583,69 @@ export default function DailyPanel({
               </SearchableSelect>
             </label>
           </div>
+          {bulkResult.outcome && (
+            <BulkResultNotice outcome={bulkResult.outcome} onClose={() => bulkResult.set(null)} />
+          )}
+          {canVerify && selection.count > 0 && (
+            <BulkActionToolbar
+              selection={selection}
+              pageIds={shownIds}
+              onDelete={() => {
+                setDeleteReason('');
+                bulkResult.set(null);
+                setBulkOpen(true);
+              }}
+            />
+          )}
+          {bulkOpen && session && (
+            <BulkDeleteDialog
+              count={selection.count}
+              disabled={
+                !deleteReason.trim() &&
+                (session.body.state === 'reopened' ||
+                  rows.some((r) => selection.has(r.id) && r.tripCount > 0))
+              }
+              onCancel={() => setBulkOpen(false)}
+              onDelete={async () => {
+                const targets = shownRows
+                  .filter((r) => selection.has(r.id))
+                  .map((r) => ({ id: r.id, label: name(r.truckId) }));
+                let outcome = {
+                  deleted: [] as string[],
+                  failed: [] as { id: string; label: string; reason: string }[],
+                };
+                await onChange((old) => {
+                  const result = bulkDeleteDailyRows(old, session.id, targets, owner, deleteReason);
+                  outcome = result;
+                  return result.data;
+                });
+                return outcome;
+              }}
+              onFinish={(outcome) => {
+                setBulkOpen(false);
+                selection.keep(outcome.failed.map((item) => item.id));
+                bulkResult.set(outcome);
+                if (editing && outcome.deleted.includes(editing.id)) edit(null);
+              }}
+            >
+              <label className="field">
+                <span>เหตุผลที่ลบ (ใช้กับทุกรายการที่เลือก)</span>
+                <input
+                  value={deleteReason}
+                  onChange={(event) => setDeleteReason(event.target.value)}
+                />
+              </label>
+            </BulkDeleteDialog>
+          )}
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
+                  {canVerify && (
+                    <th>
+                      <SelectAllCheckbox selection={selection} pageIds={shownIds} />
+                    </th>
+                  )}
                   {[
                     'รถ',
                     'คนขับ',
@@ -589,7 +663,12 @@ export default function DailyPanel({
               </thead>
               <tbody>
                 {shownRows.map((row) => (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={selection.has(row.id) ? 'selected' : ''}>
+                    {canVerify && (
+                      <td>
+                        <SelectBox selection={selection} id={row.id} name={name(row.truckId)} />
+                      </td>
+                    )}
                     <td>
                       {name(row.truckId)}
                       {data.masters.some(

@@ -44,6 +44,7 @@ import { canonical, integrityIssues, payloadOf } from './syncModel';
 import type { DeletableType } from './deletion';
 import DeleteRecordDialog from './DeleteRecordDialog';
 import RowActions from './RowActions';
+import SelectableList from './SelectableList';
 import FleetResetPanel from './FleetResetPanel';
 import CloudSyncPanel from './CloudSyncPanel';
 import OperationsDashboard from './OperationsDashboard';
@@ -165,6 +166,7 @@ export default function App({
   const [reportProject, setReportProject] = useState('');
   const [demoBusy, setDemoBusy] = useState(false);
   const [truckTypeFilter, setTruckTypeFilter] = useState('');
+  const [projectStatus, setProjectStatus] = useState('');
   const current = useRef(data),
     writeLock = useRef(false),
     syncLock = useRef(false),
@@ -537,6 +539,12 @@ export default function App({
       master.kind === kind && matchesMaster({ ...master, tagIds: [] }, data.masters, query, ''),
   );
   const viewed = data.projects.find((p) => p.id === viewing);
+  const access = canManage ? { data, owner, onChange: change } : undefined;
+  const shownProjects = data.projects.filter(
+    (p) =>
+      (!projectStatus || p.status === projectStatus) &&
+      [p.name, p.customer, p.location].join(' ').includes(query),
+  );
   function exportCSV() {
     const content = csv([
       ['วันที่', 'เวลา', 'โครงการ', 'ทะเบียนรถ', 'คนขับ', 'แหล่งดิน', 'ชนิดดิน', 'สถานะ'],
@@ -1016,38 +1024,62 @@ export default function App({
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                     />
-                  </div>
-                  <div className="project-grid">
-                    {data.projects
-                      .filter((p) => [p.name, p.customer, p.location].join(' ').includes(query))
-                      .map((p) => (
-                        <article className="panel project-card" key={p.id}>
-                          <span className={'badge ' + p.status}>{statusText[p.status]}</span>
-                          <FolderOpen className="card-folder" size={30} />
-                          <h2>{p.name}</h2>
-                          <p>
-                            {p.customer || 'ยังไม่ระบุลูกค้า'} · {p.location || 'ยังไม่ระบุสถานที่'}
-                          </p>
-                          <ProjectCoordinates latitude={p.latitude} longitude={p.longitude} />
-                          <p>
-                            {p.startDate || '—'} → {p.endDate || 'ยังไม่กำหนด'}
-                          </p>
-                          <div className="card-foot">
-                            <b>{projectTripCounts.get(p.id) ?? 0} เที่ยวรถ</b>
-                            <RowActions
-                              name={p.name}
-                              onView={() => setViewing(p.id)}
-                              onEdit={canManage ? () => open('project', p) : undefined}
-                              onDelete={canManage ? () => askDelete('project', p) : undefined}
-                            />
-                          </div>
-                        </article>
+                    <SearchableSelect
+                      aria-label="กรองสถานะโครงการ"
+                      value={projectStatus}
+                      onChange={(e) => setProjectStatus(e.target.value)}
+                    >
+                      <option value="">ทุกสถานะ</option>
+                      {Object.entries(statusText).map(([id, title]) => (
+                        <option key={id} value={id}>
+                          สถานะ: {title}
+                        </option>
                       ))}
+                    </SearchableSelect>
                   </div>
-                  {data.projects.length > 0 &&
-                    !data.projects.some((p) =>
-                      [p.name, p.customer, p.location].join(' ').includes(query),
-                    ) && <p className="empty">ไม่พบโครงการตามคำค้น</p>}
+                  <SelectableList
+                    items={shownProjects}
+                    scope={`${owner}|${query}|${projectStatus}`}
+                    type="project"
+                    label={(p) => `โครงการ ${p.name}`}
+                    access={access}
+                  >
+                    {({ rows, box, selected }) => (
+                      <div className="project-grid">
+                        {rows.map((p) => (
+                          <article
+                            className={'panel project-card' + (selected(p) ? ' selected' : '')}
+                            key={p.id}
+                          >
+                            {box(p)}
+                            <span className={'badge ' + p.status}>{statusText[p.status]}</span>
+                            <FolderOpen className="card-folder" size={30} />
+                            <h2>{p.name}</h2>
+                            <p>
+                              {p.customer || 'ยังไม่ระบุลูกค้า'} ·{' '}
+                              {p.location || 'ยังไม่ระบุสถานที่'}
+                            </p>
+                            <ProjectCoordinates latitude={p.latitude} longitude={p.longitude} />
+                            <p>
+                              {p.startDate || '—'} → {p.endDate || 'ยังไม่กำหนด'}
+                            </p>
+                            <div className="card-foot">
+                              <b>{projectTripCounts.get(p.id) ?? 0} เที่ยวรถ</b>
+                              <RowActions
+                                name={p.name}
+                                onView={() => setViewing(p.id)}
+                                onEdit={canManage ? () => open('project', p) : undefined}
+                                onDelete={canManage ? () => askDelete('project', p) : undefined}
+                              />
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </SelectableList>
+                  {data.projects.length > 0 && !shownProjects.length && (
+                    <p className="empty">ไม่พบโครงการตามคำค้น</p>
+                  )}
                   {!data.projects.length && (
                     <Empty text="ยังไม่มีโครงการ" action={() => open('project')} />
                   )}
@@ -1144,34 +1176,50 @@ export default function App({
                         open('master', record);
                       }}
                       onDelete={(record) => askDelete('master', record)}
+                      access={access}
                     />
                   ) : (
                     <>
-                      <div className="panel list">
-                        {visibleMasters.map((m) => (
-                          <div className="data-row" key={m.id}>
-                            <span className="project-symbol">
-                              <Database size={20} aria-hidden="true" />
-                            </span>
-                            <span className="data-row-text">
-                              <b>{m.name}</b>
-                              <small>{m.detail || 'ไม่มีรายละเอียดเพิ่มเติม'}</small>
-                            </span>
-                            <span className={'badge ' + (!m.active ? 'archived' : '')}>
-                              {m.active ? 'ใช้งาน' : 'ปิดใช้งาน'}
-                            </span>
-                            {canManage && (
-                              <span className="data-row-actions">
-                                <RowActions
-                                  name={m.name}
-                                  onEdit={() => open('master', m)}
-                                  onDelete={() => askDelete('master', m)}
-                                />
-                              </span>
-                            )}
+                      <SelectableList
+                        key={kind}
+                        items={visibleMasters}
+                        scope={`${owner}|${kind}|${query}`}
+                        type="master"
+                        label={(m) => `${labels[m.kind]} ${m.name}`}
+                        access={access}
+                      >
+                        {({ rows, box, selected }) => (
+                          <div className="panel list">
+                            {rows.map((m) => (
+                              <div
+                                className={'data-row' + (selected(m) ? ' selected' : '')}
+                                key={m.id}
+                              >
+                                {box(m)}
+                                <span className="project-symbol">
+                                  <Database size={20} aria-hidden="true" />
+                                </span>
+                                <span className="data-row-text">
+                                  <b>{m.name}</b>
+                                  <small>{m.detail || 'ไม่มีรายละเอียดเพิ่มเติม'}</small>
+                                </span>
+                                <span className={'badge ' + (!m.active ? 'archived' : '')}>
+                                  {m.active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                                </span>
+                                {canManage && (
+                                  <span className="data-row-actions">
+                                    <RowActions
+                                      name={m.name}
+                                      onEdit={() => open('master', m)}
+                                      onDelete={() => askDelete('master', m)}
+                                    />
+                                  </span>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        )}
+                      </SelectableList>
                       {data.masters.some((m) => m.kind === kind) && !visibleMasters.length && (
                         <p className="empty">ไม่พบข้อมูลตามตัวกรองที่เลือก</p>
                       )}
@@ -1280,52 +1328,66 @@ export default function App({
                         รายการเที่ยวรถ <span className="badge">{tripRows.length} เที่ยว</span>
                       </h2>
                     </div>
-                    <div className="table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>วันที่ / เวลา</th>
-                            <th>ทะเบียนรถ</th>
-                            <th>โครงการ</th>
-                            <th>แหล่งดิน</th>
-                            <th>สถานะ</th>
-                            <th />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tripRows.map((t) => (
-                            <tr key={t.id}>
-                              <td>
-                                {t.date}
-                                <small>{t.time}</small>
-                              </td>
-                              <td>
-                                <b>{masterName(t.truckId)}</b>
-                                <small>{masterName(t.driverId)}</small>
-                              </td>
-                              <td>{data.projects.find((p) => p.id === t.projectId)?.name}</td>
-                              <td>{masterName(t.sourceId)}</td>
-                              <td>
-                                <span
-                                  className={
-                                    'badge ' + (t.syncStatus !== 'synced' ? 'pending' : '')
-                                  }
-                                >
-                                  {t.syncStatus === 'synced' ? 'ซิงก์แล้ว' : 'รอซิงก์'}
-                                </span>
-                              </td>
-                              <td>
-                                <RowActions
-                                  name={`เที่ยวรถ ${t.time}`}
-                                  onEdit={() => open('trip', t)}
-                                  onDelete={canManage ? () => askDelete('trip', t) : undefined}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <SelectableList
+                      items={tripRows}
+                      scope={`${owner}|${date}|${filter}|${query}`}
+                      type="trip"
+                      label={(t) => `เที่ยวรถ ${t.date} ${t.time} ${masterName(t.truckId)}`}
+                      boxLabel={(t) => `เที่ยวเวลา ${t.time}`}
+                      access={access}
+                      headerCheckbox
+                    >
+                      {({ rows, box, selected, selectAll }) => (
+                        <div className="table-wrap">
+                          <table>
+                            <thead>
+                              <tr>
+                                {access && <th>{selectAll}</th>}
+                                <th>วันที่ / เวลา</th>
+                                <th>ทะเบียนรถ</th>
+                                <th>โครงการ</th>
+                                <th>แหล่งดิน</th>
+                                <th>สถานะ</th>
+                                <th />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((t) => (
+                                <tr key={t.id} className={selected(t) ? 'selected' : ''}>
+                                  {access && <td>{box(t)}</td>}
+                                  <td>
+                                    {t.date}
+                                    <small>{t.time}</small>
+                                  </td>
+                                  <td>
+                                    <b>{masterName(t.truckId)}</b>
+                                    <small>{masterName(t.driverId)}</small>
+                                  </td>
+                                  <td>{data.projects.find((p) => p.id === t.projectId)?.name}</td>
+                                  <td>{masterName(t.sourceId)}</td>
+                                  <td>
+                                    <span
+                                      className={
+                                        'badge ' + (t.syncStatus !== 'synced' ? 'pending' : '')
+                                      }
+                                    >
+                                      {t.syncStatus === 'synced' ? 'ซิงก์แล้ว' : 'รอซิงก์'}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <RowActions
+                                      name={`เที่ยวรถ ${t.time}`}
+                                      onEdit={() => open('trip', t)}
+                                      onDelete={canManage ? () => askDelete('trip', t) : undefined}
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </SelectableList>
                     {!tripRows.length && (
                       <Empty
                         text="ยังไม่มีเที่ยวรถตามเงื่อนไขที่เลือก"
