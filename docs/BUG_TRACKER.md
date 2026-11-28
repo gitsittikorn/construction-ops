@@ -1,5 +1,9 @@
 # Bug tracker
 
+## BUG-024 (High, fixed in app; environment part OPEN) - 2026-11-28: one refused record locked the whole app
+
+Real project: creating drivers that carry a nickname was refused (403) and the app showed "cannot verify company access". Fix: after a refused write, access is checked again; if it still passes, the workspace stays open and the record is named on the sync page. Lost access still closes it. Regression: src/test/App.auth.test.tsx. Cause of the refusal: the deployed Firestore Rules are probably older than the repository (emulator: pre-2026-11-09 Rules refuse exactly this shape; current Rules accept it). NOT VERIFIED against the live Rules and not published; the refused record still blocks later queue items until they are. Gate: frontend 474/474, backend 20/20, Rules 16/16, integration 13/13, build, smoke, browser 82/82 (port 5184).
+
 ## UX-009 (Medium, fixed) - 2026-11-28: two identical edit/delete pairs on one truck row
 
 The user could not tell the truck buttons from the driver buttons. One pair remains; the truck form edits driver name, phone and nickname, and deleting a truck offers to delete its driver (unticked by default). Regression: src/test/FleetList.test.tsx, src/test/deleteUi.test.tsx, e2e/search-fleet-prices.spec.ts. Browser run covered the six affected specs (23/23), not the whole suite.

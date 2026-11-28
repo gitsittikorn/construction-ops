@@ -175,3 +175,37 @@ it('keeps a restore failure in the sync menu across navigation and clears the in
   ).not.toBeInTheDocument();
   expect(screen.queryByText(failure)).not.toBeInTheDocument();
 });
+
+it('keeps the workspace usable when only one record is refused by Cloud', async () => {
+  await persistData('test-owner', fixture());
+  await updateData('test-owner', (data) => data);
+  vi.mocked(firestoreTransport.push).mockRejectedValue(
+    Object.assign(new Error('Missing or insufficient permissions.'), {
+      code: 'permission-denied',
+    }),
+  );
+  render(<App />);
+  await screen.findByRole('status', { name: 'มีปัญหาการซิงก์หรือข้อมูลที่ต้องตรวจสอบ' });
+  openMenu('ซิงก์และสำรองข้อมูล');
+  expect((await screen.findAllByText(/Cloud ปฏิเสธการบันทึก “Site”/)).length).toBeGreaterThan(0);
+  expect(screen.getByRole('navigation', { name: 'เมนูหลัก' })).toBeInTheDocument();
+  const stored = await loadData('test-owner');
+  expect(stored.sync!.entries['projects/p'].status).toBe('pending');
+  vi.mocked(firestoreTransport.push).mockImplementation(async (_o, _c, entry) => entry.desired);
+});
+
+it('still closes the workspace when a refused write turns out to be lost access', async () => {
+  await persistData('test-owner', fixture());
+  await updateData('test-owner', (data) => data);
+  const denied = Object.assign(new Error('revoked'), { code: 'permission-denied' });
+  vi.mocked(firestoreTransport.authorize)
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValue(denied);
+  vi.mocked(firestoreTransport.push).mockRejectedValue(denied);
+  render(<App />);
+  await screen.findByRole('heading', { name: 'ไม่สามารถตรวจสอบสิทธิ์ Admin ได้' });
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect((await loadData('test-owner')).sync!.entries['projects/p'].status).toBe('pending');
+  vi.mocked(firestoreTransport.authorize).mockReset().mockResolvedValue(undefined);
+  vi.mocked(firestoreTransport.push).mockImplementation(async (_o, _c, entry) => entry.desired);
+});

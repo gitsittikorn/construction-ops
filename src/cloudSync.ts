@@ -224,7 +224,9 @@ export async function synchronize(
             const remote = await transport.push(owner, collection, entry);
             assertActive();
             await updateSyncData(owner, (data) => acknowledge(data, collection, entry, remote));
-          } catch (error) {
+          } catch (caught) {
+            assertActive();
+            const error = await rejectedRecord(owner, transport, entry, caught);
             assertActive();
             await updateSyncData(owner, (data) => {
               const next = structuredClone(data),
@@ -272,6 +274,26 @@ export async function synchronize(
       },
     );
   return task();
+}
+
+/**
+ * A refused write does not prove the account lost access: the published Rules may reject this one
+ * record. Access is checked again; if that fails, its error is thrown and the workspace closes.
+ */
+async function rejectedRecord(
+  owner: string,
+  transport: CloudTransport,
+  entry: SyncEntry,
+  error: unknown,
+): Promise<unknown> {
+  if (!error || typeof error !== 'object' || !('code' in error)) return error;
+  if (error.code !== 'permission-denied') return error;
+  await transport.authorize(owner);
+  const payload = entry.desired.payload;
+  const name = 'name' in payload ? payload.name : payload.id;
+  return Error(
+    `Cloud ปฏิเสธการบันทึก “${name}” ข้อมูลยังอยู่ในเครื่อง ให้ผู้ดูแลตรวจว่า Firestore Rules บน Firebase ตรงกับแอปรุ่นนี้`,
+  );
 }
 
 // Evidence and expense reversals reference other workspaces. JSON restore may
